@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "310886362168",
+    "project_id": "chillgo-61439",
+    "storage_bucket": "chillgo-61439.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:310886362168:android:88985d6d869d17c3ae4acd",
+        "android_client_info": {
+          "package_name": "com.example.chillgo"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "310886362168-b5joj3qcpvah11m0meplera2sbordhhm.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.chillgo",
+            "certificate_hash": "ba332c4e37b34759dd7901ea96607d29398e9075"
+          }
+        },
+        {
+          "client_id": "310886362168-4nfr4qk72g4l1qjleddp9nfqe1u9ibqp.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCtvbYf0nEJsEtD_lWNuIQPJL-I9lrkBzg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "310886362168-4nfr4qk72g4l1qjleddp9nfqe1u9ibqp.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "310886362168-m60rsvkeelv3a68hjstkk8373jjdr22u.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.chillgo"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
