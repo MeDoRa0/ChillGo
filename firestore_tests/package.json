@@ -1,0 +1,16 @@
+{
+  "name": "firestore-tests",
+  "version": "1.0.0",
+  "description": "Firestore Security Rules Tests",
+  "main": "index.js",
+  "scripts": {
+    "pretest": "firebase emulators:start --only firestore --project demo-chillgo &",
+    "test": "mocha rules.test.js",
+    "posttest": "firebase emulators:stop"
+  },
+  "dependencies": {
+    "@firebase/rules-unit-testing": "^3.0.2",
+    "firebase-admin": "^12.0.0",
+    "mocha": "^10.2.0"
+  }
+}
