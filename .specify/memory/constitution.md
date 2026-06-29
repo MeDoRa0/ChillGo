@@ -1,20 +1,11 @@
 <!--
 Sync Impact Report:
-- Version change: None → 1.0.0
-- List of modified principles:
-  - PRINCIPLE_1_NAME: None → I. Feature-First and Clean Architecture
-  - PRINCIPLE_2_NAME: None → II. Crew-First Interaction Model
-  - PRINCIPLE_3_NAME: None → III. Decoupled Provider Interfaces (Interface-First)
-  - PRINCIPLE_4_NAME: None → IV. Mandatory Automated Testing
-  - PRINCIPLE_5_NAME: None → V. Temporary Data Lifecycle Rules
+- Version change: 1.0.0 → 1.1.0
+- List of modified principles: None
 - Added sections:
-  - Architecture & Platform Constraints
-  - Development Workflow & Quality Gates
+  - Branch Strategy (under Development Workflow & Quality Gates)
 - Removed sections: None
-- Templates requiring updates:
-  - .specify/templates/plan-template.md (✅ updated)
-  - .specify/templates/spec-template.md (✅ updated)
-  - .specify/templates/tasks-template.md (✅ updated)
+- Templates requiring updates: None
 - Follow-up TODOs: None
 -->
 
@@ -56,6 +47,7 @@ Database records for ephemeral data MUST be cleaned up automatically.
 ## Development Workflow & Quality Gates
 
 - **Phase-Based Execution**: Development must follow the Spec-Kit Phase sequence (Phase 0 to Phase 8).
+- **Branch Strategy**: A dedicated Git branch MUST be created for each feature specification at the time the specification is created. Development work for a given phase must only be performed on its corresponding branch.
 - **Dependency Order**: Implement model/data DTOs and repository contracts before Bloc/Cubit presenters, and presenters before UI views.
 - **Code Quality**: Adhere to strict linting rules and verify all tests pass on all target platforms (web, mobile, desktop) before code is merged.
 
@@ -65,4 +57,4 @@ Database records for ephemeral data MUST be cleaned up automatically.
 - **Amendments**: Amendments require a version bump following semantic versioning (MAJOR for breaking changes/removals, MINOR for additions, PATCH for clarifications) and a migration plan for existing code.
 - **Compliance Check**: Before any implementation phase starts, a "Constitution Check" must be run and documented in `plan.md`.
 
-**Version**: 1.0.0 | **Ratified**: 2026-06-28 | **Last Amended**: 2026-06-28
+**Version**: 1.1.0 | **Ratified**: 2026-06-28 | **Last Amended**: 2026-06-29
