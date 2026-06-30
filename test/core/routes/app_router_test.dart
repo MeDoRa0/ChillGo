@@ -18,9 +18,19 @@ void main() {
     // Default fallback status stream and current status
     when(() => mockAuthRepository.status).thenAnswer((_) => const Stream.empty());
     when(() => mockAuthRepository.currentStatus).thenReturn(AuthStatus.unknown);
-    
-    // Register MockAuthRepository inside GetIt (sl)
+
+    // Guard against duplicate registration when tests share the same process.
+    if (sl.isRegistered<AuthRepository>()) {
+      sl.unregister<AuthRepository>();
+    }
     sl.registerSingleton<AuthRepository>(mockAuthRepository);
+  });
+
+  tearDownAll(() async {
+    // Restore sl to a clean state so other test files are not affected.
+    if (sl.isRegistered<AuthRepository>()) {
+      await sl.unregister<AuthRepository>();
+    }
   });
 
   test('AppRouter configuration should be initialized', () {

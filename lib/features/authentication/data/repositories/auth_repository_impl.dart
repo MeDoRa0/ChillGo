@@ -37,11 +37,9 @@ class AuthRepositoryImpl implements AuthRepository {
         }
       } catch (e) {
         // A Firestore/network/rules exception is NOT a missing profile.
-        // Leave _cachedStatus as its current value (unknown on first run,
-        // or the last successfully resolved status on subsequent runs) and
-        // surface it so the router can handle the transient error correctly
-        // instead of misrouting an existing user into onboarding.
-        _cachedStatus = AuthStatus.unknown;
+        // Preserve _cachedStatus as-is (unknown on first run, or the last
+        // successfully resolved status on subsequent runs) so the router does
+        // not misroute an authenticated user to /loading on a transient error.
       }
     }
     _statusController.add(_cachedStatus);

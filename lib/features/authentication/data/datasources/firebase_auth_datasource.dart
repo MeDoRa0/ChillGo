@@ -63,7 +63,12 @@ class FirebaseAuthDatasource {
   }
 
   Future<void> signOut() async {
-    await googleSignIn.signOut();
-    await firebaseAuth.signOut();
+    try {
+      await googleSignIn.signOut();
+    } catch (_) {
+      // Google sign-out is best-effort; proceed to Firebase sign-out regardless.
+    } finally {
+      await firebaseAuth.signOut();
+    }
   }
 }
