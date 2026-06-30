@@ -4,10 +4,10 @@ This document summarizes the changes made during Phase 0 to set up the foundatio
 
 ## 1. Architectural Foundations
 * **Feature-First Structure**: Created the `lib/core/` directory for shared utilities and `lib/features/home/` as the starting feature module.
-* **Declarative Routing**: Configured [app_router.dart](file:///c:/Users/medo2/Desktop/programming/flutter/chillgo/lib/core/routes/app_router.dart) using `go_router` with initial `/` and `/details` routes, plus a fallback [NotFoundScreen](file:///c:/Users/medo2/Desktop/programming/flutter/chillgo/lib/core/presentation/pages/not_found_page.dart) for invalid paths.
-* **Dependency Injection**: Set up [injection_container.dart](file:///c:/Users/medo2/Desktop/programming/flutter/chillgo/lib/core/di/injection_container.dart) using `get_it` for lazy singleton resolution of repository contracts.
-* **Responsive Layouts**: Created [responsive_layout.dart](file:///c:/Users/medo2/Desktop/programming/flutter/chillgo/lib/core/presentation/widgets/responsive_layout.dart) along with mobile, tablet, and desktop layouts for the [HomeScreen](file:///c:/Users/medo2/Desktop/programming/flutter/chillgo/lib/features/home/presentation/pages/home_screen.dart).
-* **Global Error Boundary**: Implemented [global_error_handler.dart](file:///c:/Users/medo2/Desktop/programming/flutter/chillgo/lib/core/error/global_error_handler.dart) to trap uncaught Flutter and asynchronous platform-level exceptions and report them to the diagnostics repository.
+* **Declarative Routing**: Configured [app_router.dart](../../lib/core/routes/app_router.dart) using `go_router` with initial `/` and `/details` routes, plus a fallback [NotFoundScreen](../../lib/core/presentation/pages/not_found_page.dart) for invalid paths.
+* **Dependency Injection**: Set up [injection_container.dart](../../lib/core/di/injection_container.dart) using `get_it` for lazy singleton resolution of repository contracts.
+* **Responsive Layouts**: Created [responsive_layout.dart](../../lib/core/presentation/widgets/responsive_layout.dart) along with mobile, tablet, and desktop layouts for the [HomeScreen](../../lib/features/home/presentation/pages/home_screen.dart).
+* **Global Error Boundary**: Implemented [global_error_handler.dart](../../lib/core/error/global_error_handler.dart) to trap uncaught Flutter and asynchronous platform-level exceptions and report them to the diagnostics repository.
 
 ## 2. Testing & Verification
 

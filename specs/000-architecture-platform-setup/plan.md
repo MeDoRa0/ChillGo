@@ -1,6 +1,6 @@
 # Implementation Plan: Architecture & Multi-Platform Setup
 
-**Branch**: `000-architecture-platform-setup` | **Date**: 2026-06-28 | **Spec**: [spec.md](file:///C:/Users/medo2/Desktop/programming/flutter/chillgo/specs/000-architecture-platform-setup/spec.md)
+**Branch**: `000-architecture-platform-setup` | **Date**: 2026-06-28 | **Spec**: [spec.md](../../specs/000-architecture-platform-setup/spec.md)
 
 **Input**: Feature specification from `/specs/000-architecture-platform-setup/spec.md`
 

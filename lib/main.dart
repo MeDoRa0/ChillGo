@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'firebase_options.dart';
 import 'core/di/injection_container.dart' as di;
 import 'core/routes/app_router.dart';
 import 'core/error/global_error_handler.dart';
+
+const _useFirebaseEmulators = bool.fromEnvironment('USE_FIREBASE_EMULATORS');
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -13,6 +19,10 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+
+    if (_useFirebaseEmulators) {
+      await _connectFirebaseEmulators();
+    }
 
     // Initialize Service Locator
     await di.init();
@@ -31,6 +41,16 @@ void main() async {
   }
 
   runApp(const MyApp());
+}
+
+Future<void> _connectFirebaseEmulators() async {
+  final host = defaultTargetPlatform == TargetPlatform.android
+      ? '10.0.2.2'
+      : '127.0.0.1';
+
+  await FirebaseAuth.instance.useAuthEmulator(host, 9099);
+  FirebaseFirestore.instance.useFirestoreEmulator(host, 8080);
+  await FirebaseStorage.instance.useStorageEmulator(host, 9199);
 }
 
 class MyApp extends StatelessWidget {

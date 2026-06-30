@@ -1,1 +1,56 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"chillgo-61439","appId":"1:310886362168:android:88985d6d869d17c3ae4acd","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"chillgo-61439","configurations":{"android":"1:310886362168:android:88985d6d869d17c3ae4acd"}}}}},"auth":{"providers":{"anonymous":false,"emailPassword":false,"googleSignIn":{"oAuthBrandDisplayName":"Chillgo","supportEmail":"support@example.com"}}},"firestore":{"rules":"firestore.rules"},"emulators":{"firestore":{"port":8080,"host":"127.0.0.1"},"ui":{"enabled":true,"port":4000,"host":"127.0.0.1"}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "chillgo-61439",
+          "appId": "1:310886362168:android:88985d6d869d17c3ae4acd",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "chillgo-61439",
+          "configurations": {
+            "android": "1:310886362168:android:88985d6d869d17c3ae4acd"
+          }
+        }
+      }
+    }
+  },
+  "auth": {
+    "providers": {
+      "anonymous": false,
+      "emailPassword": false,
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "Chillgo",
+        "supportEmail": "support@example.com"
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "emulators": {
+    "auth": {
+      "port": 9099,
+      "host": "127.0.0.1"
+    },
+    "firestore": {
+      "port": 8080,
+      "host": "127.0.0.1"
+    },
+    "storage": {
+      "port": 9199,
+      "host": "127.0.0.1"
+    },
+    "ui": {
+      "enabled": true,
+      "port": 4000,
+      "host": "127.0.0.1"
+    }
+  }
+}

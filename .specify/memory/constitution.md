@@ -1,9 +1,9 @@
 <!--
 Sync Impact Report:
-- Version change: 1.0.0 → 1.1.0
+- Version change: 1.2.0 → 1.3.0
 - List of modified principles: None
 - Added sections:
-  - Branch Strategy (under Development Workflow & Quality Gates)
+  - Repo-Relative Links (under Development Workflow & Quality Gates)
 - Removed sections: None
 - Templates requiring updates: None
 - Follow-up TODOs: None
@@ -50,6 +50,8 @@ Database records for ephemeral data MUST be cleaned up automatically.
 - **Branch Strategy**: A dedicated Git branch MUST be created for each feature specification at the time the specification is created. Development work for a given phase must only be performed on its corresponding branch.
 - **Dependency Order**: Implement model/data DTOs and repository contracts before Bloc/Cubit presenters, and presenters before UI views.
 - **Code Quality**: Adhere to strict linting rules and verify all tests pass on all target platforms (web, mobile, desktop) before code is merged.
+- **End-to-End (E-2-E) Testing**: Any task that requires an E-2-E test MUST first prompt the user for permission or confirmation to perform the task or not, as the AI agent cannot perform manual E-2-E tests.
+- **Repo-Relative Links**: All links to local files in specifications, plans, checklists, and documentation files MUST use repo-relative paths (e.g., `[spec.md](./spec.md)`) instead of absolute local file URIs (e.g., `file:///c:/...`). Absolute local URIs leak personal machine structure and fail to resolve for other contributors or in CI.
 
 ## Governance
 
@@ -57,4 +59,4 @@ Database records for ephemeral data MUST be cleaned up automatically.
 - **Amendments**: Amendments require a version bump following semantic versioning (MAJOR for breaking changes/removals, MINOR for additions, PATCH for clarifications) and a migration plan for existing code.
 - **Compliance Check**: Before any implementation phase starts, a "Constitution Check" must be run and documented in `plan.md`.
 
-**Version**: 1.1.0 | **Ratified**: 2026-06-28 | **Last Amended**: 2026-06-29
+**Version**: 1.3.0 | **Ratified**: 2026-06-28 | **Last Amended**: 2026-06-30
