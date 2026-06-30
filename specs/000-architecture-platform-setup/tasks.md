@@ -2,7 +2,7 @@
 
 **Input**: Design documents from `/specs/000-architecture-platform-setup/`
 
-**Prerequisites**: [plan.md](file:///C:/Users/medo2/Desktop/programming/flutter/chillgo/specs/000-architecture-platform-setup/plan.md), [spec.md](file:///C:/Users/medo2/Desktop/programming/flutter/chillgo/specs/000-architecture-platform-setup/spec.md), [research.md](file:///C:/Users/medo2/Desktop/programming/flutter/chillgo/specs/000-architecture-platform-setup/research.md), [data-model.md](file:///C:/Users/medo2/Desktop/programming/flutter/chillgo/specs/000-architecture-platform-setup/data-model.md), [repository_contracts.md](file:///C:/Users/medo2/Desktop/programming/flutter/chillgo/specs/000-architecture-platform-setup/contracts/repository_contracts.md)
+**Prerequisites**: [plan.md](../../specs/000-architecture-platform-setup/plan.md), [spec.md](../../specs/000-architecture-platform-setup/spec.md), [research.md](../../specs/000-architecture-platform-setup/research.md), [data-model.md](../../specs/000-architecture-platform-setup/data-model.md), [repository_contracts.md](../../specs/000-architecture-platform-setup/contracts/repository_contracts.md)
 
 **Tests**: This project requires automated testing per the ChillGo Constitution (Principle IV).
 

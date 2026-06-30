@@ -2,7 +2,7 @@
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-06-28
-**Feature**: [spec.md](file:///c:/Users/medo2/Desktop/programming/flutter/chillgo/specs/000-architecture-platform-setup/spec.md)
+**Feature**: [spec.md](../../../specs/000-architecture-platform-setup/spec.md)
 
 ## Content Quality
 
