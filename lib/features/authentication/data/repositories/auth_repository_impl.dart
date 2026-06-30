@@ -32,10 +32,16 @@ class AuthRepositoryImpl implements AuthRepository {
         if (profile != null) {
           _cachedStatus = AuthStatus.authenticatedWithProfile;
         } else {
+          // Confirmed null response → user genuinely has no profile yet.
           _cachedStatus = AuthStatus.authenticatedNoProfile;
         }
-      } catch (_) {
-        _cachedStatus = AuthStatus.authenticatedNoProfile;
+      } catch (e) {
+        // A Firestore/network/rules exception is NOT a missing profile.
+        // Leave _cachedStatus as its current value (unknown on first run,
+        // or the last successfully resolved status on subsequent runs) and
+        // surface it so the router can handle the transient error correctly
+        // instead of misrouting an existing user into onboarding.
+        _cachedStatus = AuthStatus.unknown;
       }
     }
     _statusController.add(_cachedStatus);

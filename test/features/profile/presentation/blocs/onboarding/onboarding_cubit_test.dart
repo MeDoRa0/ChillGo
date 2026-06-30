@@ -66,5 +66,28 @@ void main() {
         const OnboardingFailure('Username is already taken'),
       ],
     );
+
+    blocTest<OnboardingCubit, OnboardingState>(
+      'emits [OnboardingLoading, OnboardingSuccess] when createProfile succeeds but forceRefreshStatus throws',
+      build: () {
+        when(() => mockProfileRepository.isUsernameAvailable('newuser')).thenAnswer((_) async => true);
+        when(() => mockProfileRepository.createProfile(
+          uid: 'test_uid',
+          username: 'newuser',
+          displayName: 'New User',
+        )).thenAnswer((_) async {});
+        when(() => mockAuthRepository.forceRefreshStatus()).thenThrow(Exception('Auth refresh failed'));
+        return onboardingCubit;
+      },
+      act: (cubit) => cubit.submitOnboarding(
+        uid: 'test_uid',
+        username: 'newuser',
+        displayName: 'New User',
+      ),
+      expect: () => <OnboardingState>[
+        OnboardingLoading(),
+        OnboardingSuccess(),
+      ],
+    );
   });
 }

@@ -54,14 +54,34 @@ class ImageHelper {
     );
   }
 
-  List<int> _encodeJpegUnderLimit(image.Image source) {
+  List<int> _encodeJpegUnderLimit(image.Image src) {
+    // First pass: reduce quality on the original (possibly pre-resized) image.
     for (var quality = 85; quality >= 45; quality -= 10) {
-      final encoded = image.encodeJpg(source, quality: quality);
-      if (encoded.length <= maxAvatarBytes || quality == 45) {
+      final encoded = image.encodeJpg(src, quality: quality);
+      if (encoded.length <= maxAvatarBytes) {
         return Uint8List.fromList(encoded);
       }
     }
 
-    return Uint8List.fromList(image.encodeJpg(source, quality: 45));
+    // Quality reductions were not enough – halve the dimensions and retry.
+    final downscaled = image.copyResize(
+      src,
+      width: (src.width / 2).round(),
+      height: (src.height / 2).round(),
+      interpolation: image.Interpolation.average,
+    );
+
+    for (var quality = 85; quality >= 45; quality -= 10) {
+      final encoded = image.encodeJpg(downscaled, quality: quality);
+      if (encoded.length <= maxAvatarBytes) {
+        return Uint8List.fromList(encoded);
+      }
+    }
+
+    throw StateError(
+      'Image cannot be compressed to fit within '
+      '${maxAvatarBytes ~/ 1024} KB even after downscaling. '
+      'Please choose a smaller or simpler image.',
+    );
   }
 }

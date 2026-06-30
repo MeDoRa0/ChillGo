@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/home/presentation/pages/home_screen.dart';
 import '../../features/home/presentation/pages/details_page.dart';
 import '../presentation/pages/not_found_page.dart';
+import '../presentation/pages/loading_page.dart';
 
 // Feature Imports
 import '../../features/authentication/domain/repositories/auth_repository.dart';
@@ -28,31 +29,38 @@ class GoRouterRefreshStream extends ChangeNotifier {
   }
 }
 
+FutureOr<String?> guardRedirect(BuildContext context, GoRouterState state) {
+  final status = sl<AuthRepository>().currentStatus;
+  final isLoggingIn = state.uri.path == '/login';
+  final isOnboarding = state.uri.path == '/onboarding';
+  final isLoading = state.uri.path == '/loading';
+
+  if (status == AuthStatus.unknown) {
+    return isLoading ? null : '/loading';
+  }
+
+  if (status == AuthStatus.unauthenticated) {
+    return isLoggingIn ? null : '/login';
+  }
+
+  if (status == AuthStatus.authenticatedNoProfile) {
+    return isOnboarding ? null : '/onboarding';
+  }
+
+  if (status == AuthStatus.authenticatedWithProfile) {
+    if (isLoggingIn || isOnboarding || isLoading) {
+      return '/';
+    }
+  }
+
+  return null;
+}
+
 final GoRouter appRouter = GoRouter(
   initialLocation: '/',
   errorBuilder: (context, state) => const NotFoundScreen(),
   refreshListenable: GoRouterRefreshStream(sl<AuthRepository>().status),
-  redirect: (context, state) {
-    final status = sl<AuthRepository>().currentStatus;
-    final isLoggingIn = state.uri.path == '/login';
-    final isOnboarding = state.uri.path == '/onboarding';
-
-    if (status == AuthStatus.unauthenticated) {
-      return isLoggingIn ? null : '/login';
-    }
-
-    if (status == AuthStatus.authenticatedNoProfile) {
-      return isOnboarding ? null : '/onboarding';
-    }
-
-    if (status == AuthStatus.authenticatedWithProfile) {
-      if (isLoggingIn || isOnboarding) {
-        return '/';
-      }
-    }
-
-    return null;
-  },
+  redirect: guardRedirect,
   routes: [
     GoRoute(
       path: '/',
@@ -69,6 +77,11 @@ final GoRouter appRouter = GoRouter(
       path: '/login',
       name: 'login',
       builder: (context, state) => const LoginScreen(),
+    ),
+    GoRoute(
+      path: '/loading',
+      name: 'loading',
+      builder: (context, state) => const LoadingScreen(),
     ),
     GoRoute(
       path: '/onboarding',

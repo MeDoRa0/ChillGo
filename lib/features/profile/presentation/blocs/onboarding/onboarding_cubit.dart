@@ -53,7 +53,12 @@ class OnboardingCubit extends Cubit<OnboardingState> {
         username: username,
         displayName: displayName,
       );
-      await _authRepository.forceRefreshStatus();
+      try {
+        await _authRepository.forceRefreshStatus();
+      } catch (_) {
+        // forceRefreshStatus is best-effort; ignore failure to ensure onboarding outcome
+        // remains decided by createProfile success.
+      }
       emit(OnboardingSuccess());
     } catch (e) {
       emit(OnboardingFailure(e.toString()));

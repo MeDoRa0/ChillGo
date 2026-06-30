@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/di/injection_container.dart';
 import '../../../authentication/presentation/blocs/auth/auth_bloc.dart';
+import '../../../authentication/presentation/blocs/auth/auth_state.dart';
 import '../../../authentication/presentation/blocs/auth/auth_event.dart';
 import '../blocs/profile/profile_cubit.dart';
 import '../utils/image_helper.dart';
@@ -13,16 +14,22 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final authState = context.read<AuthBloc>().state;
-    final uid = authState.credentials?.uid;
+    return BlocBuilder<AuthBloc, AuthState>(
+      buildWhen: (prev, curr) => prev.credentials?.uid != curr.credentials?.uid,
+      builder: (context, authState) {
+        final uid = authState.credentials?.uid;
 
-    if (uid == null) {
-      return const Scaffold(body: Center(child: Text('Not authenticated')));
-    }
+        if (uid == null) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
 
-    return BlocProvider(
-      create: (_) => sl<ProfileCubit>()..loadProfile(uid),
-      child: _ProfileView(uid: uid),
+        return BlocProvider(
+          create: (_) => sl<ProfileCubit>()..loadProfile(uid),
+          child: _ProfileView(uid: uid),
+        );
+      },
     );
   }
 }

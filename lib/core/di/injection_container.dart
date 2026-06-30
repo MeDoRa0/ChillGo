@@ -103,9 +103,15 @@ Future<void> init() async {
   }
 
   // Blocs & Cubits
-  sl.registerFactory(() => AuthBloc(authRepository: sl()));
-  sl.registerFactory(() => OnboardingCubit(profileRepository: sl(), authRepository: sl()));
-  sl.registerFactory(() => ProfileCubit(profileRepository: sl()));
+  if (!sl.isRegistered<AuthBloc>()) {
+    sl.registerFactory(() => AuthBloc(authRepository: sl()));
+  }
+  if (!sl.isRegistered<OnboardingCubit>()) {
+    sl.registerFactory(() => OnboardingCubit(profileRepository: sl(), authRepository: sl()));
+  }
+  if (!sl.isRegistered<ProfileCubit>()) {
+    sl.registerFactory(() => ProfileCubit(profileRepository: sl()));
+  }
 
   // Global Error Handler
   if (!sl.isRegistered<GlobalErrorHandler>()) {

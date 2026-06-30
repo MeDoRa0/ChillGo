@@ -23,7 +23,10 @@ class FirestoreProfileDatasource {
   }
 
   Future<bool> isUsernameAvailable(String username) async {
-    final lowercaseUsername = username.toLowerCase().trim();
+    final lowercaseUsername = username.trim().toLowerCase();
+    if (lowercaseUsername.isEmpty || lowercaseUsername.contains(RegExp(r'\s'))) {
+      return false;
+    }
     final doc = await firestore
         .collection('usernames')
         .doc(lowercaseUsername)
@@ -37,7 +40,10 @@ class FirestoreProfileDatasource {
     required String displayName,
     String? avatarUrl,
   }) async {
-    final lowercaseUsername = username.toLowerCase().trim();
+    final lowercaseUsername = username.trim().toLowerCase();
+    if (lowercaseUsername.isEmpty || lowercaseUsername.contains(RegExp(r'\s'))) {
+      throw ArgumentError('Username cannot contain spaces or be empty');
+    }
     final usernameDocRef = firestore
         .collection('usernames')
         .doc(lowercaseUsername);
@@ -49,9 +55,18 @@ class FirestoreProfileDatasource {
         throw Exception('Username is already taken');
       }
 
+      // Guard against overwriting an existing profile for the same uid.
+      // Without this read, a second createProfile call with a different
+      // username would silently overwrite the user document and leave the
+      // original username reservation in /usernames orphaned.
+      final userSnapshot = await transaction.get(userDocRef);
+      if (userSnapshot.exists) {
+        throw Exception('Profile already exists for this user');
+      }
+
       transaction.set(usernameDocRef, {'uid': uid});
       transaction.set(userDocRef, {
-        'username': username,
+        'username': lowercaseUsername,
         'displayName': displayName,
         'avatarUrl': avatarUrl,
         'createdAt': DateTime.now().toIso8601String(),
