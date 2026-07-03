@@ -170,7 +170,9 @@ class HomeMobileLayout extends StatelessWidget {
           icon: Icons.groups,
           title: 'My Crews',
           color: const Color(0xFF3B82F6),
-          onTap: () {},
+          onTap: () {
+            context.push('/crews');
+          },
         ),
         _buildActionCard(
           icon: Icons.add_box,
@@ -184,6 +186,14 @@ class HomeMobileLayout extends StatelessWidget {
           color: const Color(0xFFF59E0B),
           onTap: () {
             context.push('/details');
+          },
+        ),
+        _buildActionCard(
+          icon: Icons.mail_outline,
+          title: 'Invitations',
+          color: const Color(0xFFA855F7),
+          onTap: () {
+            context.push('/invitations');
           },
         ),
       ],

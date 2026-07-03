@@ -15,11 +15,17 @@ class UserCredentials {
   final String? displayName;
   final String? photoUrl;
 
+  /// The ChillGo application username — only available AFTER onboarding
+  /// (when the user picks a unique username and a profile document exists).
+  /// Null before onboarding; non-null afterwards.
+  final String? username;
+
   const UserCredentials({
     required this.uid,
     this.email,
     this.displayName,
     this.photoUrl,
+    this.username,
   });
 }
 

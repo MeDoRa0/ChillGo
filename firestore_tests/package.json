@@ -4,7 +4,7 @@
   "description": "Firestore Security Rules Tests",
   "main": "index.js",
   "scripts": {
-    "test": "firebase emulators:exec --project chillgo-61439 --config ../firebase.json --only firestore,storage \"mocha rules.test.js\""
+    "test": "firebase emulators:exec --project chillgo-61439 --config ../firebase.test.json --only firestore,storage \"node ./node_modules/mocha/bin/mocha.js rules.test.js --reporter spec\""
   },
   "dependencies": {
     "@firebase/rules-unit-testing": "^3.0.2",

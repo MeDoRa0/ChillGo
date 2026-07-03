@@ -23,12 +23,18 @@ class FirebaseAuthDatasource {
     if (googleUser == null) {
       throw Exception('Google Sign-In cancelled');
     }
-    final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+    final GoogleSignInAuthentication googleAuth =
+        await googleUser.authentication;
     final OAuthCredential credential = GoogleAuthProvider.credential(
       accessToken: googleAuth.accessToken,
       idToken: googleAuth.idToken,
     );
-    return await firebaseAuth.signInWithCredential(credential);
+    final credentialResult = await firebaseAuth.signInWithCredential(
+      credential,
+    );
+    await firebaseAuth.currentUser?.reload();
+    await firebaseAuth.currentUser?.getIdToken(true);
+    return credentialResult;
   }
 
   Future<UserCredential> signInWithApple() async {
@@ -42,18 +48,26 @@ class FirebaseAuthDatasource {
       ],
       nonce: sha256Nonce,
     );
-    
-    final OAuthCredential credential = OAuthProvider('apple.com').credential(
-      idToken: appleCredential.identityToken,
-      rawNonce: rawNonce,
+
+    final OAuthCredential credential = OAuthProvider(
+      'apple.com',
+    ).credential(idToken: appleCredential.identityToken, rawNonce: rawNonce);
+    final credentialResult = await firebaseAuth.signInWithCredential(
+      credential,
     );
-    return await firebaseAuth.signInWithCredential(credential);
+    await firebaseAuth.currentUser?.reload();
+    await firebaseAuth.currentUser?.getIdToken(true);
+    return credentialResult;
   }
 
   String _generateNonce([int length = 32]) {
-    const charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+    const charset =
+        '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
     final random = Random.secure();
-    return List.generate(length, (_) => charset[random.nextInt(charset.length)]).join();
+    return List.generate(
+      length,
+      (_) => charset[random.nextInt(charset.length)],
+    ).join();
   }
 
   String _sha256ofString(String input) {

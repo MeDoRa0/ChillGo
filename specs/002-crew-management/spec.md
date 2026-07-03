@@ -8,6 +8,14 @@
 
 **Input**: User description: "Phase 2 — Crew Management"
 
+## Clarifications
+
+### Session 2026-07-01
+
+- Q: How should the Crew Invitation document's lifecycle be managed in Firestore once a user accepts or rejects it? → A: Delete the invitation document immediately upon both acceptance and rejection.
+- Q: Can a Crew Owner revoke (cancel) a pending invitation after sending it, and do invitations have an expiration period? → A: Owners can revoke pending invitations at any time; invitations do not expire automatically.
+- Q: How should cascading outing deletion be handled when a Crew is deleted? → A: Defer implementation to the Outing Management phase (Phase 3+), keeping the requirement documented in the spec.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Creating a Crew and Listing Members (Priority: P1)
@@ -87,9 +95,10 @@ As a Crew Member, I want to leave a Crew when I no longer wish to participate. A
 
 - **Duplicate Invitations**: What happens when a user attempts to invite a username that is already in the Crew or has a pending invitation? The system must show a validation error (e.g., "User is already a member" or "User already has a pending invitation").
 - **Owner Leaving**: What happens if the Crew Owner leaves the Crew? The Crew Owner cannot leave the Crew directly. They must delete the Crew to dissolve it (or transfer ownership, which is out of scope for MVP).
-- **Cascading Outing Deletion**: What happens when a Crew is deleted while members have active outings? Deleting the Crew must automatically cancel/delete all associated outings.
+- **Cascading Outing Deletion**: What happens when a Crew is deleted while members have active outings? Deleting the Crew must automatically cancel/delete all associated outings. (Note: The implementation of this cascading deletion is deferred to Phase 3+ when Outings are introduced).
 - **Invitation Privileges**: Can standard members invite other members? No, only the Crew Owner has privileges to invite or remove members.
 - **Deleted Crew invitations**: What happens to pending invitations if the Crew is deleted? They must be automatically deleted.
+- **Invitation Revocation**: Can the Crew Owner revoke a pending invitation? Yes, the Crew Owner can revoke/cancel a pending invitation at any time. Standard members cannot revoke invitations.
 
 ## Requirements *(mandatory)*
 
@@ -102,7 +111,7 @@ As a Crew Member, I want to leave a Crew when I no longer wish to participate. A
 - **FR-005**: System MUST validate that the invited username exists in the system.
 - **FR-006**: System MUST prevent duplicate invitations (cannot invite an existing member or someone with an active pending invitation).
 - **FR-007**: System MUST allow invited users to view their pending Crew invitations.
-- **FR-008**: System MUST allow invited users to accept an invitation, adding them to the Crew as a Member, or reject/decline the invitation, deleting it.
+- **FR-008**: System MUST allow invited users to accept an invitation (which adds them as a Member and deletes the invitation document) or reject/decline the invitation (which simply deletes the invitation document).
 - **FR-009**: System MUST allow the Crew Owner to edit the Crew name.
 - **FR-010**: System MUST allow the Crew Owner to delete the Crew.
 - **FR-011**: System MUST allow Crew Members to leave the Crew.
@@ -110,6 +119,7 @@ As a Crew Member, I want to leave a Crew when I no longer wish to participate. A
 - **FR-013**: System MUST allow the Crew Owner to remove any member from the Crew.
 - **FR-014**: System MUST list all members of a Crew including their Display Name, Username, Avatar, and Role (Owner vs. Member) to any active member of the Crew.
 - **FR-015**: System MUST enforce that only Crew Members or the Crew Owner can view the Crew details or member list.
+- **FR-016**: System MUST allow the Crew Owner to revoke/cancel a pending invitation, which immediately deletes the invitation document.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -121,7 +131,7 @@ As a Crew Member, I want to leave a Crew when I no longer wish to participate. A
   - Key attributes: `id` (unique identifier), `crewId` (identifier of the Crew), `userId` (UID of the User), `role` (enum: owner, member), `joinedAt` (timestamp).
 - **Crew Invitation**:
   - Represents an invitation sent by an owner to a user.
-  - Key attributes: `id` (unique identifier), `crewId` (identifier of the Crew), `invitedUserId` (UID of the invited user), `invitedByUserId` (UID of the owner who sent it), `status` (enum: pending, accepted, rejected), `createdAt` (timestamp).
+  - Key attributes: `id` (unique identifier), `crewId` (identifier of the Crew), `invitedUserId` (UID of the invited user), `invitedByUserId` (UID of the owner who sent it), `createdAt` (timestamp). (Note: No status enum is required as presence of the document represents a pending invitation).
 
 ## Success Criteria *(mandatory)*
 
@@ -130,7 +140,7 @@ As a Crew Member, I want to leave a Crew when I no longer wish to participate. A
 - **SC-001**: A user can create a Crew and have it fully operational in under 15 seconds.
 - **SC-002**: An owner can invite a user and that user receives the invitation list update in under 3 seconds.
 - **SC-003**: 100% of invalid username invitations are rejected at submission with a clear error message.
-- **SC-004**: System supports up to 100 members per Crew without UI performance degradation.
+- **SC-004**: System supports up to 100 members per Crew while maintaining a stable 60 FPS scroll rate on reference devices.
 
 ## Assumptions
 

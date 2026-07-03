@@ -66,11 +66,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<AuthBloc, AuthState>(
-      buildWhen: (prev, curr) => prev.credentials?.uid != curr.credentials?.uid,
       builder: (context, authState) {
         final uid = authState.credentials?.uid;
+        debugPrint(
+          '[OnboardingScreen] authState=${authState.status}, uid=$uid',
+        );
 
         if (uid == null) {
+          debugPrint('[OnboardingScreen] uid is null, showing spinner');
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
@@ -160,8 +163,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                   fontWeight: FontWeight.bold,
                                 ),
                                 filled: true,
-                                fillColor:
-                                    const Color(0xFF1E293B).withOpacity(0.6),
+                                fillColor: const Color(
+                                  0xFF1E293B,
+                                ).withOpacity(0.6),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide.none,
@@ -189,8 +193,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                   color: Colors.white.withOpacity(0.6),
                                 ),
                                 filled: true,
-                                fillColor:
-                                    const Color(0xFF1E293B).withOpacity(0.6),
+                                fillColor: const Color(
+                                  0xFF1E293B,
+                                ).withOpacity(0.6),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide.none,
@@ -221,7 +226,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                   backgroundColor: const Color(0xFF6366F1),
                                   foregroundColor: Colors.white,
                                   padding: const EdgeInsets.symmetric(
-                                      vertical: 16),
+                                    vertical: 16,
+                                  ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),

@@ -7,9 +7,13 @@ import 'package:chillgo/features/authentication/data/datasources/firebase_auth_d
 import 'package:chillgo/features/profile/domain/repositories/profile_repository.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 
-class MockFirebaseAuthDatasource extends Mock implements FirebaseAuthDatasource {}
+class MockFirebaseAuthDatasource extends Mock
+    implements FirebaseAuthDatasource {}
+
 class MockProfileRepository extends Mock implements ProfileRepository {}
+
 class MockUser extends Mock implements firebase_auth.User {}
+
 class MockUserCredential extends Mock implements firebase_auth.UserCredential {}
 
 void main() {
@@ -24,7 +28,9 @@ void main() {
 
   group('AuthRepositoryImpl', () {
     test('emits unauthenticated when user is null', () async {
-      when(() => mockDatasource.authStateChanges).thenAnswer((_) => Stream.value(null));
+      when(
+        () => mockDatasource.authStateChanges,
+      ).thenAnswer((_) => Stream.value(null));
       when(() => mockDatasource.currentUser).thenReturn(null);
 
       repository = AuthRepositoryImpl(
@@ -32,61 +38,91 @@ void main() {
         profileRepository: mockProfileRepository,
       );
 
-      expect(
-        repository.status,
-        emitsInOrder([AuthStatus.unauthenticated]),
-      );
+      expect(repository.status, emitsInOrder([AuthStatus.unauthenticated]));
     });
 
-    test('emits authenticatedNoProfile when user is logged in but has no profile', () async {
-      final mockUser = MockUser();
-      when(() => mockUser.uid).thenReturn('test_uid');
-      when(() => mockUser.email).thenReturn('test@example.com');
-      when(() => mockUser.displayName).thenReturn('Test User');
-      when(() => mockUser.photoURL).thenReturn('photo_url');
+    test(
+      'emits unauthenticated when no auth state arrives and no user is restored',
+      () async {
+        when(
+          () => mockDatasource.authStateChanges,
+        ).thenAnswer((_) => Stream<firebase_auth.User?>.empty());
+        when(() => mockDatasource.currentUser).thenReturn(null);
 
-      when(() => mockDatasource.authStateChanges).thenAnswer((_) => Stream.value(mockUser));
-      when(() => mockDatasource.currentUser).thenReturn(mockUser);
-      when(() => mockProfileRepository.getProfile('test_uid')).thenAnswer((_) async => null);
+        repository = AuthRepositoryImpl(
+          authDatasource: mockDatasource,
+          profileRepository: mockProfileRepository,
+        );
 
-      repository = AuthRepositoryImpl(
-        authDatasource: mockDatasource,
-        profileRepository: mockProfileRepository,
-      );
+        await Future.delayed(const Duration(milliseconds: 400));
 
-      expect(
-        repository.status,
-        emitsInOrder([AuthStatus.authenticatedNoProfile]),
-      );
-    });
+        expect(repository.currentStatus, AuthStatus.unauthenticated);
+      },
+    );
 
-    test('emits authenticatedWithProfile when user is logged in and has profile', () async {
-      final mockUser = MockUser();
-      when(() => mockUser.uid).thenReturn('test_uid');
-      when(() => mockUser.email).thenReturn('test@example.com');
-      when(() => mockUser.displayName).thenReturn('Test User');
-      when(() => mockUser.photoURL).thenReturn('photo_url');
+    test(
+      'emits authenticatedNoProfile when user is logged in but has no profile',
+      () async {
+        final mockUser = MockUser();
+        when(() => mockUser.uid).thenReturn('test_uid');
+        when(() => mockUser.email).thenReturn('test@example.com');
+        when(() => mockUser.displayName).thenReturn('Test User');
+        when(() => mockUser.photoURL).thenReturn('photo_url');
 
-      final userProfile = UserProfile(
-        id: 'test_uid',
-        username: 'testuser',
-        displayName: 'Test User',
-        createdAt: DateTime.now(),
-      );
+        when(
+          () => mockDatasource.authStateChanges,
+        ).thenAnswer((_) => Stream.value(mockUser));
+        when(() => mockDatasource.currentUser).thenReturn(mockUser);
+        when(
+          () => mockProfileRepository.getProfile('test_uid'),
+        ).thenAnswer((_) async => null);
 
-      when(() => mockDatasource.authStateChanges).thenAnswer((_) => Stream.value(mockUser));
-      when(() => mockDatasource.currentUser).thenReturn(mockUser);
-      when(() => mockProfileRepository.getProfile('test_uid')).thenAnswer((_) async => userProfile);
+        repository = AuthRepositoryImpl(
+          authDatasource: mockDatasource,
+          profileRepository: mockProfileRepository,
+        );
 
-      repository = AuthRepositoryImpl(
-        authDatasource: mockDatasource,
-        profileRepository: mockProfileRepository,
-      );
+        expect(
+          repository.status,
+          emitsInOrder([AuthStatus.authenticatedNoProfile]),
+        );
+      },
+    );
 
-      expect(
-        repository.status,
-        emitsInOrder([AuthStatus.authenticatedWithProfile]),
-      );
-    });
+    test(
+      'emits authenticatedWithProfile when user is logged in and has profile',
+      () async {
+        final mockUser = MockUser();
+        when(() => mockUser.uid).thenReturn('test_uid');
+        when(() => mockUser.email).thenReturn('test@example.com');
+        when(() => mockUser.displayName).thenReturn('Test User');
+        when(() => mockUser.photoURL).thenReturn('photo_url');
+
+        final userProfile = UserProfile(
+          id: 'test_uid',
+          username: 'testuser',
+          displayName: 'Test User',
+          createdAt: DateTime.now(),
+        );
+
+        when(
+          () => mockDatasource.authStateChanges,
+        ).thenAnswer((_) => Stream.value(mockUser));
+        when(() => mockDatasource.currentUser).thenReturn(mockUser);
+        when(
+          () => mockProfileRepository.getProfile('test_uid'),
+        ).thenAnswer((_) async => userProfile);
+
+        repository = AuthRepositoryImpl(
+          authDatasource: mockDatasource,
+          profileRepository: mockProfileRepository,
+        );
+
+        expect(
+          repository.status,
+          emitsInOrder([AuthStatus.authenticatedWithProfile]),
+        );
+      },
+    );
   });
 }

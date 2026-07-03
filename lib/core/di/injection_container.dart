@@ -22,6 +22,12 @@ import '../../features/profile/data/repositories/profile_repository_impl.dart';
 import '../../features/profile/domain/repositories/profile_repository.dart';
 import '../../features/profile/presentation/blocs/onboarding/onboarding_cubit.dart';
 import '../../features/profile/presentation/blocs/profile/profile_cubit.dart';
+import '../../features/crews/data/datasources/firestore_crews_datasource.dart';
+import '../../features/crews/data/repositories/crew_repository_impl.dart';
+import '../../features/crews/domain/repositories/crew_repository.dart';
+import '../../features/crews/presentation/blocs/crews_list/crews_list_cubit.dart';
+import '../../features/crews/presentation/blocs/crew_detail/crew_detail_cubit.dart';
+import '../../features/crews/presentation/blocs/invitations/invitations_cubit.dart';
 
 final sl = GetIt.instance;
 
@@ -102,6 +108,29 @@ Future<void> init() async {
     );
   }
 
+  // Crew Feature
+  if (!sl.isRegistered<FirestoreCrewsDatasource>()) {
+    sl.registerLazySingleton<FirestoreCrewsDatasource>(
+      () => FirestoreCrewsDatasource(firestore: sl()),
+    );
+  }
+  if (!sl.isRegistered<CrewRepository>()) {
+    sl.registerLazySingleton<CrewRepository>(
+      () => CrewRepositoryImpl(
+        datasource: sl<FirestoreCrewsDatasource>(),
+        currentUid: () => sl<AuthRepository>().currentCredentials?.uid ?? '',
+        // The ChillGo username is populated by AuthRepository once the user
+        // completes onboarding and a profile doc exists. Until then we return
+        // the empty string — invitations written before onboarding are
+        // impossible by construction (the app routes them to /onboarding).
+        currentUsername: () =>
+            sl<AuthRepository>().currentCredentials?.username ?? '',
+        currentDisplayName: () =>
+            sl<AuthRepository>().currentCredentials?.displayName ?? '',
+      ),
+    );
+  }
+
   // Blocs & Cubits
   if (!sl.isRegistered<AuthBloc>()) {
     sl.registerFactory(() => AuthBloc(authRepository: sl()));
@@ -111,6 +140,15 @@ Future<void> init() async {
   }
   if (!sl.isRegistered<ProfileCubit>()) {
     sl.registerFactory(() => ProfileCubit(profileRepository: sl()));
+  }
+  if (!sl.isRegistered<CrewsListCubit>()) {
+    sl.registerFactory(() => CrewsListCubit(crewRepository: sl()));
+  }
+  if (!sl.isRegistered<CrewDetailCubit>()) {
+    sl.registerFactory(() => CrewDetailCubit(crewRepository: sl()));
+  }
+  if (!sl.isRegistered<InvitationsCubit>()) {
+    sl.registerFactory(() => InvitationsCubit(crewRepository: sl()));
   }
 
   // Global Error Handler

@@ -3,6 +3,8 @@ const fs = require('fs');
 const path = require('path');
 
 const PROJECT_ID = 'chillgo-61439';
+const FIRESTORE_EMULATOR_PORT = 65080;
+const STORAGE_EMULATOR_PORT = 65199;
 
 describe('Firebase Security Rules', () => {
   let testEnv;
@@ -13,12 +15,12 @@ describe('Firebase Security Rules', () => {
       firestore: {
         rules: fs.readFileSync(path.resolve(__dirname, '../firestore.rules'), 'utf8'),
         host: '127.0.0.1',
-        port: 8080,
+        port: FIRESTORE_EMULATOR_PORT,
       },
       storage: {
         rules: fs.readFileSync(path.resolve(__dirname, '../storage.rules'), 'utf8'),
         host: '127.0.0.1',
-        port: 9199,
+        port: STORAGE_EMULATOR_PORT,
       },
     });
   });
@@ -117,6 +119,179 @@ describe('Firebase Security Rules', () => {
         unauthStorage.ref('avatars/alice').put(Buffer.from('avatar'), { contentType: 'image/jpeg' }),
       );
       await testing.assertFails(unauthStorage.ref('avatars/alice').getDownloadURL());
+    });
+  });
+
+  describe('Firestore crew rules', () => {
+    it('allows crew creation by authenticated owner and allows members to read it', async () => {
+      const aliceDb = testEnv.authenticatedContext('alice').firestore();
+      const bobDb = testEnv.authenticatedContext('bob').firestore();
+
+      const crewDoc = aliceDb.collection('crews').doc('crew1');
+      const aliceMembership = aliceDb.collection('crew_memberships').doc('crew1_alice');
+      const batch = aliceDb.batch();
+
+      batch.set(crewDoc, {
+        id: 'crew1',
+        name: 'Weekend Hikers',
+        ownerId: 'alice',
+        createdAt: '2026-07-01T00:00:00Z',
+      });
+      batch.set(aliceMembership, {
+        id: 'crew1_alice',
+        crewId: 'crew1',
+        userId: 'alice',
+        role: 'owner',
+        joinedAt: '2026-07-01T00:00:00Z',
+        username: 'alice',
+        displayName: 'Alice',
+      });
+
+      await testing.assertSucceeds(batch.commit());
+      await testing.assertSucceeds(crewDoc.get());
+
+      // Bob tries to read the crew but fails because he is not a member yet
+      await testing.assertFails(bobDb.collection('crews').doc('crew1').get());
+
+      // Bob tries to create membership directly without invitation and fails
+      const bobMembership = bobDb.collection('crew_memberships').doc('crew1_bob');
+      await testing.assertFails(bobMembership.set({
+        id: 'crew1_bob',
+        crewId: 'crew1',
+        userId: 'bob',
+        role: 'member',
+        joinedAt: '2026-07-01T00:00:00Z',
+        username: 'bob',
+        displayName: 'Bob',
+      }));
+    });
+
+    it('denies non-owner crew updates, deletes, and invitations', async () => {
+      const bobDb = testEnv.authenticatedContext('bob').firestore();
+
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        await adminDb.collection('users').doc('charlie').set({
+          username: 'charlie',
+          displayName: 'Charlie',
+          createdAt: '2026-07-01T00:00:00Z',
+        });
+        await adminDb.collection('crews').doc('crew1').set({
+          id: 'crew1',
+          name: 'Weekend Hikers',
+          ownerId: 'alice',
+          createdAt: '2026-07-01T00:00:00Z',
+        });
+        await adminDb.collection('crew_memberships').doc('crew1_alice').set({
+          id: 'crew1_alice',
+          crewId: 'crew1',
+          userId: 'alice',
+          role: 'owner',
+          joinedAt: '2026-07-01T00:00:00Z',
+          username: 'alice',
+          displayName: 'Alice',
+        });
+        await adminDb.collection('crew_memberships').doc('crew1_bob').set({
+          id: 'crew1_bob',
+          crewId: 'crew1',
+          userId: 'bob',
+          role: 'member',
+          joinedAt: '2026-07-01T00:00:00Z',
+          username: 'bob',
+          displayName: 'Bob',
+        });
+      });
+
+      await testing.assertFails(
+        bobDb.collection('crews').doc('crew1').update({ name: 'Renamed Crew' }),
+      );
+      await testing.assertFails(bobDb.collection('crews').doc('crew1').delete());
+      await testing.assertFails(
+        bobDb.collection('crew_invitations').doc('crew1_charlie').set({
+          id: 'crew1_charlie',
+          crewId: 'crew1',
+          invitedUserId: 'charlie',
+          invitedByUserId: 'bob',
+          createdAt: '2026-07-01T00:00:00Z',
+          crewName: 'Weekend Hikers',
+          invitedByUsername: 'bob',
+          invitedByDisplayName: 'Bob',
+          invitedUsername: 'charlie',
+        }),
+      );
+    });
+
+    it('allows owner to send invitations and invited user to accept membership', async () => {
+      const aliceDb = testEnv.authenticatedContext('alice').firestore();
+      const bobDb = testEnv.authenticatedContext('bob').firestore();
+
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        await adminDb.collection('users').doc('alice').set({
+          username: 'alice',
+          displayName: 'Alice',
+          createdAt: '2026-07-01T00:00:00Z',
+        });
+        await adminDb.collection('users').doc('bob').set({
+          username: 'bob',
+          displayName: 'Bob',
+          createdAt: '2026-07-01T00:00:00Z',
+        });
+        await adminDb.collection('crews').doc('crew1').set({
+          id: 'crew1',
+          name: 'Weekend Hikers',
+          ownerId: 'alice',
+          createdAt: '2026-07-01T00:00:00Z',
+        });
+        await adminDb.collection('crew_memberships').doc('crew1_alice').set({
+          id: 'crew1_alice',
+          crewId: 'crew1',
+          userId: 'alice',
+          role: 'owner',
+          joinedAt: '2026-07-01T00:00:00Z',
+          username: 'alice',
+          displayName: 'Alice',
+        });
+      });
+
+      // Alice invites Bob
+      const invitationDoc = aliceDb.collection('crew_invitations').doc('crew1_bob');
+      await testing.assertSucceeds(invitationDoc.set({
+        id: 'crew1_bob',
+        crewId: 'crew1',
+        invitedUserId: 'bob',
+        invitedByUserId: 'alice',
+        createdAt: '2026-07-01T00:00:00Z',
+        crewName: 'Weekend Hikers',
+        invitedByUsername: 'alice',
+        invitedByDisplayName: 'Alice',
+        invitedUsername: 'bob',
+      }));
+
+      // Bob reads the invitation
+      await testing.assertSucceeds(bobDb.collection('crew_invitations').doc('crew1_bob').get());
+
+      // Bob accepts the invitation: creates membership and deletes invitation
+      const bobMembership = bobDb.collection('crew_memberships').doc('crew1_bob');
+      await testing.assertSucceeds(bobMembership.set({
+        id: 'crew1_bob',
+        crewId: 'crew1',
+        userId: 'bob',
+        role: 'member',
+        joinedAt: '2026-07-01T00:00:00Z',
+        username: 'bob',
+        displayName: 'Bob',
+      }));
+      await testing.assertSucceeds(bobDb.collection('crew_invitations').doc('crew1_bob').delete());
+
+      // Now Bob is a member, he can read the crew details
+      await testing.assertSucceeds(bobDb.collection('crews').doc('crew1').get());
+
+      // Bob leaves the crew (deletes membership)
+      await testing.assertSucceeds(bobDb.collection('crew_memberships').doc('crew1_bob').delete());
+
+      // Owner cannot leave/delete their own membership directly (unless deleting the crew)
+      await testing.assertFails(aliceDb.collection('crew_memberships').doc('crew1_alice').delete());
     });
   });
 });
