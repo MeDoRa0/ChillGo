@@ -95,9 +95,8 @@ As a Crew Member, I want to leave a Crew when I no longer wish to participate. A
 
 - **Duplicate Invitations**: What happens when a user attempts to invite a username that is already in the Crew or has a pending invitation? The system must show a validation error (e.g., "User is already a member" or "User already has a pending invitation").
 - **Owner Leaving**: What happens if the Crew Owner leaves the Crew? The Crew Owner cannot leave the Crew directly. They must delete the Crew to dissolve it (or transfer ownership, which is out of scope for MVP).
-- **Cascading Outing Deletion**: What happens when a Crew is deleted while members have active outings? Deleting the Crew must automatically cancel/delete all associated outings. (Note: The implementation of this cascading deletion is deferred to Phase 3+ when Outings are introduced).
+- **Crew Deletion Cleanup**: What happens when a Crew is deleted? Deleting the Crew must automatically remove all related `crew_memberships` records, automatically delete all pending invitations for that Crew, and cancel/delete all associated outings. (Note: The implementation of cascading outing cleanup is deferred to Phase 3+ when Outings are introduced).
 - **Invitation Privileges**: Can standard members invite other members? No, only the Crew Owner has privileges to invite or remove members.
-- **Deleted Crew invitations**: What happens to pending invitations if the Crew is deleted? They must be automatically deleted.
 - **Invitation Revocation**: Can the Crew Owner revoke a pending invitation? Yes, the Crew Owner can revoke/cancel a pending invitation at any time. Standard members cannot revoke invitations.
 
 ## Requirements *(mandatory)*

@@ -272,11 +272,23 @@ void main() {
 
   group('US5 - removeMember', () {
     test('delegates to datasource', () async {
+      when(
+        () => mockDs.streamCrew('crew1'),
+      ).thenAnswer((_) => Stream.value(_fakeCrew));
       when(() => mockDs.removeMember(any(), any())).thenAnswer((_) async {});
 
       await repo.removeMember('crew1', 'bob');
 
       verify(() => mockDs.removeMember('crew1', 'bob')).called(1);
+    });
+
+    test('throws and does not remove membership when user is owner', () async {
+      when(
+        () => mockDs.streamCrew('crew1'),
+      ).thenAnswer((_) => Stream.value(_fakeCrew));
+
+      expect(() => repo.removeMember('crew1', _uid), throwsException);
+      verifyNever(() => mockDs.removeMember(any(), any()));
     });
   });
 }

@@ -9,8 +9,16 @@ service cloud.firestore {
       return /databases/$(database)/documents/crews/$(crewId);
     }
 
+    function userPath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
     function membershipPath(membershipId) {
       return /databases/$(database)/documents/crew_memberships/$(membershipId);
+    }
+
+    function ownerMembershipPath(crewId, ownerId) {
+      return membershipPath(crewId + '_' + ownerId);
     }
 
     function invitationPath(invitationId) {
@@ -52,10 +60,15 @@ service cloud.firestore {
         ]) &&
         request.resource.data.id == membershipId &&
         membershipId == request.resource.data.crewId + '_' + request.resource.data.userId &&
+        request.resource.data.userId is string &&
         (request.resource.data.role == 'owner' || request.resource.data.role == 'member') &&
         request.resource.data.joinedAt is string &&
         request.resource.data.username is string &&
-        request.resource.data.displayName is string;
+        request.resource.data.displayName is string &&
+        exists(userPath(request.resource.data.userId)) &&
+        get(userPath(request.resource.data.userId)).data.username == request.resource.data.username &&
+        get(userPath(request.resource.data.userId)).data.displayName == request.resource.data.displayName &&
+        request.resource.data.get('avatarUrl', null) == get(userPath(request.resource.data.userId)).data.get('avatarUrl', null);
     }
 
     function isValidInvitationPayload(invitationId) {
@@ -83,10 +96,22 @@ service cloud.firestore {
         request.resource.data.id == invitationId &&
         invitationId == request.resource.data.crewId + '_' + request.resource.data.invitedUserId &&
         request.resource.data.invitedByUserId == request.auth.uid &&
+        request.resource.data.crewId is string &&
+        request.resource.data.invitedUserId is string &&
         request.resource.data.createdAt is string &&
         request.resource.data.crewName is string &&
         request.resource.data.invitedByUsername is string &&
-        request.resource.data.invitedByDisplayName is string;
+        request.resource.data.invitedByDisplayName is string &&
+        exists(crewPath(request.resource.data.crewId)) &&
+        exists(userPath(request.resource.data.invitedByUserId)) &&
+        exists(userPath(request.resource.data.invitedUserId)) &&
+        get(crewPath(request.resource.data.crewId)).data.name == request.resource.data.crewName &&
+        get(userPath(request.resource.data.invitedByUserId)).data.username == request.resource.data.invitedByUsername &&
+        get(userPath(request.resource.data.invitedByUserId)).data.displayName == request.resource.data.invitedByDisplayName &&
+        (
+          !request.resource.data.keys().hasAny(['invitedUsername']) ||
+          get(userPath(request.resource.data.invitedUserId)).data.username == request.resource.data.invitedUsername
+        );
     }
 
     function isCrewMember(crewId) {
@@ -96,11 +121,29 @@ service cloud.firestore {
     function isCrewOwner(crewId) {
       return signedIn() &&
         exists(crewPath(crewId)) &&
-        get(crewPath(crewId)).data.ownerId == request.auth.uid;
+        get(crewPath(crewId)).data.ownerId == request.auth.uid &&
+        exists(ownerMembershipPath(crewId, request.auth.uid)) &&
+        get(ownerMembershipPath(crewId, request.auth.uid)).data.role == 'owner';
     }
 
     function isOwnerMembershipCreatedWithCrew(crewId) {
       return existsAfter(membershipPath(crewId + '_' + request.auth.uid));
+    }
+
+    function isNewCrewCreatedWithOwnerMembership(crewId) {
+      return !exists(crewPath(crewId)) &&
+        existsAfter(crewPath(crewId)) &&
+        getAfter(crewPath(crewId)).data.ownerId == request.auth.uid;
+    }
+
+    function isInvitationConsumedWithMembership(membershipId) {
+      return exists(invitationPath(membershipId)) &&
+        !existsAfter(invitationPath(membershipId));
+    }
+
+    function isOwnerMembershipDeletedWithCrew(crewId) {
+      return exists(ownerMembershipPath(crewId, resource.data.ownerId)) &&
+        !existsAfter(ownerMembershipPath(crewId, resource.data.ownerId));
     }
     
     // User Profile Rules
@@ -131,7 +174,8 @@ service cloud.firestore {
         request.resource.data.ownerId == resource.data.ownerId &&
         request.resource.data.createdAt == resource.data.createdAt;
 
-      allow delete: if isCrewOwner(crewId);
+      allow delete: if isCrewOwner(crewId) &&
+        isOwnerMembershipDeletedWithCrew(crewId);
     }
 
     match /crew_memberships/{membershipId} {
@@ -143,12 +187,12 @@ service cloud.firestore {
           (
             request.resource.data.role == 'owner' &&
             request.resource.data.userId == request.auth.uid &&
-            !exists(crewPath(request.resource.data.crewId))
+            isNewCrewCreatedWithOwnerMembership(request.resource.data.crewId)
           ) ||
           (
             request.resource.data.role == 'member' &&
             request.resource.data.userId == request.auth.uid &&
-            exists(invitationPath(membershipId))
+            isInvitationConsumedWithMembership(membershipId)
           )
         );
 

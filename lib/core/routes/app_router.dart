@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
 import 'package:go_router/go_router.dart';
 import '../../features/home/presentation/pages/home_screen.dart';
 import '../../features/home/presentation/pages/details_page.dart';
@@ -91,13 +90,7 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/',
       name: 'home',
-      builder: (context, state) => HomeScreen(
-        onTriggerCrash: kDebugMode
-            ? () {
-                throw StateError('Simulated diagnostics crash');
-              }
-            : null,
-      ),
+      builder: (context, state) => const HomeScreen(),
     ),
     GoRoute(
       path: '/login',

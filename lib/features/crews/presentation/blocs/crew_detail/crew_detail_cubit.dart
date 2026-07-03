@@ -34,6 +34,27 @@ class CrewDetailLoaded extends CrewDetailState {
   List<Object?> get props => [crew, members, pendingInvitations];
 }
 
+enum CrewDetailAction {
+  inviteUser,
+  updateCrewName,
+  removeMember,
+  revokeInvitation,
+}
+
+class CrewDetailActionSuccess extends CrewDetailLoaded {
+  final CrewDetailAction action;
+
+  const CrewDetailActionSuccess({
+    required this.action,
+    required super.crew,
+    required super.members,
+    required super.pendingInvitations,
+  });
+
+  @override
+  List<Object?> get props => [...super.props, action];
+}
+
 class CrewDetailError extends CrewDetailState {
   final String message;
   const CrewDetailError(this.message);
@@ -78,6 +99,11 @@ class CrewDetailCubit extends Cubit<CrewDetailState> {
 
     _crewSub?.cancel();
     _crewSub = crewRepository.streamCrew(crewId).listen((crew) {
+      if (crew == null) {
+        _crew = null;
+        emit(const CrewDeleted());
+        return;
+      }
       _crew = crew;
       _emitLoaded();
     }, onError: (Object e) => emit(CrewDetailError(e.toString())));
@@ -109,12 +135,30 @@ class CrewDetailCubit extends Cubit<CrewDetailState> {
     );
   }
 
+  void _emitActionSuccess(CrewDetailAction action) {
+    final crew = _crew;
+    if (crew == null) return;
+    emit(
+      CrewDetailActionSuccess(
+        action: action,
+        crew: crew,
+        members: _members,
+        pendingInvitations: _pendingInvitations,
+      ),
+    );
+  }
+
+  CrewDetailLoaded? get _currentLoadedState {
+    final currentState = state;
+    return currentState is CrewDetailLoaded ? currentState : null;
+  }
+
   Future<void> inviteUser(String username) async {
     if (_crewId == null) return;
     emit(const CrewDetailActionInProgress());
     try {
       await crewRepository.inviteUser(_crewId!, username);
-      _emitLoaded();
+      _emitActionSuccess(CrewDetailAction.inviteUser);
     } on Exception catch (e) {
       final msg = _mapInviteError(e.toString());
       emit(CrewDetailActionError(msg));
@@ -123,10 +167,17 @@ class CrewDetailCubit extends Cubit<CrewDetailState> {
 
   Future<void> updateCrewName(String name) async {
     if (_crewId == null) return;
+    final loaded = _currentLoadedState;
     emit(const CrewDetailActionInProgress());
     try {
       await crewRepository.updateCrewName(_crewId!, name);
-      _emitLoaded();
+      final crew = loaded?.crew ?? _crew;
+      if (crew != null) {
+        _crew = crew.copyWith(name: name);
+        _members = loaded?.members ?? _members;
+        _pendingInvitations = loaded?.pendingInvitations ?? _pendingInvitations;
+      }
+      _emitActionSuccess(CrewDetailAction.updateCrewName);
     } catch (e) {
       emit(CrewDetailActionError(e.toString()));
     }
@@ -156,10 +207,16 @@ class CrewDetailCubit extends Cubit<CrewDetailState> {
 
   Future<void> removeMember(String userId) async {
     if (_crewId == null) return;
+    final loaded = _currentLoadedState;
     emit(const CrewDetailActionInProgress());
     try {
       await crewRepository.removeMember(_crewId!, userId);
-      _emitLoaded();
+      _crew = loaded?.crew ?? _crew;
+      _members = (loaded?.members ?? _members)
+          .where((member) => member.userId != userId)
+          .toList();
+      _pendingInvitations = loaded?.pendingInvitations ?? _pendingInvitations;
+      _emitActionSuccess(CrewDetailAction.removeMember);
     } catch (e) {
       emit(CrewDetailActionError(e.toString()));
     }
@@ -170,10 +227,16 @@ class CrewDetailCubit extends Cubit<CrewDetailState> {
   /// identical, but exposed under a domain-meaningful name at the cubit
   /// layer so the screen code stays readable.
   Future<void> revokeInvitation(String invitationId) async {
+    final loaded = _currentLoadedState;
     emit(const CrewDetailActionInProgress());
     try {
       await crewRepository.rejectInvitation(invitationId);
-      _emitLoaded();
+      _crew = loaded?.crew ?? _crew;
+      _members = loaded?.members ?? _members;
+      _pendingInvitations = (loaded?.pendingInvitations ?? _pendingInvitations)
+          .where((invitation) => invitation.id != invitationId)
+          .toList();
+      _emitActionSuccess(CrewDetailAction.revokeInvitation);
     } catch (e) {
       emit(CrewDetailActionError(e.toString()));
     }

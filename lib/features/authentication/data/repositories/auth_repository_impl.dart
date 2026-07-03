@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 import '../../domain/repositories/auth_repository.dart';
 import '../../domain/entities/user_profile.dart';
 import '../datasources/firebase_auth_datasource.dart';
@@ -24,8 +24,10 @@ class AuthRepositoryImpl implements AuthRepository {
   final _statusController = StreamController<AuthStatus>.broadcast();
   AuthStatus _cachedStatus = AuthStatus.unknown;
   String? _cachedUsername;
+  String? _cachedDisplayName;
   StreamSubscription<dynamic>? _authSub;
   Timer? _restoreFallbackTimer;
+  Future<void> _statusRefresh = Future.value();
 
   AuthRepositoryImpl({
     required this.authDatasource,
@@ -36,15 +38,20 @@ class AuthRepositoryImpl implements AuthRepository {
 
     _authSub = authDatasource.authStateChanges.listen(
       (user) {
-        debugPrint(
-          '[ChillGo] authStateChanges emitted user: ${user?.uid ?? 'null'}',
-        );
-        _updateStatus(user);
+        if (kDebugMode) {
+          debugPrint(
+            '[ChillGo] authStateChanges emitted user: ${user?.uid ?? 'null'}',
+          );
+        }
+        _refreshStatus(user, cancelRestoreFallback: user != null);
       },
       onError: (Object e, StackTrace stack) {
         // Listener-level failures (e.g., stream closed) must not escape —
         // they would leave the app stranded on /loading with no signal.
-        debugPrint('[ChillGo] authStateChanges stream error: $e\n$stack');
+        if (kDebugMode) {
+          debugPrint('[ChillGo] authStateChanges stream error: $e\n$stack');
+        }
+        _cancelRestoreFallbackTimer();
         if (_cachedStatus == AuthStatus.unknown) {
           _cachedStatus = AuthStatus.unauthenticated;
           _safeEmit(_cachedStatus);
@@ -61,33 +68,59 @@ class AuthRepositoryImpl implements AuthRepository {
       if (_cachedStatus != AuthStatus.unknown) return;
       final currentUser = authDatasource.currentUser;
       if (currentUser != null) {
-        debugPrint(
-          '[ChillGo] authStateChanges did not emit within '
-          '${_kAuthStateRestoreFallback.inMilliseconds}ms; '
-          'using currentUser fallback for uid ${currentUser.uid}.',
-        );
+        if (kDebugMode) {
+          debugPrint(
+            '[ChillGo] authStateChanges did not emit within '
+            '${_kAuthStateRestoreFallback.inMilliseconds}ms; '
+            'using currentUser fallback for uid ${currentUser.uid}.',
+          );
+        }
         // Defensive log showing we triggered the fallback.
-        debugPrint('[ChillGo] Triggering authState restore fallback');
-        _updateStatus(currentUser);
+        if (kDebugMode) {
+          debugPrint('[ChillGo] Triggering authState restore fallback');
+        }
+        _refreshStatus(currentUser, cancelRestoreFallback: true);
       } else {
-        debugPrint(
-          '[ChillGo] authStateChanges did not emit within '
-          '${_kAuthStateRestoreFallback.inMilliseconds}ms; '
-          'treating app as unauthenticated.',
-        );
+        if (kDebugMode) {
+          debugPrint(
+            '[ChillGo] authStateChanges did not emit within '
+            '${_kAuthStateRestoreFallback.inMilliseconds}ms; '
+            'treating app as unauthenticated.',
+          );
+        }
         _cachedStatus = AuthStatus.unauthenticated;
         _safeEmit(_cachedStatus);
       }
     });
   }
 
+  Future<void> _refreshStatus(
+    dynamic user, {
+    required bool cancelRestoreFallback,
+  }) {
+    if (cancelRestoreFallback) {
+      _cancelRestoreFallbackTimer();
+    }
+
+    _statusRefresh = _statusRefresh.then((_) => _updateStatus(user));
+    return _statusRefresh;
+  }
+
+  void _cancelRestoreFallbackTimer() {
+    _restoreFallbackTimer?.cancel();
+    _restoreFallbackTimer = null;
+  }
+
   Future<void> _updateStatus(dynamic user) async {
-    debugPrint(
-      '[ChillGo] _updateStatus start; user=${user?.uid ?? 'null'}, cached=$_cachedStatus',
-    );
+    if (kDebugMode) {
+      debugPrint(
+        '[ChillGo] _updateStatus start; user=${user?.uid ?? 'null'}, cached=$_cachedStatus',
+      );
+    }
     try {
       if (user == null) {
         _cachedUsername = null;
+        _cachedDisplayName = null;
         _cachedStatus = AuthStatus.unauthenticated;
       } else {
         // Bound the profile fetch so a hung Firestore call cannot pin the
@@ -96,31 +129,39 @@ class AuthRepositoryImpl implements AuthRepository {
         final profile = await _getProfileWithTimeout(user.uid);
         if (profile != null) {
           _cachedUsername = profile.username;
+          _cachedDisplayName = profile.displayName;
           _cachedStatus = AuthStatus.authenticatedWithProfile;
         } else {
           // Confirmed null response → user genuinely has no profile yet.
           _cachedUsername = null;
+          _cachedDisplayName = null;
           _cachedStatus = AuthStatus.authenticatedNoProfile;
         }
       }
       _safeEmit(_cachedStatus);
-      debugPrint(
-        '[ChillGo] _updateStatus finished; newStatus=$_cachedStatus, username=$_cachedUsername',
-      );
+      if (kDebugMode) {
+        debugPrint(
+          '[ChillGo] _updateStatus finished; newStatus=$_cachedStatus, username=$_cachedUsername',
+        );
+      }
     } catch (e, stack) {
       // A Firestore/network/rules exception is NOT a missing profile.
       // Log every failure (not just first run) so silent hangs become
       // visible — this is the exact signal that was missing before.
-      debugPrint('[ChillGo] Profile fetch failed: $e\n$stack');
+      if (kDebugMode) {
+        debugPrint('[ChillGo] Profile fetch failed: $e\n$stack');
+      }
 
       if (_cachedStatus == AuthStatus.unknown) {
         // First run: fall back to authenticatedNoProfile so the router
         // can proceed to onboarding, which is recoverable.
         _cachedStatus = AuthStatus.authenticatedNoProfile;
         _safeEmit(_cachedStatus);
-        debugPrint(
-          '[ChillGo] _updateStatus fallback to authenticatedNoProfile',
-        );
+        if (kDebugMode) {
+          debugPrint(
+            '[ChillGo] _updateStatus fallback to authenticatedNoProfile',
+          );
+        }
       }
       // On subsequent runs, preserve the last successfully resolved
       // status so the router does not misroute on a transient error.
@@ -138,11 +179,13 @@ class AuthRepositoryImpl implements AuthRepository {
           .getProfile(uid)
           .timeout(_kProfileFetchTimeout);
     } on TimeoutException {
-      debugPrint(
-        '[ChillGo] Profile fetch timed out after '
-        '${_kProfileFetchTimeout.inSeconds}s for uid $uid; '
-        'treating as no profile.',
-      );
+      if (kDebugMode) {
+        debugPrint(
+          '[ChillGo] Profile fetch timed out after '
+          '${_kProfileFetchTimeout.inSeconds}s for uid $uid; '
+          'treating as no profile.',
+        );
+      }
       return null;
     }
   }
@@ -156,7 +199,9 @@ class AuthRepositoryImpl implements AuthRepository {
         _statusController.add(status);
       }
     } catch (e, stack) {
-      debugPrint('[ChillGo] Failed to emit status $status: $e\n$stack');
+      if (kDebugMode) {
+        debugPrint('[ChillGo] Failed to emit status $status: $e\n$stack');
+      }
     }
   }
 
@@ -170,12 +215,35 @@ class AuthRepositoryImpl implements AuthRepository {
   UserCredentials? get currentCredentials {
     final user = authDatasource.currentUser;
     if (user == null) return null;
+    return _credentialsFromUser(
+      user,
+      username: _cachedUsername,
+      displayName: _cachedDisplayName,
+    );
+  }
+
+  @override
+  Future<UserCredentials?> refreshCurrentUserToken() async {
+    final user = await authDatasource.refreshCurrentUserToken();
+    if (user == null) return null;
+    return _credentialsFromUser(
+      user,
+      username: _cachedUsername,
+      displayName: _cachedDisplayName,
+    );
+  }
+
+  UserCredentials _credentialsFromUser(
+    dynamic user, {
+    String? username,
+    String? displayName,
+  }) {
     return UserCredentials(
       uid: user.uid,
       email: user.email,
-      displayName: user.displayName,
+      displayName: displayName ?? user.displayName,
       photoUrl: user.photoURL,
-      username: _cachedUsername,
+      username: username,
     );
   }
 
@@ -211,6 +279,12 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<void> forceRefreshStatus() async {
     final user = authDatasource.currentUser;
-    await _updateStatus(user);
+    await _refreshStatus(user, cancelRestoreFallback: true);
+  }
+
+  Future<void> dispose() async {
+    _cancelRestoreFallbackTimer();
+    await _authSub?.cancel();
+    await _statusController.close();
   }
 }

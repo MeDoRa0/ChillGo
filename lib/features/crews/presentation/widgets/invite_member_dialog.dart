@@ -34,8 +34,8 @@ class _InviteMemberDialogState extends State<InviteMemberDialog> {
         padding: const EdgeInsets.all(24),
         child: BlocConsumer<CrewDetailCubit, CrewDetailState>(
           listener: (context, state) {
-            if (state is CrewDetailLoaded) {
-              // Invitation sent — close dialog
+            if (state is CrewDetailActionSuccess &&
+                state.action == CrewDetailAction.inviteUser) {
               Navigator.of(context).pop();
               ScaffoldMessenger.of(
                 context,

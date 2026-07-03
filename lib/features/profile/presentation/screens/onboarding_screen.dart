@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:chillgo/core/di/injection_container.dart';
 import 'package:chillgo/features/authentication/presentation/blocs/auth/auth_bloc.dart';
 import 'package:chillgo/features/authentication/presentation/blocs/auth/auth_state.dart';
@@ -68,12 +69,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     return BlocBuilder<AuthBloc, AuthState>(
       builder: (context, authState) {
         final uid = authState.credentials?.uid;
-        debugPrint(
-          '[OnboardingScreen] authState=${authState.status}, uid=$uid',
-        );
+        if (kDebugMode) {
+          debugPrint(
+            '[OnboardingScreen] authState=${authState.status}, uid=$uid',
+          );
+        }
 
         if (uid == null) {
-          debugPrint('[OnboardingScreen] uid is null, showing spinner');
+          if (kDebugMode) {
+            debugPrint('[OnboardingScreen] uid is null, showing spinner');
+          }
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );

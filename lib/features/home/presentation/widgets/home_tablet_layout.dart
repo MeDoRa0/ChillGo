@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'sign_out_icon_button.dart';
+import 'user_identity_summary.dart';
 
 class HomeTabletLayout extends StatefulWidget {
-  final VoidCallback? onTriggerCrash;
+  final String? displayName;
+  final String? username;
 
-  const HomeTabletLayout({super.key, this.onTriggerCrash});
+  const HomeTabletLayout({super.key, this.displayName, this.username});
 
   @override
   State<HomeTabletLayout> createState() => _HomeTabletLayoutState();
@@ -74,44 +77,26 @@ class _HomeTabletLayoutState extends State<HomeTabletLayout> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'ChillGo Tablet Dashboard',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 28,
-                                fontWeight: FontWeight.bold,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              UserIdentitySummary(
+                                displayName: widget.displayName,
+                                username: widget.username,
                               ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              'Manage your crews and upcoming plans.',
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: 14,
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Manage your crews and upcoming plans.',
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 14,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                        if (widget.onTriggerCrash != null)
-                          ElevatedButton.icon(
-                            onPressed: widget.onTriggerCrash,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFEF4444),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            icon: const Icon(Icons.bug_report),
-                            label: const Text('Simulate Crash'),
+                            ],
                           ),
+                        ),
+                        const SignOutIconButton(),
                       ],
                     ),
                     const SizedBox(height: 24),

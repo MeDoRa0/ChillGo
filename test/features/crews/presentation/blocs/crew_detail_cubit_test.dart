@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:chillgo/features/crews/presentation/blocs/crew_detail/crew_detail_cubit.dart';
 import 'package:chillgo/features/crews/domain/repositories/crew_repository.dart';
 import 'package:chillgo/features/crews/domain/entities/crew.dart';
+import 'package:chillgo/features/crews/domain/entities/crew_invitation.dart';
 import 'package:chillgo/features/crews/domain/entities/crew_membership.dart';
 import 'package:chillgo/features/crews/domain/entities/crew_role.dart';
 
@@ -28,6 +31,28 @@ final _fakeMembers = [
     displayName: 'Alice',
   ),
 ];
+
+final _fakeBobMembership = CrewMembership(
+  id: 'crew1_bob',
+  crewId: _crewId,
+  userId: 'bob',
+  role: CrewRole.member,
+  joinedAt: DateTime.utc(2026, 7, 2),
+  username: 'bob_chill',
+  displayName: 'Bob',
+);
+
+final _fakeInvitation = CrewInvitation(
+  id: 'crew1_bob',
+  crewId: _crewId,
+  invitedUserId: 'bob',
+  invitedByUserId: 'alice',
+  createdAt: DateTime.utc(2026, 7, 2),
+  crewName: 'Weekend Hikers',
+  invitedByUsername: 'alice_cool',
+  invitedByDisplayName: 'Alice',
+  invitedUsername: 'bob_chill',
+);
 
 void main() {
   late MockCrewRepository mockRepo;
@@ -56,6 +81,11 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 50));
   }
 
+  void expectActionSuccess(CrewDetailCubit cubit, CrewDetailAction action) {
+    expect(cubit.state, isA<CrewDetailActionSuccess>());
+    expect((cubit.state as CrewDetailActionSuccess).action, action);
+  }
+
   // ─── US1: Loading ──────────────────────────────────────────────────────────
   group('CrewDetailCubit - US1 loading', () {
     test('final state is CrewDetailLoaded with crew and members', () async {
@@ -78,6 +108,48 @@ void main() {
       expect(states.first, isA<CrewDetailLoading>());
       await cubit.close();
     });
+
+    test('emits CrewDeleted when crew stream emits null', () async {
+      final controller = StreamController<Crew?>();
+      when(
+        () => mockRepo.streamCrew(_crewId),
+      ).thenAnswer((_) => controller.stream);
+      final cubit = CrewDetailCubit(crewRepository: mockRepo);
+      cubit.loadCrew(_crewId);
+
+      controller.add(_fakeCrew);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(cubit.state, isA<CrewDetailLoaded>());
+
+      controller.add(null);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(cubit.state, isA<CrewDeleted>());
+
+      await controller.close();
+      await cubit.close();
+    });
+
+    test('stream refreshes emit loaded data without action success', () async {
+      final controller = StreamController<Crew?>();
+      when(
+        () => mockRepo.streamCrew(_crewId),
+      ).thenAnswer((_) => controller.stream);
+      final cubit = CrewDetailCubit(crewRepository: mockRepo);
+      cubit.loadCrew(_crewId);
+
+      controller.add(_fakeCrew);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(cubit.state, isA<CrewDetailLoaded>());
+      expect(cubit.state, isNot(isA<CrewDetailActionSuccess>()));
+
+      controller.add(_fakeCrew.copyWith(name: 'Weekend Trekkers'));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(cubit.state, isA<CrewDetailLoaded>());
+      expect(cubit.state, isNot(isA<CrewDetailActionSuccess>()));
+
+      await controller.close();
+      await cubit.close();
+    });
   });
 
   // ─── US2: Inviting Members ────────────────────────────────────────────────
@@ -89,6 +161,7 @@ void main() {
       final cubit = CrewDetailCubit(crewRepository: mockRepo);
       await loadAndAct(cubit, () => cubit.inviteUser('bob_chill'));
       expect(cubit.state, isA<CrewDetailLoaded>());
+      expectActionSuccess(cubit, CrewDetailAction.inviteUser);
       await cubit.close();
     });
 
@@ -147,6 +220,8 @@ void main() {
       final cubit = CrewDetailCubit(crewRepository: mockRepo);
       await loadAndAct(cubit, () => cubit.updateCrewName('New Name'));
       expect(cubit.state, isA<CrewDetailLoaded>());
+      expectActionSuccess(cubit, CrewDetailAction.updateCrewName);
+      expect((cubit.state as CrewDetailActionSuccess).crew.name, 'New Name');
       await cubit.close();
     });
 
@@ -184,11 +259,19 @@ void main() {
 
     test('final state is CrewDetailLoaded after removeMember', () async {
       when(
+        () => mockRepo.streamMembers(_crewId),
+      ).thenAnswer((_) => Stream.value([..._fakeMembers, _fakeBobMembership]));
+      when(
         () => mockRepo.removeMember(_crewId, 'bob'),
       ).thenAnswer((_) async {});
       final cubit = CrewDetailCubit(crewRepository: mockRepo);
       await loadAndAct(cubit, () => cubit.removeMember('bob'));
       expect(cubit.state, isA<CrewDetailLoaded>());
+      expectActionSuccess(cubit, CrewDetailAction.removeMember);
+      expect(
+        (cubit.state as CrewDetailActionSuccess).members,
+        isNot(contains(_fakeBobMembership)),
+      );
       await cubit.close();
     });
   });
@@ -199,11 +282,19 @@ void main() {
       'final state is CrewDetailLoaded after revoking an invitation',
       () async {
         when(
+          () => mockRepo.streamPendingInvitationsForCrew(_crewId),
+        ).thenAnswer((_) => Stream.value([_fakeInvitation]));
+        when(
           () => mockRepo.rejectInvitation('crew1_bob'),
         ).thenAnswer((_) async {});
         final cubit = CrewDetailCubit(crewRepository: mockRepo);
         await loadAndAct(cubit, () => cubit.revokeInvitation('crew1_bob'));
         expect(cubit.state, isA<CrewDetailLoaded>());
+        expectActionSuccess(cubit, CrewDetailAction.revokeInvitation);
+        expect(
+          (cubit.state as CrewDetailActionSuccess).pendingInvitations,
+          isNot(contains(_fakeInvitation)),
+        );
         verify(() => mockRepo.rejectInvitation('crew1_bob')).called(1);
         await cubit.close();
       },

@@ -4,17 +4,24 @@ import '../../domain/entities/crew_membership.dart';
 import '../../domain/entities/crew_invitation.dart';
 
 class FirestoreCrewsDatasource {
+  static const int _firestoreBatchWriteLimit = 500;
+  static const int _firestoreWhereInLimit = 30;
+  static const int _deleteCrewBatchMaxAttempts = 3;
+
   final FirebaseFirestore firestore;
 
   FirestoreCrewsDatasource({required this.firestore});
 
-  CollectionReference get _crews => firestore.collection('crews');
-  CollectionReference get _memberships =>
+  CollectionReference<Map<String, dynamic>> get _crews =>
+      firestore.collection('crews');
+  CollectionReference<Map<String, dynamic>> get _memberships =>
       firestore.collection('crew_memberships');
-  CollectionReference get _invitations =>
+  CollectionReference<Map<String, dynamic>> get _invitations =>
       firestore.collection('crew_invitations');
-  CollectionReference get _usernames => firestore.collection('usernames');
-  CollectionReference get _users => firestore.collection('users');
+  CollectionReference<Map<String, dynamic>> get _usernames =>
+      firestore.collection('usernames');
+  CollectionReference<Map<String, dynamic>> get _users =>
+      firestore.collection('users');
 
   /// Creates a new crew and the owner membership atomically.
   Future<String> createCrew({
@@ -28,7 +35,7 @@ class FirestoreCrewsDatasource {
 
     // Fetch owner profile for denormalized membership fields
     final userDoc = await _users.doc(ownerId).get();
-    final userData = userDoc.data() as Map<String, dynamic>? ?? {};
+    final userData = userDoc.data() ?? {};
 
     final batch = firestore.batch();
 
@@ -58,31 +65,46 @@ class FirestoreCrewsDatasource {
     return _memberships.where('userId', isEqualTo: userId).snapshots().asyncMap(
       (membSnap) async {
         final crewIds = membSnap.docs
-            .map((d) => (d.data() as Map)['crewId'] as String)
+            .map((doc) => _readString(doc.data(), 'crewId'))
+            .whereType<String>()
             .toList();
         if (crewIds.isEmpty) return <Crew>[];
 
-        final crewDocs = <QueryDocumentSnapshot>[];
-        for (var start = 0; start < crewIds.length; start += 30) {
-          final end = (start + 30).clamp(0, crewIds.length);
-          final batchIds = crewIds.sublist(start, end);
-          final crewSnap = await _crews
-              .where(FieldPath.documentId, whereIn: batchIds)
-              .get();
-          crewDocs.addAll(crewSnap.docs);
-        }
+        final crewSnaps = await Future.wait([
+          for (
+            var start = 0;
+            start < crewIds.length;
+            start += _firestoreWhereInLimit
+          )
+            _crews
+                .where(
+                  FieldPath.documentId,
+                  whereIn: crewIds.sublist(
+                    start,
+                    (start + _firestoreWhereInLimit).clamp(0, crewIds.length),
+                  ),
+                )
+                .get(),
+        ]);
 
-        return crewDocs
-            .map((d) => Crew.fromMap(d.data() as Map<String, dynamic>, d.id))
+        return crewSnaps
+            .expand((snap) => snap.docs)
+            .map((doc) => Crew.fromMap(doc.data(), doc.id))
             .toList();
       },
     );
   }
 
+  String? _readString(Map<String, dynamic>? data, String field) {
+    final value = data?[field];
+    if (value is! String || value.isEmpty) return null;
+    return value;
+  }
+
   Stream<Crew?> streamCrew(String crewId) {
     return _crews.doc(crewId).snapshots().map((snap) {
       if (!snap.exists) return null;
-      return Crew.fromMap(snap.data() as Map<String, dynamic>, snap.id);
+      return Crew.fromMap(snap.data() ?? {}, snap.id);
     });
   }
 
@@ -92,12 +114,7 @@ class FirestoreCrewsDatasource {
         .snapshots()
         .map(
           (snap) => snap.docs
-              .map(
-                (d) => CrewMembership.fromMap(
-                  d.data() as Map<String, dynamic>,
-                  d.id,
-                ),
-              )
+              .map((d) => CrewMembership.fromMap(d.data(), d.id))
               .toList(),
         );
   }
@@ -108,12 +125,7 @@ class FirestoreCrewsDatasource {
         .snapshots()
         .map(
           (snap) => snap.docs
-              .map(
-                (d) => CrewInvitation.fromMap(
-                  d.data() as Map<String, dynamic>,
-                  d.id,
-                ),
-              )
+              .map((d) => CrewInvitation.fromMap(d.data(), d.id))
               .toList(),
         );
   }
@@ -124,12 +136,7 @@ class FirestoreCrewsDatasource {
         .snapshots()
         .map(
           (snap) => snap.docs
-              .map(
-                (d) => CrewInvitation.fromMap(
-                  d.data() as Map<String, dynamic>,
-                  d.id,
-                ),
-              )
+              .map((d) => CrewInvitation.fromMap(d.data(), d.id))
               .toList(),
         );
   }
@@ -206,7 +213,7 @@ class FirestoreCrewsDatasource {
 
     // Fetch user profile for denormalized fields
     final userDoc = await _users.doc(userId).get();
-    final userData = userDoc.data() as Map<String, dynamic>? ?? {};
+    final userData = userDoc.data() ?? {};
     final crewId = invitation.crewId;
     final membershipId = '${crewId}_$userId';
     final now = DateTime.now().toUtc().toIso8601String();
@@ -235,29 +242,98 @@ class FirestoreCrewsDatasource {
     await _crews.doc(crewId).update({'name': name.trim()});
   }
 
-  /// Deletes the crew and all associated memberships and invitations atomically.
+  /// Deletes the crew and all associated memberships and invitations.
   Future<void> deleteCrew(String crewId) async {
-    final batch = firestore.batch();
-
     final memberships = await _memberships
         .where('crewId', isEqualTo: crewId)
         .get();
-    for (final doc in memberships.docs) {
-      batch.delete(doc.reference);
-    }
-
     final invitations = await _invitations
         .where('crewId', isEqualTo: crewId)
         .get();
-    for (final doc in invitations.docs) {
-      batch.delete(doc.reference);
-    }
 
-    batch.delete(_crews.doc(crewId));
-    await batch.commit();
+    final documentsToDelete = <DocumentReference>[
+      ...memberships.docs.map((doc) => doc.reference),
+      ...invitations.docs.map((doc) => doc.reference),
+      _crews.doc(crewId),
+    ];
+
+    final totalChunkCount =
+        (documentsToDelete.length / _firestoreBatchWriteLimit).ceil();
+    var committedChunkCount = 0;
+
+    for (
+      var chunkStart = 0;
+      chunkStart < documentsToDelete.length;
+      chunkStart += _firestoreBatchWriteLimit
+    ) {
+      final chunkEnd = chunkStart + _firestoreBatchWriteLimit;
+      final chunkDocuments = documentsToDelete.sublist(
+        chunkStart,
+        chunkEnd > documentsToDelete.length
+            ? documentsToDelete.length
+            : chunkEnd,
+      );
+
+      for (var attempt = 1; attempt <= _deleteCrewBatchMaxAttempts; attempt++) {
+        final batch = firestore.batch();
+        for (final document in chunkDocuments) {
+          batch.delete(document);
+        }
+
+        try {
+          await batch.commit();
+          committedChunkCount++;
+          break;
+        } on FirebaseException catch (error, stackTrace) {
+          if (attempt == _deleteCrewBatchMaxAttempts) {
+            Error.throwWithStackTrace(
+              CrewDeletePartialFailureException(
+                crewId: crewId,
+                committedChunkCount: committedChunkCount,
+                failedChunkNumber: committedChunkCount + 1,
+                totalChunkCount: totalChunkCount,
+                remainingDocumentCount: documentsToDelete.length - chunkStart,
+                cause: error,
+              ),
+              stackTrace,
+            );
+          }
+        }
+      }
+    }
   }
 
   Future<void> removeMember(String crewId, String userId) async {
     await _memberships.doc('${crewId}_$userId').delete();
+  }
+}
+
+class CrewDeletePartialFailureException implements Exception {
+  final String crewId;
+  final int committedChunkCount;
+  final int failedChunkNumber;
+  final int totalChunkCount;
+  final int remainingDocumentCount;
+  final FirebaseException cause;
+
+  CrewDeletePartialFailureException({
+    required this.crewId,
+    required this.committedChunkCount,
+    required this.failedChunkNumber,
+    required this.totalChunkCount,
+    required this.remainingDocumentCount,
+    required this.cause,
+  });
+
+  @override
+  String toString() {
+    return 'CrewDeletePartialFailureException('
+        'crewId: $crewId, '
+        'committedChunkCount: $committedChunkCount, '
+        'failedChunkNumber: $failedChunkNumber, '
+        'totalChunkCount: $totalChunkCount, '
+        'remainingDocumentCount: $remainingDocumentCount, '
+        'cause: $cause'
+        ')';
   }
 }

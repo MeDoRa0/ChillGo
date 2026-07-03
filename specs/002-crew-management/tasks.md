@@ -21,7 +21,7 @@
 **Purpose**: Project initialization and basic structure
 
 - [ ] T001 Create folder structure for crew feature under [lib/features/crews/](../../lib/features/crews/)
-- [ ] T002 Update router to register `/crews`, `/crews/:id` and `/invitations` in [lib/core/routes/app_router.dart](../../lib/core/routes/app_router.dart)
+- [ ] T002 Update router to register `/crews`, `/crews/:crewId` and `/invitations` in [lib/core/routes/app_router.dart](../../lib/core/routes/app_router.dart)
 
 ---
 
@@ -153,7 +153,7 @@
 - [ ] T043 [P] Set up and run security rules tests in [firestore_tests/rules.test.js](../../firestore_tests/rules.test.js) against local emulator
 - [ ] T044 Run all automated unit and bloc tests under [test/features/crews/](../../test/features/crews/)
 - [ ] T045 Perform manual end-to-end verification of all scenarios in [quickstart.md](./quickstart.md) and verify responsive design
-- [ ] T046 [P] Update walkthrough documentation artifact `walkthrough.md`
+- [X] T046 [P] Update walkthrough documentation artifact `walkthrough.md`
 
 ---
 
@@ -209,3 +209,7 @@ Task: "Create bloc tests for CrewDetailCubit in test/features/crews/presentation
 7. Complete Phase 6: User Story 4 (Edit/Delete)
 8. Complete Phase 7: User Story 5 (Member Management)
 9. Complete Phase 8: Polish.
+
+## Phase 9: Convergence
+
+- [X] T047 Add or update the Crew Management walkthrough documentation artifact per T046 (missing)

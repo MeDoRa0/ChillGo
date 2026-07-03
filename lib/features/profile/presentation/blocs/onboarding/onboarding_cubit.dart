@@ -1,7 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/foundation.dart';
 import 'package:equatable/equatable.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../../../domain/repositories/profile_repository.dart';
 import '../../../../authentication/domain/repositories/auth_repository.dart';
 
@@ -43,21 +42,25 @@ class OnboardingCubit extends Cubit<OnboardingState> {
   }) async {
     emit(OnboardingLoading());
     try {
-      final firebaseUser = FirebaseAuth.instance.currentUser;
-      if (firebaseUser == null) {
+      final currentUser = await _refreshCurrentUserToken();
+      if (currentUser == null) {
         emit(
           const OnboardingFailure('Authentication lost. Please sign in again.'),
         );
         return;
       }
+      final authenticatedUid = currentUser.uid;
 
-      debugPrint(
-        '[OnboardingCubit] submitOnboarding start uid=$uid username=$username',
-      );
-      await _refreshFirebaseUserToken(firebaseUser);
-      debugPrint(
-        '[OnboardingCubit] ID token refreshed for uid: ${firebaseUser.uid}',
-      );
+      if (kDebugMode) {
+        if (uid != authenticatedUid) {
+          debugPrint(
+            '[OnboardingCubit] submitted uid $uid differs from authenticated uid $authenticatedUid; using authenticated uid',
+          );
+        }
+        debugPrint(
+          '[OnboardingCubit] submitOnboarding start uid=$authenticatedUid username=$username',
+        );
+      }
 
       final isAvailable = await _profileRepository.isUsernameAvailable(
         username,
@@ -69,10 +72,9 @@ class OnboardingCubit extends Cubit<OnboardingState> {
       }
 
       await _attemptCreateProfileWithRetry(
-        uid: uid,
+        uid: authenticatedUid,
         username: username,
         displayName: displayName,
-        firebaseUser: firebaseUser,
       );
 
       try {
@@ -92,7 +94,6 @@ class OnboardingCubit extends Cubit<OnboardingState> {
     required String uid,
     required String username,
     required String displayName,
-    required User firebaseUser,
   }) async {
     try {
       await _profileRepository.createProfile(
@@ -106,9 +107,12 @@ class OnboardingCubit extends Cubit<OnboardingState> {
         debugPrint(
           '[OnboardingCubit] permission-denied on createProfile, refreshing auth token and retrying',
         );
-        await _refreshFirebaseUserToken(firebaseUser);
+        final currentUser = await _refreshCurrentUserToken();
+        if (currentUser == null) {
+          throw Exception('Authentication lost. Please sign in again.');
+        }
         await _profileRepository.createProfile(
-          uid: uid,
+          uid: currentUser.uid,
           username: username,
           displayName: displayName,
         );
@@ -118,11 +122,13 @@ class OnboardingCubit extends Cubit<OnboardingState> {
     }
   }
 
-  Future<void> _refreshFirebaseUserToken(User firebaseUser) async {
-    await firebaseUser.reload();
-    await firebaseUser.getIdToken(true);
-    debugPrint(
-      '[OnboardingCubit] Firebase auth token refreshed for uid: ${firebaseUser.uid}',
-    );
+  Future<UserCredentials?> _refreshCurrentUserToken() async {
+    final currentUser = await _authRepository.refreshCurrentUserToken();
+    if (kDebugMode) {
+      debugPrint(
+        '[OnboardingCubit] Auth token refreshed for uid: ${currentUser?.uid ?? 'null'}',
+      );
+    }
+    return currentUser;
   }
 }

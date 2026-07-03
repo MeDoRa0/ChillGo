@@ -98,16 +98,21 @@ class CrewRepositoryImpl implements CrewRepository {
 
   @override
   Future<void> leaveCrew(String crewId) async {
-    final crew = await datasource.streamCrew(crewId).first;
-    if (crew == null) throw Exception('crew-not-found');
-    if (crew.ownerId == currentUid()) {
-      throw Exception('owner-cannot-leave-crew');
-    }
+    await _ensureUserIsNotCrewOwner(crewId, currentUid());
     await datasource.removeMember(crewId, currentUid());
   }
 
   @override
   Future<void> removeMember(String crewId, String userId) async {
+    await _ensureUserIsNotCrewOwner(crewId, userId);
     await datasource.removeMember(crewId, userId);
+  }
+
+  Future<void> _ensureUserIsNotCrewOwner(String crewId, String userId) async {
+    final crew = await datasource.streamCrew(crewId).first;
+    if (crew == null) throw Exception('crew-not-found');
+    if (crew.ownerId == userId) {
+      throw Exception('owner-cannot-leave-crew');
+    }
   }
 }

@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 import '../../../domain/repositories/auth_repository.dart';
 import 'auth_event.dart';
 import 'auth_state.dart';
@@ -15,19 +15,27 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthStatusChanged>(_onStatusChanged);
     on<AuthLogoutRequested>(_onLogoutRequested);
 
-    debugPrint('[AuthBloc] subscribing to auth status stream');
+    if (kDebugMode) {
+      debugPrint('[AuthBloc] subscribing to auth status stream');
+    }
     _statusSubscription = _authRepository.status.listen((status) {
-      debugPrint('[AuthBloc] status stream emitted: $status');
+      if (kDebugMode) {
+        debugPrint('[AuthBloc] status stream emitted: $status');
+      }
       add(AuthStatusChanged(status));
     });
 
     final currentStatus = _authRepository.currentStatus;
-    debugPrint('[AuthBloc] dispatching currentStatus: $currentStatus');
+    if (kDebugMode) {
+      debugPrint('[AuthBloc] dispatching currentStatus: $currentStatus');
+    }
     add(AuthStatusChanged(currentStatus));
   }
 
   void _onStatusChanged(AuthStatusChanged event, Emitter<AuthState> emit) {
-    debugPrint('[AuthBloc] AuthStatusChanged received: ${event.status}');
+    if (kDebugMode) {
+      debugPrint('[AuthBloc] AuthStatusChanged received: ${event.status}');
+    }
     switch (event.status) {
       case AuthStatus.unauthenticated:
         emit(const AuthState.unauthenticated());
@@ -35,9 +43,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       case AuthStatus.authenticatedNoProfile:
         final creds = _authRepository.currentCredentials;
         if (creds != null) {
-          debugPrint(
-            '[AuthBloc] Emitting authenticatedNoProfile with uid: ${creds.uid}',
-          );
+          if (kDebugMode) {
+            debugPrint(
+              '[AuthBloc] Emitting authenticatedNoProfile with uid: ${creds.uid}',
+            );
+          }
           emit(AuthState.authenticatedNoProfile(creds));
         } else {
           emit(const AuthState.unauthenticated());
@@ -46,9 +56,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       case AuthStatus.authenticatedWithProfile:
         final creds = _authRepository.currentCredentials;
         if (creds != null) {
-          debugPrint(
-            '[AuthBloc] Emitting authenticatedWithProfile with uid: ${creds.uid}, username: ${creds.username}',
-          );
+          if (kDebugMode) {
+            debugPrint(
+              '[AuthBloc] Emitting authenticatedWithProfile with uid: ${creds.uid}, username: ${creds.username}',
+            );
+          }
           emit(AuthState.authenticatedWithProfile(creds));
         } else {
           emit(const AuthState.unauthenticated());

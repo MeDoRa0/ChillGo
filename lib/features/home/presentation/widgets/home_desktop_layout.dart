@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'sign_out_icon_button.dart';
+import 'user_identity_summary.dart';
 
 class HomeDesktopLayout extends StatelessWidget {
-  final VoidCallback? onTriggerCrash;
+  final String? displayName;
+  final String? username;
 
-  const HomeDesktopLayout({super.key, this.onTriggerCrash});
+  const HomeDesktopLayout({super.key, this.displayName, this.username});
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +40,14 @@ class HomeDesktopLayout extends StatelessWidget {
                     ],
                   ),
                 ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+                  child: UserIdentitySummary(
+                    displayName: displayName,
+                    username: username,
+                    compact: true,
+                  ),
+                ),
                 Expanded(
                   child: ListView(
                     children: [
@@ -62,23 +73,6 @@ class HomeDesktopLayout extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (onTriggerCrash != null)
-                  Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: ElevatedButton.icon(
-                      onPressed: onTriggerCrash,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFEF4444),
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size.fromHeight(48),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      icon: const Icon(Icons.bug_report),
-                      label: const Text('Simulate Crash'),
-                    ),
-                  ),
               ],
             ),
           ),
@@ -140,13 +134,20 @@ class HomeDesktopLayout extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Crew Management',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                const Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Crew Management',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    SignOutIconButton(),
+                  ],
                 ),
                 const SizedBox(height: 20),
                 _buildPanelLink(
