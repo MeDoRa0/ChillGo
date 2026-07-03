@@ -8,6 +8,15 @@
 
 **Input**: User description: "Phase 1 — Authentication & Profiles only from main_plan.md"
 
+## Clarifications
+
+### Session 2026-07-04
+
+- Q: Should Google and Apple sign-in be required on every target platform, or only where each provider is supported? -> A: Google must be available everywhere; Apple is required only on supported Apple/Web platforms.
+- Q: What length limits should apply to usernames and display names? -> A: Username 3-20 chars; display name 1-50 chars.
+- Q: Which avatar file types and source size limit should be accepted? -> A: Accept JPEG, PNG, WebP up to 5 MB before compression.
+- Q: Who can view profile lookup details for invites? -> A: During authenticated username lookup for invitation flows, only username, display name, and avatarUrl are exposed to authenticated users; this does not create a general profile browse endpoint.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Federated Sign-In & Account Registration (Priority: P1)
@@ -20,8 +29,8 @@ As a new or returning user, I want to sign in securely using my Google or Apple 
 
 **Acceptance Scenarios**:
 
-1. **Given** a new user who is not logged in, **When** they tap "Sign in with Google" or "Sign in with Apple" and complete the provider authentication, **Then** they are redirected to the Username & Display Name creation screen.
-2. **Given** an existing user who is not logged in, **When** they tap "Sign in with Google" or "Sign in with Apple" and complete the provider authentication, **Then** they are redirected directly to the home dashboard.
+1. **Given** a new user who is not logged in, **When** they tap "Sign in with Google" or an available supported "Sign in with Apple" option and complete the provider authentication, **Then** they are redirected to the Username & Display Name creation screen.
+2. **Given** an existing user who is not logged in, **When** they tap "Sign in with Google" or an available supported "Sign in with Apple" option and complete the provider authentication, **Then** they are redirected directly to the home dashboard.
 3. **Given** a user who initiates sign-in, **When** they cancel the provider sign-in flow, **Then** they remain on the landing screen with an appropriate message.
 
 ---
@@ -76,30 +85,33 @@ As a user, I want my login session to persist when I close the application, and 
 - **Network Interruption**: If the internet connection is lost during authentication or profile creation, the system shows a friendly network error message and allows the user to retry once the connection is restored.
 - **Interrupted Onboarding**: If the app is closed or crashes after third-party authentication but before username and display name creation, the system detects this incomplete state on the next launch and redirects the user back to the onboarding screen.
 - **Concurrent Username Selection**: If two users attempt to claim the exact same username at the same time, the system enforces a strict uniqueness constraint at the data layer, allowing only one to succeed and prompting the other to choose a different username.
-- **Large/Invalid Avatar File**: If a user uploads an extremely large image or unsupported file format as an avatar, the system validates the file, rejects it with a user-friendly error message, or compresses it client-side before saving.
+- **Large/Invalid Avatar File**: If a user uploads an avatar larger than 5 MB before compression or a file that is not JPEG, PNG, or WebP, the system rejects it with a user-friendly error message; valid files may be compressed client-side before saving.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: System MUST support federated authentication via third-party identity providers (Google and Apple).
+- **FR-001**: System MUST support federated authentication via Google on every target platform and Apple Sign-In on supported Apple/Web platforms only.
 - **FR-002**: System MUST persist the user's authentication session across application restarts.
 - **FR-003**: System MUST require new users to create a unique username and a display name before accessing any other features.
-- **FR-004**: System MUST enforce that usernames are unique (case-insensitive), do not contain spaces, and only contain alphanumeric characters or underscores.
+- **FR-004**: System MUST enforce that usernames are unique (case-insensitive), 3-20 characters long, do not contain spaces, and only contain alphanumeric characters or underscores.
 - **FR-005**: System MUST allow users to view their profile details (username, display name, avatar, account creation date).
 - **FR-006**: System MUST allow users to edit their display name.
 - **FR-007**: System MUST NOT allow users to change their username once it has been created (usernames are immutable).
-- **FR-008**: System MUST support uploading a custom profile picture/avatar.
+- **FR-008**: System MUST support uploading a custom profile picture/avatar as a JPEG, PNG, or WebP image up to 5 MB before compression.
 - **FR-009**: System MUST allow users to sign out, clearing the local authentication session.
+- **FR-010**: System MUST allow authenticated users to look up other users by username for invitation purposes and view only their username, display name, and avatarUrl.
 
 ### Key Entities *(include if feature involves data)*
 
 - **User Profile**: Represents the user's application identity. Key attributes:
   - `ID`: Unique identifier generated by the authentication provider.
-  - `Username`: Unique, alphanumeric (plus underscores), case-insensitive, immutable, no spaces.
-  - `Display Name`: User-friendly display name, mutable.
+  - `Username`: Unique, 3-20 characters, alphanumeric (plus underscores), case-insensitive, immutable, no spaces.
+  - `Display Name`: User-friendly display name, 1-50 characters, mutable.
   - `Avatar URL`: Reference to the user's profile image.
   - `Created Date`: Timestamp of when the user account was first created.
+
+Only `Username`, `Display Name`, and `Avatar URL` are exposed to other authenticated users during username lookup for invitation flows; the system does not provide a general profile browse endpoint.
 
 ## Success Criteria *(mandatory)*
 

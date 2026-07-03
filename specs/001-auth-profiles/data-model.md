@@ -16,6 +16,8 @@ Represents the core profile information of an onboarded ChillGo user.
 | `avatarUrl` | String? | Remote URL pointing to the user's custom profile avatar | Mutable, optional |
 | `createdAt` | DateTime | Timestamp of profile registration | Immutable |
 
+Only `username`, `displayName`, and `avatarUrl` are exposed to other authenticated users during username lookup for invitation flows.
+
 #### State Transitions
 
 ```mermaid
@@ -58,7 +60,7 @@ stateDiagram-v2
 
 ### `avatars` Directory
 - **Path**: `/avatars/{uid}`
-- **Content**: User profile image file (JPEG or PNG, max 500 KB, compressed).
+- **Content**: User profile image file. Source uploads must be JPEG, PNG, or WebP and no larger than 5 MB before client-side compression. Stored avatar objects should be compressed to a target maximum of 500 KB.
 
 ---
 
@@ -98,7 +100,7 @@ service firebase.storage {
       allow write: if request.auth != null 
                    && request.auth.uid == uid 
                    && request.resource.size < 512 * 1024 // Limit to 500 KB
-                   && request.resource.contentType.matches('image/.*');
+                   && request.resource.contentType.matches('image/(jpeg|png|webp)');
     }
   }
 }

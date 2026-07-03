@@ -17,6 +17,19 @@ class UserProfile {
   });
 }
 
+/// Public profile fields exposed for authenticated username lookup.
+class PublicUserProfile {
+  final String username;
+  final String displayName;
+  final String? avatarUrl;
+
+  const PublicUserProfile({
+    required this.username,
+    required this.displayName,
+    this.avatarUrl,
+  });
+}
+
 /// Abstract Repository defining the contract for profile operations.
 abstract class ProfileRepository {
   /// Fetches the profile of the user matching the given [uid].
@@ -24,8 +37,13 @@ abstract class ProfileRepository {
   Future<UserProfile?> getProfile(String uid);
 
   /// Checks if a [username] is unique and available.
-  /// Usernames are case-insensitive and cannot contain spaces.
+  /// Usernames are case-insensitive, 3-20 chars, alphanumeric or underscores,
+  /// and cannot contain spaces.
   Future<bool> isUsernameAvailable(String username);
+
+  /// Finds a public profile by username for invitation flows.
+  /// Returns only username, display name, and avatar URL.
+  Future<PublicUserProfile?> lookupByUsername(String username);
 
   /// Creates a new user profile and registers the unique username.
   /// Must be executed atomically (e.g., using a Firestore Transaction).
@@ -43,10 +61,12 @@ abstract class ProfileRepository {
     required String displayName,
   });
 
-  /// Uploads the compressed image bytes to remote storage and returns the download URL.
+  /// Uploads compressed JPEG, PNG, or WebP image bytes to remote storage and
+  /// returns the download URL.
   Future<String> uploadAvatar({
     required String uid,
     required List<int> imageBytes,
-    required String fileExtension,
+    required String contentType,
+    required int originalSizeBytes,
   });
 }

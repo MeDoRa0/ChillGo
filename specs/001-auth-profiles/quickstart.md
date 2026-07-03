@@ -80,3 +80,10 @@ You can verify the flows manually by running the application targeted to the loc
 3. Verify that the app bypasses the landing/login screen and opens directly to the Dashboard.
 4. Navigate to the profile screen and tap **Sign Out**.
 5. Verify the app returns to the landing screen and subsequent launches load the landing screen.
+
+### Scenario D: Avatar Upload & Public Lookup
+1. Sign in as an onboarded user and open the profile screen.
+2. Attempt to upload an unsupported avatar file type or a JPEG, PNG, or WebP larger than 5 MB before compression. Verify the app rejects it with a clear validation message.
+3. Upload a valid JPEG, PNG, or WebP avatar. Verify the avatar is compressed, saved, and displayed on the profile screen.
+4. Sign in as a second authenticated user and search for the first user's username.
+5. Verify the lookup returns only the username, display name, and avatar.
