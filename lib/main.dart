@@ -4,10 +4,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'firebase_options.dart';
 import 'core/di/injection_container.dart' as di;
 import 'core/routes/app_router.dart';
 import 'core/error/global_error_handler.dart';
+import 'features/authentication/presentation/blocs/auth/auth_bloc.dart';
 
 const _useFirebaseEmulators = bool.fromEnvironment('USE_FIREBASE_EMULATORS');
 
@@ -58,13 +60,16 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
-      title: 'ChillGo',
-      theme: ThemeData.dark().copyWith(
-        primaryColor: const Color(0xFF6366F1),
-        scaffoldBackgroundColor: const Color(0xFF0F0F1A),
+    return BlocProvider(
+      create: (_) => di.sl<AuthBloc>(),
+      child: MaterialApp.router(
+        title: 'ChillGo',
+        theme: ThemeData.dark().copyWith(
+          primaryColor: const Color(0xFF6366F1),
+          scaffoldBackgroundColor: const Color(0xFF0F0F1A),
+        ),
+        routerConfig: appRouter,
       ),
-      routerConfig: appRouter,
     );
   }
 }

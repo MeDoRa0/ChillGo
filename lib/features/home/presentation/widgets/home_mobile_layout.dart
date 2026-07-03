@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'sign_out_icon_button.dart';
+import 'user_identity_summary.dart';
 
 class HomeMobileLayout extends StatelessWidget {
-  final VoidCallback? onTriggerCrash;
+  final String? displayName;
+  final String? username;
 
-  const HomeMobileLayout({super.key, this.onTriggerCrash});
-
+  const HomeMobileLayout({super.key, this.displayName, this.username});
 
   @override
   Widget build(BuildContext context) {
@@ -19,6 +21,7 @@ class HomeMobileLayout extends StatelessWidget {
               expandedHeight: 120.0,
               floating: false,
               pinned: true,
+              actions: const [SignOutIconButton()],
               flexibleSpace: FlexibleSpaceBar(
                 title: const Text(
                   'ChillGo',
@@ -45,21 +48,14 @@ class HomeMobileLayout extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Welcome back!',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    UserIdentitySummary(
+                      displayName: displayName,
+                      username: username,
                     ),
                     const SizedBox(height: 8),
                     Text(
                       'Coordinate and chill with your crews.',
-                      style: TextStyle(
-                        color: Colors.grey[400],
-                        fontSize: 14,
-                      ),
+                      style: TextStyle(color: Colors.grey[400], fontSize: 14),
                     ),
                     const SizedBox(height: 24),
                     _buildStatusCard(),
@@ -75,27 +71,6 @@ class HomeMobileLayout extends StatelessWidget {
                     const SizedBox(height: 12),
                     _buildQuickActions(context),
                     const SizedBox(height: 24),
-                    if (onTriggerCrash != null) ...[
-                      Center(
-                        child: ElevatedButton.icon(
-                          onPressed: onTriggerCrash,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFEF4444),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 12,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          icon: const Icon(Icons.bug_report),
-                          label: const Text('Simulate Diagnostics Crash'),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                    ],
                   ],
                 ),
               ),
@@ -119,7 +94,7 @@ class HomeMobileLayout extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF6366F1).withOpacity(0.15),
+              color: const Color(0xFF6366F1).withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
             child: const Icon(
@@ -144,10 +119,7 @@ class HomeMobileLayout extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   'Create or join an outing to start tracking live.',
-                  style: TextStyle(
-                    color: Colors.grey[400],
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: Colors.grey[400], fontSize: 12),
                 ),
               ],
             ),
@@ -170,7 +142,9 @@ class HomeMobileLayout extends StatelessWidget {
           icon: Icons.groups,
           title: 'My Crews',
           color: const Color(0xFF3B82F6),
-          onTap: () {},
+          onTap: () {
+            context.push('/crews');
+          },
         ),
         _buildActionCard(
           icon: Icons.add_box,
@@ -184,6 +158,14 @@ class HomeMobileLayout extends StatelessWidget {
           color: const Color(0xFFF59E0B),
           onTap: () {
             context.push('/details');
+          },
+        ),
+        _buildActionCard(
+          icon: Icons.mail_outline,
+          title: 'Invitations',
+          color: const Color(0xFFA855F7),
+          onTap: () {
+            context.push('/invitations');
           },
         ),
       ],

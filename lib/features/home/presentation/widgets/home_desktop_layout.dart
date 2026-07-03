@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'sign_out_icon_button.dart';
+import 'user_identity_summary.dart';
 
 class HomeDesktopLayout extends StatelessWidget {
-  final VoidCallback? onTriggerCrash;
+  final String? displayName;
+  final String? username;
 
-  const HomeDesktopLayout({super.key, this.onTriggerCrash});
+  const HomeDesktopLayout({super.key, this.displayName, this.username});
 
   @override
   Widget build(BuildContext context) {
@@ -37,37 +40,47 @@ class HomeDesktopLayout extends StatelessWidget {
                     ],
                   ),
                 ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+                  child: UserIdentitySummary(
+                    displayName: displayName,
+                    username: username,
+                    compact: true,
+                  ),
+                ),
                 Expanded(
                   child: ListView(
                     children: [
                       _buildSidebarItem(Icons.dashboard, 'Dashboard', true),
-                      _buildSidebarItem(Icons.groups, 'My Crews', false, enabled: false),
-                      _buildSidebarItem(Icons.explore, 'Outings', false, enabled: false),
-                      _buildSidebarItem(Icons.settings, 'Settings', false, enabled: false),
+                      _buildSidebarItem(
+                        Icons.groups,
+                        'My Crews',
+                        false,
+                        onTap: () => context.push('/crews'),
+                      ),
+                      _buildSidebarItem(
+                        Icons.explore,
+                        'Outings',
+                        false,
+                        enabled: false,
+                      ),
+                      _buildSidebarItem(
+                        Icons.settings,
+                        'Settings',
+                        false,
+                        enabled: false,
+                      ),
                     ],
                   ),
                 ),
-                if (onTriggerCrash != null)
-                  Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: ElevatedButton.icon(
-                      onPressed: onTriggerCrash,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFEF4444),
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size.fromHeight(48),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      icon: const Icon(Icons.bug_report),
-                      label: const Text('Simulate Crash'),
-                    ),
-                  ),
               ],
             ),
           ),
-          const VerticalDivider(thickness: 1, width: 1, color: Color(0xFF2E2E4F)),
+          const VerticalDivider(
+            thickness: 1,
+            width: 1,
+            color: Color(0xFF2E2E4F),
+          ),
           // Middle Content Panel (Main Dashboard)
           Expanded(
             flex: 3,
@@ -88,10 +101,7 @@ class HomeDesktopLayout extends StatelessWidget {
                     const SizedBox(height: 8),
                     Text(
                       'Your central coordination hub for all active crews and outings.',
-                      style: TextStyle(
-                        color: Colors.grey[400],
-                        fontSize: 15,
-                      ),
+                      style: TextStyle(color: Colors.grey[400], fontSize: 15),
                     ),
                     const SizedBox(height: 32),
                     _buildBannerCard(),
@@ -111,7 +121,11 @@ class HomeDesktopLayout extends StatelessWidget {
               ),
             ),
           ),
-          const VerticalDivider(thickness: 1, width: 1, color: Color(0xFF2E2E4F)),
+          const VerticalDivider(
+            thickness: 1,
+            width: 1,
+            color: Color(0xFF2E2E4F),
+          ),
           // Right Panel (Status & Activity)
           Container(
             width: 340,
@@ -120,23 +134,36 @@ class HomeDesktopLayout extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Crews & Members',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                const Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Crew Management',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    SignOutIconButton(),
+                  ],
                 ),
                 const SizedBox(height: 20),
-                Expanded(
-                  child: ListView(
-                    children: [
-                      _buildCrewSection('Dev Team', ['Alice (Host)', 'Bob', 'Charlie']),
-                      const SizedBox(height: 20),
-                      _buildCrewSection('Gaming Night', ['Dave (Host)', 'Eve', 'Frank']),
-                    ],
-                  ),
+                _buildPanelLink(
+                  context,
+                  icon: Icons.groups,
+                  title: 'My Crews',
+                  subtitle: 'Create, invite, and manage members.',
+                  route: '/crews',
+                ),
+                const SizedBox(height: 12),
+                _buildPanelLink(
+                  context,
+                  icon: Icons.mail_outline,
+                  title: 'Invitations',
+                  subtitle: 'Accept or reject crew invitations.',
+                  route: '/invitations',
                 ),
               ],
             ),
@@ -146,22 +173,31 @@ class HomeDesktopLayout extends StatelessWidget {
     );
   }
 
-  Widget _buildSidebarItem(IconData icon, String title, bool isSelected, {bool enabled = true}) {
+  Widget _buildSidebarItem(
+    IconData icon,
+    String title,
+    bool isSelected, {
+    bool enabled = true,
+    VoidCallback? onTap,
+  }) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
-        color: isSelected ? const Color(0xFF6366F1).withOpacity(0.15) : Colors.transparent,
+        color: isSelected
+            ? const Color(0xFF6366F1).withValues(alpha: 0.15)
+            : Colors.transparent,
         borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(
         enabled: enabled,
+        onTap: enabled ? onTap : null,
         leading: Icon(
           icon,
           color: isSelected
               ? const Color(0xFF6366F1)
               : enabled
-                  ? Colors.grey[400]
-                  : Colors.grey[700],
+              ? Colors.grey[400]
+              : Colors.grey[700],
         ),
         title: Text(
           title,
@@ -169,12 +205,11 @@ class HomeDesktopLayout extends StatelessWidget {
             color: isSelected
                 ? Colors.white
                 : enabled
-                    ? Colors.grey[400]
-                    : Colors.grey[700],
+                ? Colors.grey[400]
+                : Colors.grey[700],
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
           ),
         ),
-        // No onTap – not yet implemented for unselected destinations.
       ),
     );
   }
@@ -191,7 +226,7 @@ class HomeDesktopLayout extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF6366F1).withOpacity(0.3),
+            color: const Color(0xFF6366F1).withValues(alpha: 0.3),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -244,7 +279,9 @@ class HomeDesktopLayout extends StatelessWidget {
           title: 'My Crews',
           subtitle: 'Create, invite, and coordinate crew groups.',
           color: const Color(0xFF3B82F6),
-          onTap: () {},
+          onTap: () {
+            context.push('/crews');
+          },
         ),
         _buildActionCard(
           icon: Icons.add_box,
@@ -302,10 +339,7 @@ class HomeDesktopLayout extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   subtitle,
-                  style: TextStyle(
-                    color: Colors.grey[400],
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: Colors.grey[400], fontSize: 12),
                 ),
               ],
             ),
@@ -315,41 +349,53 @@ class HomeDesktopLayout extends StatelessWidget {
     );
   }
 
-  Widget _buildCrewSection(String title, List<String> members) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E1E2F),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF2E2E4F)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
+  Widget _buildPanelLink(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required String route,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () => context.push(route),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E1E2F),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFF2E2E4F)),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: const Color(0xFF6366F1).withValues(alpha: 0.12),
+              child: Icon(icon, color: const Color(0xFF6366F1), size: 18),
             ),
-          ),
-          const Divider(color: Color(0xFF2E2E4F), height: 20),
-          ...members.map((member) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4.0),
-                child: Row(
-                  children: [
-                    const Icon(Icons.person, color: Color(0xFF6366F1), size: 16),
-                    const SizedBox(width: 8),
-                    Text(
-                      member,
-                      style: const TextStyle(color: Colors.white70, fontSize: 13),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
                     ),
-                  ],
-                ),
-              )),
-        ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: Colors.white38),
+          ],
+        ),
       ),
     );
   }

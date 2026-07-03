@@ -1,6 +1,150 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function crewPath(crewId) {
+      return /databases/$(database)/documents/crews/$(crewId);
+    }
+
+    function userPath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    function membershipPath(membershipId) {
+      return /databases/$(database)/documents/crew_memberships/$(membershipId);
+    }
+
+    function ownerMembershipPath(crewId, ownerId) {
+      return membershipPath(crewId + '_' + ownerId);
+    }
+
+    function invitationPath(invitationId) {
+      return /databases/$(database)/documents/crew_invitations/$(invitationId);
+    }
+
+    function isValidCrewName(name) {
+      return name is string && name.size() >= 3 && name.size() <= 50;
+    }
+
+    function isValidCrewPayload(crewId) {
+      return request.resource.data.keys().hasOnly(['id', 'name', 'ownerId', 'createdAt']) &&
+        request.resource.data.keys().hasAll(['id', 'name', 'ownerId', 'createdAt']) &&
+        request.resource.data.id == crewId &&
+        isValidCrewName(request.resource.data.name) &&
+        request.resource.data.ownerId is string &&
+        request.resource.data.createdAt is string;
+    }
+
+    function isValidMembershipPayload(membershipId) {
+      return request.resource.data.keys().hasOnly([
+          'id',
+          'crewId',
+          'userId',
+          'role',
+          'joinedAt',
+          'username',
+          'displayName',
+          'avatarUrl'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'id',
+          'crewId',
+          'userId',
+          'role',
+          'joinedAt',
+          'username',
+          'displayName'
+        ]) &&
+        request.resource.data.id == membershipId &&
+        membershipId == request.resource.data.crewId + '_' + request.resource.data.userId &&
+        request.resource.data.userId is string &&
+        (request.resource.data.role == 'owner' || request.resource.data.role == 'member') &&
+        request.resource.data.joinedAt is string &&
+        request.resource.data.username is string &&
+        request.resource.data.displayName is string &&
+        exists(userPath(request.resource.data.userId)) &&
+        get(userPath(request.resource.data.userId)).data.username == request.resource.data.username &&
+        get(userPath(request.resource.data.userId)).data.displayName == request.resource.data.displayName &&
+        request.resource.data.get('avatarUrl', null) == get(userPath(request.resource.data.userId)).data.get('avatarUrl', null);
+    }
+
+    function isValidInvitationPayload(invitationId) {
+      return request.resource.data.keys().hasOnly([
+          'id',
+          'crewId',
+          'invitedUserId',
+          'invitedByUserId',
+          'createdAt',
+          'crewName',
+          'invitedByUsername',
+          'invitedByDisplayName',
+          'invitedUsername'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'id',
+          'crewId',
+          'invitedUserId',
+          'invitedByUserId',
+          'createdAt',
+          'crewName',
+          'invitedByUsername',
+          'invitedByDisplayName'
+        ]) &&
+        request.resource.data.id == invitationId &&
+        invitationId == request.resource.data.crewId + '_' + request.resource.data.invitedUserId &&
+        request.resource.data.invitedByUserId == request.auth.uid &&
+        request.resource.data.crewId is string &&
+        request.resource.data.invitedUserId is string &&
+        request.resource.data.createdAt is string &&
+        request.resource.data.crewName is string &&
+        request.resource.data.invitedByUsername is string &&
+        request.resource.data.invitedByDisplayName is string &&
+        exists(crewPath(request.resource.data.crewId)) &&
+        exists(userPath(request.resource.data.invitedByUserId)) &&
+        exists(userPath(request.resource.data.invitedUserId)) &&
+        get(crewPath(request.resource.data.crewId)).data.name == request.resource.data.crewName &&
+        get(userPath(request.resource.data.invitedByUserId)).data.username == request.resource.data.invitedByUsername &&
+        get(userPath(request.resource.data.invitedByUserId)).data.displayName == request.resource.data.invitedByDisplayName &&
+        (
+          !request.resource.data.keys().hasAny(['invitedUsername']) ||
+          get(userPath(request.resource.data.invitedUserId)).data.username == request.resource.data.invitedUsername
+        );
+    }
+
+    function isCrewMember(crewId) {
+      return signedIn() && exists(membershipPath(crewId + '_' + request.auth.uid));
+    }
+
+    function isCrewOwner(crewId) {
+      return signedIn() &&
+        exists(crewPath(crewId)) &&
+        get(crewPath(crewId)).data.ownerId == request.auth.uid &&
+        exists(ownerMembershipPath(crewId, request.auth.uid)) &&
+        get(ownerMembershipPath(crewId, request.auth.uid)).data.role == 'owner';
+    }
+
+    function isOwnerMembershipCreatedWithCrew(crewId) {
+      return existsAfter(membershipPath(crewId + '_' + request.auth.uid));
+    }
+
+    function isNewCrewCreatedWithOwnerMembership(crewId) {
+      return !exists(crewPath(crewId)) &&
+        existsAfter(crewPath(crewId)) &&
+        getAfter(crewPath(crewId)).data.ownerId == request.auth.uid;
+    }
+
+    function isInvitationConsumedWithMembership(membershipId) {
+      return exists(invitationPath(membershipId)) &&
+        !existsAfter(invitationPath(membershipId));
+    }
+
+    function isOwnerMembershipDeletedWithCrew(crewId) {
+      return exists(ownerMembershipPath(crewId, resource.data.ownerId)) &&
+        !existsAfter(ownerMembershipPath(crewId, resource.data.ownerId));
+    }
     
     // User Profile Rules
     match /users/{uid} {
@@ -15,6 +159,83 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
       allow update, delete: if false; // Usernames are immutable
+    }
+
+    match /crews/{crewId} {
+      allow read: if isCrewMember(crewId);
+
+      allow create: if signedIn() &&
+        isValidCrewPayload(crewId) &&
+        request.resource.data.ownerId == request.auth.uid &&
+        isOwnerMembershipCreatedWithCrew(crewId);
+
+      allow update: if isCrewOwner(crewId) &&
+        isValidCrewPayload(crewId) &&
+        request.resource.data.ownerId == resource.data.ownerId &&
+        request.resource.data.createdAt == resource.data.createdAt;
+
+      allow delete: if isCrewOwner(crewId) &&
+        isOwnerMembershipDeletedWithCrew(crewId);
+    }
+
+    match /crew_memberships/{membershipId} {
+      allow read: if signedIn() && isCrewMember(resource.data.crewId);
+
+      allow create: if signedIn() &&
+        isValidMembershipPayload(membershipId) &&
+        (
+          (
+            request.resource.data.role == 'owner' &&
+            request.resource.data.userId == request.auth.uid &&
+            isNewCrewCreatedWithOwnerMembership(request.resource.data.crewId)
+          ) ||
+          (
+            request.resource.data.role == 'member' &&
+            request.resource.data.userId == request.auth.uid &&
+            isInvitationConsumedWithMembership(membershipId)
+          )
+        );
+
+      allow update: if false;
+
+      allow delete: if signedIn() &&
+        (
+          (
+            resource.data.userId == request.auth.uid &&
+            resource.data.role == 'member'
+          ) ||
+          (
+            isCrewOwner(resource.data.crewId) &&
+            resource.data.role == 'member'
+          ) ||
+          (
+            isCrewOwner(resource.data.crewId) &&
+            resource.data.role == 'owner' &&
+            !existsAfter(crewPath(resource.data.crewId))
+          )
+        );
+    }
+
+    match /crew_invitations/{invitationId} {
+      allow read: if signedIn() &&
+        (
+          resource.data.invitedUserId == request.auth.uid ||
+          isCrewOwner(resource.data.crewId)
+        );
+
+      allow create: if signedIn() &&
+        isValidInvitationPayload(invitationId) &&
+        isCrewOwner(request.resource.data.crewId) &&
+        exists(/databases/$(database)/documents/users/$(request.resource.data.invitedUserId)) &&
+        !exists(membershipPath(invitationId));
+
+      allow update: if false;
+
+      allow delete: if signedIn() &&
+        (
+          resource.data.invitedUserId == request.auth.uid ||
+          isCrewOwner(resource.data.crewId)
+        );
     }
   }
 }

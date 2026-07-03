@@ -15,11 +15,17 @@ class UserCredentials {
   final String? displayName;
   final String? photoUrl;
 
+  /// The ChillGo application username — only available AFTER onboarding
+  /// (when the user picks a unique username and a profile document exists).
+  /// Null before onboarding; non-null afterwards.
+  final String? username;
+
   const UserCredentials({
     required this.uid,
     this.email,
     this.displayName,
     this.photoUrl,
+    this.username,
   });
 }
 
@@ -33,6 +39,10 @@ abstract class AuthRepository {
 
   /// Retrieves the current authenticated user's credentials, if any.
   UserCredentials? get currentCredentials;
+
+  /// Refreshes the current user's auth token and returns their credentials.
+  /// Returns null when there is no authenticated user.
+  Future<UserCredentials?> refreshCurrentUserToken();
 
   /// Signs in the user using Google OAuth.
   /// Throws an exception on failure or user cancellation.

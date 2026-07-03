@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:go_router/go_router.dart';
 import '../../features/home/presentation/pages/home_screen.dart';
 import '../../features/home/presentation/pages/details_page.dart';
@@ -12,6 +11,9 @@ import '../../features/authentication/domain/repositories/auth_repository.dart';
 import '../../features/authentication/presentation/screens/login_screen.dart';
 import '../../features/profile/presentation/screens/onboarding_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
+import '../../features/crews/presentation/screens/crews_list_screen.dart';
+import '../../features/crews/presentation/screens/crew_details_screen.dart';
+import '../../features/crews/presentation/screens/invitations_screen.dart';
 import '../di/injection_container.dart';
 
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -19,7 +21,11 @@ class GoRouterRefreshStream extends ChangeNotifier {
 
   GoRouterRefreshStream(Stream<dynamic> stream) {
     notifyListeners();
-    _subscription = stream.asBroadcastStream().listen((_) => notifyListeners());
+    debugPrint('[AppRouter] Subscribing to auth status stream');
+    _subscription = stream.asBroadcastStream().listen((val) {
+      debugPrint('[AppRouter] auth status stream emitted: $val');
+      notifyListeners();
+    });
   }
 
   @override
@@ -29,14 +35,33 @@ class GoRouterRefreshStream extends ChangeNotifier {
   }
 }
 
+AuthStatus _currentAuthStatus() {
+  if (sl.isRegistered<AuthRepository>()) {
+    return sl<AuthRepository>().currentStatus;
+  }
+  return AuthStatus.unauthenticated;
+}
+
+Stream<AuthStatus> _authStatusStream() {
+  if (sl.isRegistered<AuthRepository>()) {
+    return sl<AuthRepository>().status;
+  }
+  return Stream<AuthStatus>.value(AuthStatus.unauthenticated);
+}
+
 FutureOr<String?> guardRedirect(BuildContext context, GoRouterState state) {
-  final status = sl<AuthRepository>().currentStatus;
+  final status = _currentAuthStatus();
+  debugPrint(
+    '[AppRouter] guardRedirect called; status=$status, path=${state.uri.path}',
+  );
   final isLoggingIn = state.uri.path == '/login';
   final isOnboarding = state.uri.path == '/onboarding';
   final isLoading = state.uri.path == '/loading';
 
   if (status == AuthStatus.unknown) {
-    return isLoading ? null : '/loading';
+    if (isLoggingIn) return null;
+    if (isLoading) return '/login';
+    return '/login';
   }
 
   if (status == AuthStatus.unauthenticated) {
@@ -59,19 +84,13 @@ FutureOr<String?> guardRedirect(BuildContext context, GoRouterState state) {
 final GoRouter appRouter = GoRouter(
   initialLocation: '/',
   errorBuilder: (context, state) => const NotFoundScreen(),
-  refreshListenable: GoRouterRefreshStream(sl<AuthRepository>().status),
+  refreshListenable: GoRouterRefreshStream(_authStatusStream()),
   redirect: guardRedirect,
   routes: [
     GoRoute(
       path: '/',
       name: 'home',
-      builder: (context, state) => HomeScreen(
-        onTriggerCrash: kDebugMode
-            ? () {
-                throw StateError('Simulated diagnostics crash');
-              }
-            : null,
-      ),
+      builder: (context, state) => const HomeScreen(),
     ),
     GoRoute(
       path: '/login',
@@ -100,6 +119,24 @@ final GoRouter appRouter = GoRouter(
         final param = state.uri.queryParameters['param'];
         return DetailsPage(parameter: param);
       },
+    ),
+    GoRoute(
+      path: '/crews',
+      name: 'crews',
+      builder: (context, state) => const CrewsListScreen(),
+    ),
+    GoRoute(
+      path: '/crews/:crewId',
+      name: 'crewDetail',
+      builder: (context, state) {
+        final crewId = state.pathParameters['crewId']!;
+        return CrewDetailsScreen(crewId: crewId);
+      },
+    ),
+    GoRoute(
+      path: '/invitations',
+      name: 'invitations',
+      builder: (context, state) => const InvitationsScreen(),
     ),
   ],
 );

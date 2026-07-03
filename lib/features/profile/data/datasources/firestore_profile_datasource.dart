@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import '../../../authentication/domain/entities/user_profile.dart';
 
@@ -13,18 +14,29 @@ class FirestoreProfileDatasource {
     final doc = await firestore.collection('users').doc(uid).get();
     if (!doc.exists) return null;
     final data = doc.data()!;
+
+    // Required fields – treat incomplete documents as missing profiles
+    // rather than crashing on null casts.
+    final username = data['username'] as String?;
+    final displayName = data['displayName'] as String?;
+    final createdAtRaw = data['createdAt'] as String?;
+    if (username == null || displayName == null || createdAtRaw == null) {
+      return null;
+    }
+
     return UserProfile(
       id: uid,
-      username: data['username'] as String,
-      displayName: data['displayName'] as String,
+      username: username,
+      displayName: displayName,
       avatarUrl: data['avatarUrl'] as String?,
-      createdAt: DateTime.parse(data['createdAt'] as String),
+      createdAt: DateTime.parse(createdAtRaw),
     );
   }
 
   Future<bool> isUsernameAvailable(String username) async {
     final lowercaseUsername = username.trim().toLowerCase();
-    if (lowercaseUsername.isEmpty || lowercaseUsername.contains(RegExp(r'\s'))) {
+    if (lowercaseUsername.isEmpty ||
+        lowercaseUsername.contains(RegExp(r'\s'))) {
       return false;
     }
     final doc = await firestore
@@ -41,7 +53,8 @@ class FirestoreProfileDatasource {
     String? avatarUrl,
   }) async {
     final lowercaseUsername = username.trim().toLowerCase();
-    if (lowercaseUsername.isEmpty || lowercaseUsername.contains(RegExp(r'\s'))) {
+    if (lowercaseUsername.isEmpty ||
+        lowercaseUsername.contains(RegExp(r'\s'))) {
       throw ArgumentError('Username cannot contain spaces or be empty');
     }
     final usernameDocRef = firestore

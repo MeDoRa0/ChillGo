@@ -1,0 +1,18 @@
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "emulators": {
+    "firestore": {
+      "port": 65080,
+      "host": "127.0.0.1"
+    },
+    "storage": {
+      "port": 65199,
+      "host": "127.0.0.1"
+    }
+  }
+}
