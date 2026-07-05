@@ -35,7 +35,9 @@ class ProfileFailure extends ProfileState {
 class ProfileCubit extends Cubit<ProfileState> {
   final ProfileRepository _profileRepository;
 
+  // Keep the public constructor parameter aligned with the injected dependency.
   ProfileCubit({required ProfileRepository profileRepository})
+    // ignore: prefer_initializing_formals
     : _profileRepository = profileRepository,
       super(ProfileInitial());
 

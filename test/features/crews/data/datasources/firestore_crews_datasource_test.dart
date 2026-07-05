@@ -28,6 +28,8 @@ class MockQueryDocumentSnapshot extends Mock
 
 class MockWriteBatch extends Mock implements WriteBatch {}
 
+class MockTransaction extends Mock implements Transaction {}
+
 class FakeDocumentReference extends Fake
     implements DocumentReference<Map<String, dynamic>> {}
 
@@ -193,12 +195,14 @@ void main() {
         final userRef = MockDocumentReference();
         final userSnap = MockDocumentSnapshot();
         final membershipRef = MockDocumentReference();
-        final batch = MockWriteBatch();
+        final transaction = MockTransaction();
 
         when(
           () => invitations.doc('crew_with_underscore_alice'),
         ).thenReturn(invitationRef);
-        when(() => invitationRef.get()).thenAnswer((_) async => invitationSnap);
+        when(
+          () => transaction.get<Map<String, dynamic>>(invitationRef),
+        ).thenAnswer((_) async => invitationSnap);
         when(() => invitationSnap.exists).thenReturn(true);
         when(() => invitationSnap.id).thenReturn('crew_with_underscore_alice');
         when(() => invitationSnap.data()).thenReturn({
@@ -213,7 +217,9 @@ void main() {
         });
 
         when(() => users.doc('alice')).thenReturn(userRef);
-        when(() => userRef.get()).thenAnswer((_) async => userSnap);
+        when(
+          () => transaction.get<Map<String, dynamic>>(userRef),
+        ).thenAnswer((_) async => userSnap);
         when(() => userSnap.data()).thenReturn({
           'username': 'alice_cool',
           'displayName': 'Alice',
@@ -223,10 +229,18 @@ void main() {
         when(
           () => memberships.doc('crew_actual_alice'),
         ).thenReturn(membershipRef);
-        when(() => firestore.batch()).thenReturn(batch);
-        when(() => batch.set(any(), any())).thenReturn(null);
-        when(() => batch.delete(invitationRef)).thenReturn(null);
-        when(() => batch.commit()).thenAnswer((_) async {});
+        when(
+          () => transaction.set<Map<String, dynamic>>(any(), any()),
+        ).thenReturn(transaction);
+        when(() => transaction.delete(invitationRef)).thenReturn(transaction);
+        when(() => firestore.runTransaction<void>(any())).thenAnswer((
+          invocation,
+        ) async {
+          final handler =
+              invocation.positionalArguments.single
+                  as Future<void> Function(Transaction);
+          await handler(transaction);
+        });
 
         await datasource.acceptInvitation(
           invitationId: 'crew_with_underscore_alice',
@@ -235,7 +249,7 @@ void main() {
 
         final membershipData =
             verify(
-                  () => batch.set<Map<String, dynamic>>(
+                  () => transaction.set<Map<String, dynamic>>(
                     any(),
                     captureAny(),
                   ),
@@ -245,17 +259,22 @@ void main() {
         expect(membershipData['crewId'], 'crew_actual');
         expect(membershipData['userId'], 'alice');
         expect(membershipData['role'], 'member');
-        verify(() => batch.delete(invitationRef)).called(1);
-        verify(() => batch.commit()).called(1);
+        verify(() => transaction.delete(invitationRef)).called(1);
+        verify(() => firestore.runTransaction<void>(any())).called(1);
       },
     );
 
     test('rejects invitation for a different user before writing', () async {
       final invitationRef = MockDocumentReference();
       final invitationSnap = MockDocumentSnapshot();
+      final userRef = MockDocumentReference();
+      final transaction = MockTransaction();
 
       when(() => invitations.doc('crew1_bob')).thenReturn(invitationRef);
-      when(() => invitationRef.get()).thenAnswer((_) async => invitationSnap);
+      when(() => users.doc('alice')).thenReturn(userRef);
+      when(
+        () => transaction.get<Map<String, dynamic>>(invitationRef),
+      ).thenAnswer((_) async => invitationSnap);
       when(() => invitationSnap.exists).thenReturn(true);
       when(() => invitationSnap.id).thenReturn('crew1_bob');
       when(() => invitationSnap.data()).thenReturn({
@@ -268,6 +287,14 @@ void main() {
         'invitedByUsername': 'owner_user',
         'invitedByDisplayName': 'Owner',
       });
+      when(() => firestore.runTransaction<void>(any())).thenAnswer((
+        invocation,
+      ) async {
+        final handler =
+            invocation.positionalArguments.single
+                as Future<void> Function(Transaction);
+        await handler(transaction);
+      });
 
       expect(
         () => datasource.acceptInvitation(
@@ -276,7 +303,7 @@ void main() {
         ),
         throwsException,
       );
-      verifyNever(() => firestore.batch());
+      verifyNever(() => transaction.set<Map<String, dynamic>>(any(), any()));
     });
   });
 

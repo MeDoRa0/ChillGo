@@ -105,7 +105,7 @@ class _ProfileViewState extends State<_ProfileView> {
                             radius: 60,
                             backgroundColor: const Color(
                               0xFF6366F1,
-                            ).withOpacity(0.14),
+                            ).withValues(alpha: 0.14),
                             backgroundImage: profile.avatarUrl != null
                                 ? NetworkImage(profile.avatarUrl!)
                                 : null,
@@ -166,7 +166,7 @@ class _ProfileViewState extends State<_ProfileView> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 16,
-                        color: Colors.white.withOpacity(0.65),
+                        color: Colors.white.withValues(alpha: 0.65),
                       ),
                     ),
                     const Spacer(),
@@ -177,7 +177,9 @@ class _ProfileViewState extends State<_ProfileView> {
                       icon: const Icon(Icons.logout),
                       label: const Text('Sign Out'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.redAccent.withOpacity(0.2),
+                        backgroundColor: Colors.redAccent.withValues(
+                          alpha: 0.2,
+                        ),
                         foregroundColor: Colors.redAccent,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(

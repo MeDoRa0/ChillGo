@@ -29,6 +29,26 @@ void main() {
     expect(result.id, tModel.id);
   });
 
+  test('fromRemoteJson should merge shared config with runtime fields', () {
+    final result = AppConfigurationModel.fromRemoteJson(
+      {
+        'id': 'global_config',
+        'isFirebaseInitialized': true,
+        'isCrashlyticsEnabled': false,
+        'isAnalyticsEnabled': true,
+        'isFcmEnabled': false,
+      },
+      platform: SupportedPlatform.android,
+      appVersion: '1.0.0',
+      lastStartupTime: DateTime.parse('2026-06-29T00:00:00.000Z'),
+    );
+
+    expect(result.id, 'global_config');
+    expect(result.isCrashlyticsEnabled, isFalse);
+    expect(result.platform, SupportedPlatform.android);
+    expect(result.appVersion, '1.0.0');
+  });
+
   test('toJson should return a JSON map containing proper data', () {
     final result = tModel.toJson();
     expect(result['id'], 'global_config');

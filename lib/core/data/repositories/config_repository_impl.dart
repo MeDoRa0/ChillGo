@@ -30,12 +30,22 @@ class ConfigRepositoryImpl implements ConfigRepository {
     //    non-fatal fallback; re-throw permission, rules, or data-shape errors
     //    so they are not silently swallowed.
     try {
-      final doc = await firestore.collection('config').doc('global_config').get();
+      final doc = await firestore
+          .collection('config')
+          .doc('global_config')
+          .get();
       if (doc.exists && doc.data() != null) {
-        // fromJson performs strict validation; any FormatException propagates.
-        final remote = AppConfigurationModel.fromJson(doc.data()!);
+        final remote = AppConfigurationModel.fromRemoteJson(
+          doc.data()!,
+          platform: SupportedPlatform.android,
+          appVersion: '1.0.0',
+          lastStartupTime: DateTime.now(),
+        );
         // Cache remotely fetched config locally (full JSON for local use).
-        await sharedPreferences.setString(_configKey, json.encode(remote.toJson()));
+        await sharedPreferences.setString(
+          _configKey,
+          json.encode(remote.toJson()),
+        );
         return remote;
       }
     } on FirebaseException catch (e) {
@@ -45,7 +55,7 @@ class ConfigRepositoryImpl implements ConfigRepository {
       }
       // Offline — fall through to local default below.
     }
-    // FormatException from fromJson (bad shape / bad semver / bad platform) is
+    // FormatException from parsing (bad shape / bad semver / bad platform) is
     // intentionally NOT caught here; it propagates to the caller.
 
     // 3. Nothing exists remotely or locally – create and persist default.

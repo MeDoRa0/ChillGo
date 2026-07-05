@@ -13,27 +13,24 @@ class AppConfigurationModel extends AppConfiguration {
   });
 
   factory AppConfigurationModel.fromJson(Map<String, dynamic> json) {
-    // --- platform: fail fast on unknown values ---
-    final platformStr = json['platform'] as String?;
-    if (platformStr == null) {
-      throw const FormatException(
-        "Missing required field 'platform' in AppConfigurationModel JSON.",
-      );
-    }
-    final platform = SupportedPlatform.values.cast<SupportedPlatform?>().firstWhere(
-      (p) => p!.name == platformStr,
-      orElse: () => null,
+    return AppConfigurationModel(
+      id: json['id'] as String,
+      isFirebaseInitialized: json['isFirebaseInitialized'] as bool,
+      isCrashlyticsEnabled: json['isCrashlyticsEnabled'] as bool,
+      isAnalyticsEnabled: json['isAnalyticsEnabled'] as bool,
+      isFcmEnabled: json['isFcmEnabled'] as bool,
+      platform: _parsePlatform(json['platform'] as String?),
+      appVersion: json['appVersion'] as String,
+      lastStartupTime: DateTime.parse(json['lastStartupTime'] as String),
     );
-    if (platform == null) {
-      throw FormatException(
-        "Invalid platform value '$platformStr'. "
-        "Expected one of: ${SupportedPlatform.values.map((p) => p.name).join(', ')}.",
-      );
-    }
+  }
 
-    // --- appVersion: validated by AppConfiguration constructor ---
-    final appVersion = json['appVersion'] as String? ?? '';
-
+  factory AppConfigurationModel.fromRemoteJson(
+    Map<String, dynamic> json, {
+    required SupportedPlatform platform,
+    required String appVersion,
+    required DateTime lastStartupTime,
+  }) {
     return AppConfigurationModel(
       id: json['id'] as String,
       isFirebaseInitialized: json['isFirebaseInitialized'] as bool,
@@ -42,7 +39,22 @@ class AppConfigurationModel extends AppConfiguration {
       isFcmEnabled: json['isFcmEnabled'] as bool,
       platform: platform,
       appVersion: appVersion,
-      lastStartupTime: DateTime.parse(json['lastStartupTime'] as String),
+      lastStartupTime: lastStartupTime,
+    );
+  }
+
+  static SupportedPlatform _parsePlatform(String? platformName) {
+    if (platformName == null) {
+      throw const FormatException(
+        "Missing required field 'platform' in AppConfigurationModel JSON.",
+      );
+    }
+    for (final platform in SupportedPlatform.values) {
+      if (platform.name == platformName) return platform;
+    }
+    throw FormatException(
+      "Invalid platform value '$platformName'. "
+      "Expected one of: ${SupportedPlatform.values.map((p) => p.name).join(', ')}.",
     );
   }
 

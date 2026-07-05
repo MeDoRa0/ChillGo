@@ -128,7 +128,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               child: Icon(
                                 Icons.account_circle_outlined,
                                 size: 80,
-                                color: const Color(0xFF6366F1).withOpacity(0.9),
+                                color: const Color(
+                                  0xFF6366F1,
+                                ).withValues(alpha: 0.9),
                               ),
                             ),
                             const SizedBox(height: 24),
@@ -147,7 +149,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 16,
-                                color: Colors.white.withOpacity(0.7),
+                                color: Colors.white.withValues(alpha: 0.7),
                               ),
                             ),
                             const SizedBox(height: 40),
@@ -160,7 +162,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               decoration: InputDecoration(
                                 labelText: 'Username',
                                 labelStyle: TextStyle(
-                                  color: Colors.white.withOpacity(0.6),
+                                  color: Colors.white.withValues(alpha: 0.6),
                                 ),
                                 prefixText: '@ ',
                                 prefixStyle: const TextStyle(
@@ -170,7 +172,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                 filled: true,
                                 fillColor: const Color(
                                   0xFF1E293B,
-                                ).withOpacity(0.6),
+                                ).withValues(alpha: 0.6),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide.none,
@@ -195,12 +197,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               decoration: InputDecoration(
                                 labelText: 'Display Name',
                                 labelStyle: TextStyle(
-                                  color: Colors.white.withOpacity(0.6),
+                                  color: Colors.white.withValues(alpha: 0.6),
                                 ),
                                 filled: true,
                                 fillColor: const Color(
                                   0xFF1E293B,
-                                ).withOpacity(0.6),
+                                ).withValues(alpha: 0.6),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide.none,

@@ -23,17 +23,12 @@ class FirebaseAuthDatasource {
     var user = firebaseAuth.currentUser;
     if (user == null) return null;
 
-    try {
-      await user.reload();
-      user = firebaseAuth.currentUser;
-      if (user == null) return null;
+    await user.reload();
+    user = firebaseAuth.currentUser;
+    if (user == null) return null;
 
-      await user.getIdToken(true);
-      return user;
-    } catch (e, stack) {
-      debugPrint('[ChillGo] Current user token refresh failed: $e\n$stack');
-      return null;
-    }
+    await user.getIdToken(true);
+    return user;
   }
 
   Future<UserCredential> signInWithGoogle() async {

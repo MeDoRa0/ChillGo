@@ -25,21 +25,22 @@ void main() {
   });
 
   group('FirebaseAuthDatasource.refreshCurrentUserToken', () {
-    test('returns null when current user reload fails', () async {
+    test('throws when current user reload fails', () async {
       final user = MockUser();
       when(() => firebaseAuth.currentUser).thenReturn(user);
       when(
         () => user.reload(),
       ).thenThrow(FirebaseAuthException(code: 'user-token-expired'));
 
-      final result = await datasource.refreshCurrentUserToken();
-
-      expect(result, isNull);
+      await expectLater(
+        datasource.refreshCurrentUserToken(),
+        throwsA(isA<FirebaseAuthException>()),
+      );
       verify(() => user.reload()).called(1);
       verifyNever(() => user.getIdToken(any()));
     });
 
-    test('returns null when forced token refresh fails', () async {
+    test('throws when forced token refresh fails', () async {
       final user = MockUser();
       when(() => firebaseAuth.currentUser).thenReturn(user);
       when(() => user.reload()).thenAnswer((_) async {});
@@ -47,11 +48,20 @@ void main() {
         () => user.getIdToken(true),
       ).thenThrow(FirebaseAuthException(code: 'invalid-user-token'));
 
-      final result = await datasource.refreshCurrentUserToken();
-
-      expect(result, isNull);
+      await expectLater(
+        datasource.refreshCurrentUserToken(),
+        throwsA(isA<FirebaseAuthException>()),
+      );
       verify(() => user.reload()).called(1);
       verify(() => user.getIdToken(true)).called(1);
+    });
+
+    test('returns null only when no current user is signed in', () async {
+      when(() => firebaseAuth.currentUser).thenReturn(null);
+
+      final user = await datasource.refreshCurrentUserToken();
+
+      expect(user, isNull);
     });
   });
 }

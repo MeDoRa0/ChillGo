@@ -198,39 +198,42 @@ class FirestoreCrewsDatasource {
     required String invitationId,
     required String userId,
   }) async {
-    final invDoc = await _invitations.doc(invitationId).get();
-    if (!invDoc.exists) throw Exception('invitation-not-found');
-    final invitation = CrewInvitation.fromMap(
-      invDoc.data() as Map<String, dynamic>,
-      invDoc.id,
-    );
-    if (invitation.invitedUserId != userId) {
-      throw Exception('invitation-user-mismatch');
-    }
-    if (invitation.crewId.isEmpty) {
-      throw Exception('invalid-invitation');
-    }
+    final invitationRef = _invitations.doc(invitationId);
+    final userRef = _users.doc(userId);
 
-    // Fetch user profile for denormalized fields
-    final userDoc = await _users.doc(userId).get();
-    final userData = userDoc.data() ?? {};
-    final crewId = invitation.crewId;
-    final membershipId = '${crewId}_$userId';
-    final now = DateTime.now().toUtc().toIso8601String();
+    await firestore.runTransaction<void>((transaction) async {
+      final invitationDoc = await transaction.get(invitationRef);
+      if (!invitationDoc.exists) throw Exception('invitation-not-found');
+      final invitation = CrewInvitation.fromMap(
+        invitationDoc.data() as Map<String, dynamic>,
+        invitationDoc.id,
+      );
+      if (invitation.invitedUserId != userId) {
+        throw Exception('invitation-user-mismatch');
+      }
+      if (invitation.crewId.isEmpty) {
+        throw Exception('invalid-invitation');
+      }
 
-    final batch = firestore.batch();
-    batch.set(_memberships.doc(membershipId), {
-      'id': membershipId,
-      'crewId': crewId,
-      'userId': userId,
-      'role': 'member',
-      'joinedAt': now,
-      'username': userData['username'] as String? ?? '',
-      'displayName': userData['displayName'] as String? ?? '',
-      'avatarUrl': userData['avatarUrl'],
+      final userDoc = await transaction.get(userRef);
+      final userData = userDoc.data() ?? {};
+      final crewId = invitation.crewId;
+      final membershipId = '${crewId}_$userId';
+      final membershipRef = _memberships.doc(membershipId);
+      final now = DateTime.now().toUtc().toIso8601String();
+
+      transaction.set(membershipRef, {
+        'id': membershipId,
+        'crewId': crewId,
+        'userId': userId,
+        'role': 'member',
+        'joinedAt': now,
+        'username': userData['username'] as String? ?? '',
+        'displayName': userData['displayName'] as String? ?? '',
+        'avatarUrl': userData['avatarUrl'],
+      });
+      transaction.delete(invitationRef);
     });
-    batch.delete(_invitations.doc(invitationId));
-    await batch.commit();
   }
 
   /// Rejects/revokes an invitation: simply deletes the invitation document.

@@ -9,7 +9,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final AuthRepository _authRepository;
   late final StreamSubscription<AuthStatus> _statusSubscription;
 
+  // Keep the public constructor parameter aligned with the injected dependency.
   AuthBloc({required AuthRepository authRepository})
+    // ignore: prefer_initializing_formals
     : _authRepository = authRepository,
       super(const AuthState.unknown()) {
     on<AuthStatusChanged>(_onStatusChanged);
@@ -67,7 +69,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         }
         break;
       case AuthStatus.unknown:
-      default:
         emit(const AuthState.unknown());
         break;
     }

@@ -10,37 +10,42 @@ class MockAuthRepository extends Mock implements AuthRepository {}
 
 void main() {
   late MockAuthRepository mockAuthRepository;
-  late AuthBloc authBloc;
 
   setUp(() {
     mockAuthRepository = MockAuthRepository();
     // Default fallback stub for the status stream during setup.
-    when(() => mockAuthRepository.status).thenAnswer((_) => const Stream.empty());
+    when(
+      () => mockAuthRepository.status,
+    ).thenAnswer((_) => const Stream.empty());
   });
 
   group('AuthBloc', () {
     blocTest<AuthBloc, AuthState>(
       'emits [AuthState.unauthenticated] when status changes to unauthenticated',
       build: () {
-        when(() => mockAuthRepository.status).thenAnswer((_) => Stream.value(AuthStatus.unauthenticated));
+        when(
+          () => mockAuthRepository.status,
+        ).thenAnswer((_) => Stream.value(AuthStatus.unauthenticated));
         return AuthBloc(authRepository: mockAuthRepository);
       },
-      expect: () => const <AuthState>[
-        AuthState.unauthenticated(),
-      ],
+      expect: () => const <AuthState>[AuthState.unauthenticated()],
     );
 
     blocTest<AuthBloc, AuthState>(
       'emits [AuthState.authenticatedNoProfile] when status changes to authenticatedNoProfile',
       build: () {
-        when(() => mockAuthRepository.status).thenAnswer((_) => Stream.value(AuthStatus.authenticatedNoProfile));
+        when(
+          () => mockAuthRepository.status,
+        ).thenAnswer((_) => Stream.value(AuthStatus.authenticatedNoProfile));
         when(() => mockAuthRepository.currentCredentials).thenReturn(
           const UserCredentials(uid: 'test_uid', email: 'test@example.com'),
         );
         return AuthBloc(authRepository: mockAuthRepository);
       },
       expect: () => const <AuthState>[
-        AuthState.authenticatedNoProfile(UserCredentials(uid: 'test_uid', email: 'test@example.com')),
+        AuthState.authenticatedNoProfile(
+          UserCredentials(uid: 'test_uid', email: 'test@example.com'),
+        ),
       ],
     );
 
