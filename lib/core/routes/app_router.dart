@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/home/presentation/pages/home_screen.dart';
-import '../../features/home/presentation/pages/details_page.dart';
 import '../presentation/pages/not_found_page.dart';
 import '../presentation/pages/loading_page.dart';
 
@@ -12,7 +11,6 @@ import '../../features/authentication/presentation/screens/login_screen.dart';
 import '../../features/profile/presentation/screens/onboarding_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/crews/presentation/screens/crews_list_screen.dart';
-import '../../features/crews/presentation/screens/crew_details_screen.dart';
 import '../../features/crews/presentation/screens/invitations_screen.dart';
 import '../di/injection_container.dart';
 
@@ -111,27 +109,6 @@ final GoRouter appRouter = GoRouter(
       path: '/profile',
       name: 'profile',
       builder: (context, state) => const ProfileScreen(),
-    ),
-    GoRoute(
-      path: '/details',
-      name: 'details',
-      builder: (context, state) {
-        final param = state.uri.queryParameters['param'];
-        return DetailsPage(parameter: param);
-      },
-    ),
-    GoRoute(
-      path: '/crews',
-      name: 'crews',
-      builder: (context, state) => const CrewsListScreen(),
-    ),
-    GoRoute(
-      path: '/crews/:crewId',
-      name: 'crewDetail',
-      builder: (context, state) {
-        final crewId = state.pathParameters['crewId']!;
-        return CrewDetailsScreen(crewId: crewId);
-      },
     ),
     GoRoute(
       path: '/invitations',

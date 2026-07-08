@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:chillgo/core/presentation/widgets/responsive_layout.dart';
+import 'package:chillgo/core/di/injection_container.dart';
 import 'package:chillgo/features/authentication/presentation/blocs/auth/auth_bloc.dart';
 import 'package:chillgo/features/authentication/presentation/blocs/auth/auth_state.dart';
-import '../widgets/home_desktop_layout.dart';
+import 'package:chillgo/features/crews/presentation/blocs/crews_list/crews_list_cubit.dart';
 import '../widgets/home_mobile_layout.dart';
-import '../widgets/home_tablet_layout.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -20,16 +19,9 @@ class HomeScreen extends StatelessWidget {
       builder: (context, authState) {
         final credentials = authState.credentials;
 
-        return ResponsiveLayout(
-          mobileBody: HomeMobileLayout(
-            displayName: credentials?.displayName,
-            username: credentials?.username,
-          ),
-          tabletBody: HomeTabletLayout(
-            displayName: credentials?.displayName,
-            username: credentials?.username,
-          ),
-          desktopBody: HomeDesktopLayout(
+        return BlocProvider<CrewsListCubit>(
+          create: (_) => sl<CrewsListCubit>()..loadCrews(),
+          child: HomeMobileLayout(
             displayName: credentials?.displayName,
             username: credentials?.username,
           ),

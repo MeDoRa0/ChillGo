@@ -57,7 +57,7 @@ class _CrewsListView extends StatelessWidget {
               ),
             );
           } else if (state is CrewCreated) {
-            context.push('/crews/${state.crewId}');
+            // Crew created — navigation to detail screen removed
           }
         },
         builder: (context, state) {
@@ -224,9 +224,8 @@ class _CrewsListView extends StatelessWidget {
             ],
           ),
         ),
-      ),
+        ),
     );
-    controller.dispose();
   }
 }
 
@@ -236,10 +235,7 @@ class _CrewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () => context.push('/crews/${crew.id}'),
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
+    return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: const Color(0xFF1E1E2F),
@@ -274,7 +270,6 @@ class _CrewCard extends StatelessWidget {
             const Icon(Icons.chevron_right, color: Colors.white38),
           ],
         ),
-      ),
     );
   }
 }

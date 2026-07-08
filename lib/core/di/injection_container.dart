@@ -26,7 +26,6 @@ import '../../features/crews/data/datasources/firestore_crews_datasource.dart';
 import '../../features/crews/data/repositories/crew_repository_impl.dart';
 import '../../features/crews/domain/repositories/crew_repository.dart';
 import '../../features/crews/presentation/blocs/crews_list/crews_list_cubit.dart';
-import '../../features/crews/presentation/blocs/crew_detail/crew_detail_cubit.dart';
 import '../../features/crews/presentation/blocs/invitations/invitations_cubit.dart';
 
 final sl = GetIt.instance;
@@ -143,9 +142,6 @@ Future<void> init() async {
   }
   if (!sl.isRegistered<CrewsListCubit>()) {
     sl.registerFactory(() => CrewsListCubit(crewRepository: sl()));
-  }
-  if (!sl.isRegistered<CrewDetailCubit>()) {
-    sl.registerFactory(() => CrewDetailCubit(crewRepository: sl()));
   }
   if (!sl.isRegistered<InvitationsCubit>()) {
     sl.registerFactory(() => InvitationsCubit(crewRepository: sl()));
