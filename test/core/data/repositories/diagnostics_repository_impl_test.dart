@@ -5,6 +5,7 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:chillgo/core/data/repositories/diagnostics_repository_impl.dart';
 
 class MockFirebaseCrashlytics extends Mock implements FirebaseCrashlytics {}
+
 class MockFirebaseAnalytics extends Mock implements FirebaseAnalytics {}
 
 void main() {
@@ -24,8 +25,10 @@ void main() {
   test('should record error in Crashlytics and save log locally', () async {
     final exception = Exception('test');
     const stack = StackTrace.empty;
-    
-    when(() => mockCrashlytics.recordError(any(), any())).thenAnswer((_) async {});
+
+    when(
+      () => mockCrashlytics.recordError(any(), any()),
+    ).thenAnswer((_) async {});
 
     await repository.logException(exception, stack);
 
@@ -34,4 +37,18 @@ void main() {
     expect(logs.length, 1);
     expect(logs.first.errorMessage, exception.toString());
   });
+
+  test(
+    'should save log locally when remote diagnostics are unavailable',
+    () async {
+      final localOnlyRepository = DiagnosticsRepositoryImpl();
+      final exception = Exception('desktop startup');
+
+      await localOnlyRepository.logException(exception, StackTrace.empty);
+
+      final logs = await localOnlyRepository.getLocalLogs();
+      expect(logs.length, 1);
+      expect(logs.first.errorMessage, exception.toString());
+    },
+  );
 }

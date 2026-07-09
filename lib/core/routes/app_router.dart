@@ -10,7 +10,7 @@ import '../../features/authentication/domain/repositories/auth_repository.dart';
 import '../../features/authentication/presentation/screens/login_screen.dart';
 import '../../features/profile/presentation/screens/onboarding_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
-import '../../features/crews/presentation/screens/crews_list_screen.dart';
+import '../../features/crews/presentation/screens/crew_details_screen.dart';
 import '../../features/crews/presentation/screens/invitations_screen.dart';
 import '../di/injection_container.dart';
 
@@ -114,6 +114,14 @@ final GoRouter appRouter = GoRouter(
       path: '/invitations',
       name: 'invitations',
       builder: (context, state) => const InvitationsScreen(),
+    ),
+    GoRoute(
+      path: '/crews/:crewId',
+      name: 'crew-details',
+      builder: (context, state) {
+        final crewId = state.pathParameters['crewId'] ?? '';
+        return CrewDetailsScreen(crewId: crewId);
+      },
     ),
   ],
 );

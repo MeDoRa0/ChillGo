@@ -34,14 +34,25 @@ class CrewsListError extends CrewsListState {
 }
 
 class CrewCreating extends CrewsListState {
-  const CrewCreating();
+  final List<Crew> crews;
+  const CrewCreating(this.crews);
+  @override
+  List<Object?> get props => [crews];
 }
 
 class CrewCreated extends CrewsListState {
   final String crewId;
-  const CrewCreated(this.crewId);
+  final List<Crew> crews;
+  final List<String> failedInviteUsernames;
+
+  const CrewCreated(
+    this.crewId,
+    this.crews, {
+    this.failedInviteUsernames = const [],
+  });
+
   @override
-  List<Object?> get props => [crewId];
+  List<Object?> get props => [crewId, crews, failedInviteUsernames];
 }
 
 class CrewCreateError extends CrewsListState {
@@ -55,6 +66,8 @@ class CrewCreateError extends CrewsListState {
 class CrewsListCubit extends Cubit<CrewsListState> {
   final CrewRepository crewRepository;
   StreamSubscription<List<Crew>>? _crewsSub;
+  List<Crew> _currentCrews = [];
+  bool _isCreating = false;
 
   CrewsListCubit({required this.crewRepository})
     : super(const CrewsListInitial());
@@ -64,6 +77,7 @@ class CrewsListCubit extends Cubit<CrewsListState> {
     _crewsSub?.cancel();
     _crewsSub = crewRepository.streamCrews().listen(
       (crews) {
+        _currentCrews = crews;
         emit(CrewsListLoaded(crews));
       },
       onError: (Object e) {
@@ -73,13 +87,54 @@ class CrewsListCubit extends Cubit<CrewsListState> {
   }
 
   Future<void> createCrew(String name) async {
-    emit(const CrewCreating());
+    await createCrewWithInvites(name, const []);
+  }
+
+  Future<void> createCrewWithInvites(
+    String name,
+    List<String> usernames,
+  ) async {
+    if (_isCreating) return;
+    _isCreating = true;
+    emit(CrewCreating(_currentCrews));
     try {
       final crewId = await crewRepository.createCrew(name);
-      emit(CrewCreated(crewId));
+      final failedInviteUsernames = await _inviteSelectedUsernames(
+        crewId,
+        usernames,
+      );
+      emit(
+        CrewCreated(
+          crewId,
+          _currentCrews,
+          failedInviteUsernames: failedInviteUsernames,
+        ),
+      );
     } catch (e) {
       emit(CrewCreateError(e.toString()));
+    } finally {
+      _isCreating = false;
     }
+  }
+
+  Future<bool> usernameExists(String username) {
+    return crewRepository.usernameExists(username);
+  }
+
+  Future<List<String>> _inviteSelectedUsernames(
+    String crewId,
+    List<String> usernames,
+  ) async {
+    final failedInviteUsernames = <String>[];
+    for (final username in usernames) {
+      try {
+        await crewRepository.inviteUser(crewId, username);
+      } catch (_) {
+        // The crew already exists; surface invite failures without undoing it.
+        failedInviteUsernames.add(username);
+      }
+    }
+    return failedInviteUsernames;
   }
 
   @override

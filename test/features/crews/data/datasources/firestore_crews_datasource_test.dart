@@ -68,15 +68,79 @@ void main() {
     datasource = FirestoreCrewsDatasource(firestore: firestore);
   });
 
+  group('usernameExists', () {
+    test('returns true when normalized username document exists', () async {
+      final usernameRef = MockDocumentReference();
+      final usernameSnap = MockDocumentSnapshot();
+
+      when(() => usernames.doc('bob_chill')).thenReturn(usernameRef);
+      when(() => usernameRef.get()).thenAnswer((_) async => usernameSnap);
+      when(() => usernameSnap.exists).thenReturn(true);
+
+      expect(await datasource.usernameExists(' Bob_Chill '), isTrue);
+      verify(() => usernames.doc('bob_chill')).called(1);
+    });
+
+    test(
+      'returns false for invalid username without reading Firestore',
+      () async {
+        expect(await datasource.usernameExists('bob chill'), isFalse);
+        verifyNever(() => usernames.doc(any()));
+      },
+    );
+  });
+
+  group('inviteUser', () {
+    test('writes invitation using inviter profile from Firestore', () async {
+      final usernameRef = MockDocumentReference();
+      final usernameSnap = MockDocumentSnapshot();
+      final inviterRef = MockDocumentReference();
+      final inviterSnap = MockDocumentSnapshot();
+      final invitationRef = MockDocumentReference();
+
+      when(() => usernames.doc('bob')).thenReturn(usernameRef);
+      when(() => usernameRef.get()).thenAnswer((_) async => usernameSnap);
+      when(() => usernameSnap.exists).thenReturn(true);
+      when(() => usernameSnap.data()).thenReturn({'uid': 'bob'});
+      when(() => users.doc('alice')).thenReturn(inviterRef);
+      when(() => inviterRef.get()).thenAnswer((_) async => inviterSnap);
+      when(() => inviterSnap.exists).thenReturn(true);
+      when(() => inviterSnap.data()).thenReturn({
+        'username': 'alice_profile',
+        'displayName': 'Alice Profile',
+      });
+      when(() => invitations.doc('crew1_bob')).thenReturn(invitationRef);
+      when(() => invitationRef.set(any())).thenAnswer((_) async {});
+
+      await datasource.inviteUser(
+        crewId: 'crew1',
+        inviterUid: 'alice',
+        crewName: 'Weekend Hikers',
+        targetUsername: ' Bob ',
+      );
+
+      verifyNever(() => memberships.doc('crew1_bob'));
+      final invitationData =
+          verify(() => invitationRef.set(captureAny())).captured.single
+              as Map<String, dynamic>;
+      expect(invitationData['id'], 'crew1_bob');
+      expect(invitationData['crewId'], 'crew1');
+      expect(invitationData['invitedUserId'], 'bob');
+      expect(invitationData['invitedByUserId'], 'alice');
+      expect(invitationData['invitedByUsername'], 'alice_profile');
+      expect(invitationData['invitedByDisplayName'], 'Alice Profile');
+      expect(invitationData['invitedUsername'], 'bob');
+    });
+  });
+
   group('streamCrewsForUser', () {
     test('ignores malformed membership records while loading crews', () async {
       final membershipsQuery = MockQuery();
       final membershipsSnap = MockQuerySnapshot();
       final invalidMembershipDoc = MockQueryDocumentSnapshot();
       final membershipDoc = MockQueryDocumentSnapshot();
-      final crewsQuery = MockQuery();
-      final crewsSnap = MockQuerySnapshot();
-      final crewDoc = MockQueryDocumentSnapshot();
+      final crewRef = MockDocumentReference();
+      final crewDoc = MockDocumentSnapshot();
 
       when(
         () => memberships.where('userId', isEqualTo: 'alice'),
@@ -90,11 +154,9 @@ void main() {
       when(() => invalidMembershipDoc.data()).thenReturn({'crewId': null});
       when(() => membershipDoc.data()).thenReturn({'crewId': 'crew1'});
 
-      when(
-        () => crews.where(any(), whereIn: any(named: 'whereIn')),
-      ).thenReturn(crewsQuery);
-      when(() => crewsQuery.get()).thenAnswer((_) async => crewsSnap);
-      when(() => crewsSnap.docs).thenReturn([crewDoc]);
+      when(() => crews.doc('crew1')).thenReturn(crewRef);
+      when(() => crewRef.get()).thenAnswer((_) async => crewDoc);
+      when(() => crewDoc.exists).thenReturn(true);
       when(() => crewDoc.id).thenReturn('crew1');
       when(() => crewDoc.data()).thenReturn({
         'name': 'Weekend Hikers',
@@ -107,83 +169,66 @@ void main() {
       expect(result, hasLength(1));
       expect(result.single.id, 'crew1');
       expect(result.single.name, 'Weekend Hikers');
-      final whereInValues =
-          verify(
-                () => crews.where(any(), whereIn: captureAny(named: 'whereIn')),
-              ).captured.single
-              as List<String>;
-      expect(whereInValues, ['crew1']);
+      verify(() => crews.doc('crew1')).called(1);
+      verifyNever(() => crews.where(any(), whereIn: any(named: 'whereIn')));
     });
 
-    test(
-      'splits crew lookups into 30-id chunks without serial waits',
-      () async {
-        final membershipsQuery = MockQuery();
-        final membershipsSnap = MockQuerySnapshot();
-        final membershipDocs = List<MockQueryDocumentSnapshot>.generate(
-          31,
-          (_) => MockQueryDocumentSnapshot(),
-        );
-        final firstCrewsQuery = MockQuery();
-        final secondCrewsQuery = MockQuery();
-        final firstCrewsSnap = MockQuerySnapshot();
-        final secondCrewsSnap = MockQuerySnapshot();
-        final firstCrewDoc = MockQueryDocumentSnapshot();
-        final secondCrewDoc = MockQueryDocumentSnapshot();
-        final firstGet = Completer<QuerySnapshot<Map<String, dynamic>>>();
-        final secondGet = Completer<QuerySnapshot<Map<String, dynamic>>>();
+    test('loads crew documents directly without serial waits', () async {
+      final membershipsQuery = MockQuery();
+      final membershipsSnap = MockQuerySnapshot();
+      final firstMembershipDoc = MockQueryDocumentSnapshot();
+      final secondMembershipDoc = MockQueryDocumentSnapshot();
+      final firstCrewRef = MockDocumentReference();
+      final secondCrewRef = MockDocumentReference();
+      final firstCrewDoc = MockDocumentSnapshot();
+      final secondCrewDoc = MockDocumentSnapshot();
+      final firstGet = Completer<DocumentSnapshot<Map<String, dynamic>>>();
+      final secondGet = Completer<DocumentSnapshot<Map<String, dynamic>>>();
 
-        when(
-          () => memberships.where('userId', isEqualTo: 'alice'),
-        ).thenReturn(membershipsQuery);
-        when(
-          () => membershipsQuery.snapshots(),
-        ).thenAnswer((_) => Stream.value(membershipsSnap));
-        when(() => membershipsSnap.docs).thenReturn(membershipDocs);
-        for (var i = 0; i < membershipDocs.length; i++) {
-          when(() => membershipDocs[i].data()).thenReturn({'crewId': 'crew$i'});
-        }
+      when(
+        () => memberships.where('userId', isEqualTo: 'alice'),
+      ).thenReturn(membershipsQuery);
+      when(
+        () => membershipsQuery.snapshots(),
+      ).thenAnswer((_) => Stream.value(membershipsSnap));
+      when(
+        () => membershipsSnap.docs,
+      ).thenReturn([firstMembershipDoc, secondMembershipDoc]);
+      when(() => firstMembershipDoc.data()).thenReturn({'crewId': 'crew0'});
+      when(() => secondMembershipDoc.data()).thenReturn({'crewId': 'crew1'});
 
-        when(
-          () => crews.where(any(), whereIn: any(named: 'whereIn')),
-        ).thenAnswer((invocation) {
-          final ids = invocation.namedArguments[#whereIn] as List<String>;
-          return ids.length == 30 ? firstCrewsQuery : secondCrewsQuery;
-        });
-        when(() => firstCrewsQuery.get()).thenAnswer((_) => firstGet.future);
-        when(() => secondCrewsQuery.get()).thenAnswer((_) => secondGet.future);
-        when(() => firstCrewsSnap.docs).thenReturn([firstCrewDoc]);
-        when(() => secondCrewsSnap.docs).thenReturn([secondCrewDoc]);
-        when(() => firstCrewDoc.id).thenReturn('crew0');
-        when(() => secondCrewDoc.id).thenReturn('crew30');
-        when(() => firstCrewDoc.data()).thenReturn({
-          'name': 'Crew 0',
-          'ownerId': 'alice',
-          'createdAt': '2026-07-01T00:00:00Z',
-        });
-        when(() => secondCrewDoc.data()).thenReturn({
-          'name': 'Crew 30',
-          'ownerId': 'alice',
-          'createdAt': '2026-07-01T00:00:00Z',
-        });
+      when(() => crews.doc('crew0')).thenReturn(firstCrewRef);
+      when(() => crews.doc('crew1')).thenReturn(secondCrewRef);
+      when(() => firstCrewRef.get()).thenAnswer((_) => firstGet.future);
+      when(() => secondCrewRef.get()).thenAnswer((_) => secondGet.future);
+      when(() => firstCrewDoc.exists).thenReturn(true);
+      when(() => secondCrewDoc.exists).thenReturn(true);
+      when(() => firstCrewDoc.id).thenReturn('crew0');
+      when(() => secondCrewDoc.id).thenReturn('crew1');
+      when(() => firstCrewDoc.data()).thenReturn({
+        'name': 'Crew 0',
+        'ownerId': 'alice',
+        'createdAt': '2026-07-01T00:00:00Z',
+      });
+      when(() => secondCrewDoc.data()).thenReturn({
+        'name': 'Crew 1',
+        'ownerId': 'alice',
+        'createdAt': '2026-07-01T00:00:00Z',
+      });
 
-        final resultFuture = datasource.streamCrewsForUser('alice').first;
-        await Future<void>.delayed(Duration.zero);
+      final resultFuture = datasource.streamCrewsForUser('alice').first;
+      await Future<void>.delayed(Duration.zero);
 
-        verify(() => firstCrewsQuery.get()).called(1);
-        verify(() => secondCrewsQuery.get()).called(1);
+      verify(() => firstCrewRef.get()).called(1);
+      verify(() => secondCrewRef.get()).called(1);
 
-        firstGet.complete(firstCrewsSnap);
-        secondGet.complete(secondCrewsSnap);
-        final result = await resultFuture;
+      firstGet.complete(firstCrewDoc);
+      secondGet.complete(secondCrewDoc);
+      final result = await resultFuture;
 
-        expect(result.map((crew) => crew.id), ['crew0', 'crew30']);
-        final whereInValues = verify(
-          () => crews.where(any(), whereIn: captureAny(named: 'whereIn')),
-        ).captured.cast<List<String>>();
-        expect(whereInValues.map((ids) => ids.length), [30, 1]);
-      },
-    );
+      expect(result.map((crew) => crew.id), ['crew0', 'crew1']);
+      verifyNever(() => crews.where(any(), whereIn: any(named: 'whereIn')));
+    });
   });
 
   group('acceptInvitation', () {

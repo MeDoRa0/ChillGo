@@ -5,7 +5,6 @@ import '../../domain/entities/crew_invitation.dart';
 
 class FirestoreCrewsDatasource {
   static const int _firestoreBatchWriteLimit = 500;
-  static const int _firestoreWhereInLimit = 30;
   static const int _deleteCrewBatchMaxAttempts = 3;
 
   final FirebaseFirestore firestore;
@@ -33,9 +32,7 @@ class FirestoreCrewsDatasource {
     final now = DateTime.now().toUtc().toIso8601String();
     final membershipId = '${crewId}_$ownerId';
 
-    // Fetch owner profile for denormalized membership fields
-    final userDoc = await _users.doc(ownerId).get();
-    final userData = userDoc.data() ?? {};
+    final ownerProfile = await _requireUserProfile(ownerId);
 
     final batch = firestore.batch();
 
@@ -52,9 +49,7 @@ class FirestoreCrewsDatasource {
       'userId': ownerId,
       'role': 'owner',
       'joinedAt': now,
-      'username': userData['username'] as String? ?? '',
-      'displayName': userData['displayName'] as String? ?? '',
-      'avatarUrl': userData['avatarUrl'],
+      ...ownerProfile,
     });
 
     await batch.commit();
@@ -67,29 +62,17 @@ class FirestoreCrewsDatasource {
         final crewIds = membSnap.docs
             .map((doc) => _readString(doc.data(), 'crewId'))
             .whereType<String>()
+            .toSet()
             .toList();
         if (crewIds.isEmpty) return <Crew>[];
 
-        final crewSnaps = await Future.wait([
-          for (
-            var start = 0;
-            start < crewIds.length;
-            start += _firestoreWhereInLimit
-          )
-            _crews
-                .where(
-                  FieldPath.documentId,
-                  whereIn: crewIds.sublist(
-                    start,
-                    (start + _firestoreWhereInLimit).clamp(0, crewIds.length),
-                  ),
-                )
-                .get(),
+        final crewDocs = await Future.wait([
+          for (final crewId in crewIds) _crews.doc(crewId).get(),
         ]);
 
-        return crewSnaps
-            .expand((snap) => snap.docs)
-            .map((doc) => Crew.fromMap(doc.data(), doc.id))
+        return crewDocs
+            .where((doc) => doc.exists)
+            .map((doc) => Crew.fromMap(doc.data() ?? {}, doc.id))
             .toList();
       },
     );
@@ -148,6 +131,15 @@ class FirestoreCrewsDatasource {
     return (doc.data() as Map<String, dynamic>)['uid'] as String;
   }
 
+  Future<bool> usernameExists(String username) async {
+    final normalized = username.toLowerCase().trim();
+    if (normalized.isEmpty || normalized.contains(RegExp(r'\s'))) {
+      return false;
+    }
+    final doc = await _usernames.doc(normalized).get();
+    return doc.exists;
+  }
+
   Future<bool> isMember(String crewId, String userId) async {
     final doc = await _memberships.doc('${crewId}_$userId').get();
     return doc.exists;
@@ -158,24 +150,16 @@ class FirestoreCrewsDatasource {
     return doc.exists;
   }
 
-  /// Sends an invitation. Throws if user not found, already a member, or already invited.
+  /// Sends an invitation after resolving the target username and inviter profile.
   Future<void> inviteUser({
     required String crewId,
     required String inviterUid,
-    required String inviterUsername,
-    required String inviterDisplayName,
     required String crewName,
     required String targetUsername,
   }) async {
     final normalized = targetUsername.toLowerCase().trim();
     final targetUid = await resolveUsername(normalized);
-
-    if (await isMember(crewId, targetUid)) {
-      throw Exception('already-a-member');
-    }
-    if (await isInvited(crewId, targetUid)) {
-      throw Exception('already-invited');
-    }
+    final inviterProfile = await _requireUserProfile(inviterUid);
 
     final invitationId = '${crewId}_$targetUid';
     // Capture the *normalized* username so the pending-invitations UI can
@@ -187,8 +171,8 @@ class FirestoreCrewsDatasource {
       'invitedByUserId': inviterUid,
       'createdAt': DateTime.now().toUtc().toIso8601String(),
       'crewName': crewName,
-      'invitedByUsername': inviterUsername,
-      'invitedByDisplayName': inviterDisplayName,
+      'invitedByUsername': inviterProfile['username'],
+      'invitedByDisplayName': inviterProfile['displayName'],
       'invitedUsername': normalized,
     });
   }
@@ -216,7 +200,7 @@ class FirestoreCrewsDatasource {
       }
 
       final userDoc = await transaction.get(userRef);
-      final userData = userDoc.data() ?? {};
+      final userData = _profilePayloadFromData(userDoc.data());
       final crewId = invitation.crewId;
       final membershipId = '${crewId}_$userId';
       final membershipRef = _memberships.doc(membershipId);
@@ -228,9 +212,7 @@ class FirestoreCrewsDatasource {
         'userId': userId,
         'role': 'member',
         'joinedAt': now,
-        'username': userData['username'] as String? ?? '',
-        'displayName': userData['displayName'] as String? ?? '',
-        'avatarUrl': userData['avatarUrl'],
+        ...userData,
       });
       transaction.delete(invitationRef);
     });
@@ -308,6 +290,31 @@ class FirestoreCrewsDatasource {
 
   Future<void> removeMember(String crewId, String userId) async {
     await _memberships.doc('${crewId}_$userId').delete();
+  }
+
+  Future<Map<String, dynamic>> _requireUserProfile(String userId) async {
+    final userDoc = await _users.doc(userId).get();
+    if (!userDoc.exists) {
+      throw Exception('profile-required');
+    }
+    return _profilePayloadFromData(userDoc.data());
+  }
+
+  Map<String, dynamic> _profilePayloadFromData(Map<String, dynamic>? data) {
+    final username = data?['username'] as String?;
+    final displayName = data?['displayName'] as String?;
+    if (username == null ||
+        username.isEmpty ||
+        displayName == null ||
+        displayName.isEmpty) {
+      throw Exception('profile-required');
+    }
+
+    return {
+      'username': username,
+      'displayName': displayName,
+      if (data?['avatarUrl'] != null) 'avatarUrl': data?['avatarUrl'],
+    };
   }
 }
 

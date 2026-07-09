@@ -13,12 +13,10 @@ const _uid = 'alice';
 const _username = 'alice_cool';
 const _displayName = 'Alice';
 
-CrewRepositoryImpl _makeRepo(FirestoreCrewsDatasource ds) => CrewRepositoryImpl(
-  datasource: ds,
-  currentUid: () => _uid,
-  currentUsername: () => _username,
-  currentDisplayName: () => _displayName,
-);
+CrewRepositoryImpl _makeRepo(
+  FirestoreCrewsDatasource ds, {
+  String uid = _uid,
+}) => CrewRepositoryImpl(datasource: ds, currentUid: () => uid);
 
 final _fakeCrew = Crew(
   id: 'crew1',
@@ -79,6 +77,21 @@ void main() {
       final longName = 'A' * 51;
       expect(() => repo.createCrew(longName), throwsException);
     });
+
+    test('throws when no authenticated user is available', () async {
+      final unauthenticatedRepo = _makeRepo(mockDs, uid: '');
+
+      expect(
+        () => unauthenticatedRepo.createCrew('Weekend Hikers'),
+        throwsException,
+      );
+      verifyNever(
+        () => mockDs.createCrew(
+          name: any(named: 'name'),
+          ownerId: any(named: 'ownerId'),
+        ),
+      );
+    });
   });
 
   group('US1 - streamCrews', () {
@@ -101,6 +114,17 @@ void main() {
     });
   });
 
+  group('usernameExists', () {
+    test('delegates to datasource', () async {
+      when(
+        () => mockDs.usernameExists('bob_chill'),
+      ).thenAnswer((_) async => true);
+
+      expect(await repo.usernameExists('bob_chill'), isTrue);
+      verify(() => mockDs.usernameExists('bob_chill')).called(1);
+    });
+  });
+
   // ─── US2: Inviting Members by Username ────────────────────────────────────
 
   group('US2 - inviteUser', () {
@@ -115,8 +139,6 @@ void main() {
         () => mockDs.inviteUser(
           crewId: any(named: 'crewId'),
           inviterUid: any(named: 'inviterUid'),
-          inviterUsername: any(named: 'inviterUsername'),
-          inviterDisplayName: any(named: 'inviterDisplayName'),
           crewName: any(named: 'crewName'),
           targetUsername: any(named: 'targetUsername'),
         ),
@@ -128,8 +150,6 @@ void main() {
         () => mockDs.inviteUser(
           crewId: 'crew1',
           inviterUid: _uid,
-          inviterUsername: _username,
-          inviterDisplayName: _displayName,
           crewName: 'Weekend Hikers',
           targetUsername: 'bob_chill',
         ),
@@ -141,8 +161,6 @@ void main() {
         () => mockDs.inviteUser(
           crewId: any(named: 'crewId'),
           inviterUid: any(named: 'inviterUid'),
-          inviterUsername: any(named: 'inviterUsername'),
-          inviterDisplayName: any(named: 'inviterDisplayName'),
           crewName: any(named: 'crewName'),
           targetUsername: any(named: 'targetUsername'),
         ),
@@ -156,8 +174,6 @@ void main() {
         () => mockDs.inviteUser(
           crewId: any(named: 'crewId'),
           inviterUid: any(named: 'inviterUid'),
-          inviterUsername: any(named: 'inviterUsername'),
-          inviterDisplayName: any(named: 'inviterDisplayName'),
           crewName: any(named: 'crewName'),
           targetUsername: any(named: 'targetUsername'),
         ),
@@ -171,8 +187,6 @@ void main() {
         () => mockDs.inviteUser(
           crewId: any(named: 'crewId'),
           inviterUid: any(named: 'inviterUid'),
-          inviterUsername: any(named: 'inviterUsername'),
-          inviterDisplayName: any(named: 'inviterDisplayName'),
           crewName: any(named: 'crewName'),
           targetUsername: any(named: 'targetUsername'),
         ),

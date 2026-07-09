@@ -42,6 +42,14 @@ void main() {
     expect(appRouter.configuration.routes.length, greaterThanOrEqualTo(2));
   });
 
+  test('AppRouter exposes a crew details route', () {
+    final paths = appRouter.configuration.routes.whereType<GoRoute>().map(
+      (route) => route.path,
+    );
+
+    expect(paths, contains('/crews/:crewId'));
+  });
+
   group('AppRouter Redirect Logic', () {
     late MockBuildContext mockContext;
     late MockGoRouterState mockState;

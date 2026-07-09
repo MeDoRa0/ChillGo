@@ -10,28 +10,24 @@ class CrewRepositoryImpl implements CrewRepository {
   /// The currently authenticated user's uid. Must be set before use.
   final String Function() currentUid;
 
-  /// The currently authenticated user's profile data accessors.
-  final String Function() currentUsername;
-  final String Function() currentDisplayName;
-
-  CrewRepositoryImpl({
-    required this.datasource,
-    required this.currentUid,
-    required this.currentUsername,
-    required this.currentDisplayName,
-  });
+  CrewRepositoryImpl({required this.datasource, required this.currentUid});
 
   @override
   Future<String> createCrew(String name) async {
     if (name.trim().length < 3 || name.trim().length > 50) {
       throw Exception('Crew name must be between 3 and 50 characters.');
     }
-    return datasource.createCrew(name: name, ownerId: currentUid());
+    return datasource.createCrew(name: name, ownerId: _requireCurrentUid());
+  }
+
+  @override
+  Future<bool> usernameExists(String username) {
+    return datasource.usernameExists(username);
   }
 
   @override
   Stream<List<Crew>> streamCrews() {
-    return datasource.streamCrewsForUser(currentUid());
+    return datasource.streamCrewsForUser(_requireCurrentUid());
   }
 
   @override
@@ -52,9 +48,7 @@ class CrewRepositoryImpl implements CrewRepository {
 
     await datasource.inviteUser(
       crewId: crewId,
-      inviterUid: currentUid(),
-      inviterUsername: currentUsername(),
-      inviterDisplayName: currentDisplayName(),
+      inviterUid: _requireCurrentUid(),
       crewName: crew.name,
       targetUsername: username,
     );
@@ -67,14 +61,14 @@ class CrewRepositoryImpl implements CrewRepository {
 
   @override
   Stream<List<CrewInvitation>> streamReceivedInvitations() {
-    return datasource.streamReceivedInvitations(currentUid());
+    return datasource.streamReceivedInvitations(_requireCurrentUid());
   }
 
   @override
   Future<void> acceptInvitation(String invitationId) async {
     await datasource.acceptInvitation(
       invitationId: invitationId,
-      userId: currentUid(),
+      userId: _requireCurrentUid(),
     );
   }
 
@@ -98,8 +92,9 @@ class CrewRepositoryImpl implements CrewRepository {
 
   @override
   Future<void> leaveCrew(String crewId) async {
-    await _ensureUserIsNotCrewOwner(crewId, currentUid());
-    await datasource.removeMember(crewId, currentUid());
+    final uid = _requireCurrentUid();
+    await _ensureUserIsNotCrewOwner(crewId, uid);
+    await datasource.removeMember(crewId, uid);
   }
 
   @override
@@ -114,5 +109,13 @@ class CrewRepositoryImpl implements CrewRepository {
     if (crew.ownerId == userId) {
       throw Exception('owner-cannot-leave-crew');
     }
+  }
+
+  String _requireCurrentUid() {
+    final uid = currentUid();
+    if (uid.isEmpty) {
+      throw Exception('auth-user-required');
+    }
+    return uid;
   }
 }

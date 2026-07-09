@@ -38,6 +38,14 @@ service cloud.firestore {
         request.resource.data.createdAt is string;
     }
 
+    function isValidCrewNameUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name']) &&
+        isValidCrewName(request.resource.data.name) &&
+        request.resource.data.id == resource.data.id &&
+        request.resource.data.ownerId == resource.data.ownerId &&
+        request.resource.data.createdAt == resource.data.createdAt;
+    }
+
     function isValidMembershipPayload(membershipId) {
       return request.resource.data.keys().hasOnly([
           'id',
@@ -170,16 +178,18 @@ service cloud.firestore {
         isOwnerMembershipCreatedWithCrew(crewId);
 
       allow update: if isCrewOwner(crewId) &&
-        isValidCrewPayload(crewId) &&
-        request.resource.data.ownerId == resource.data.ownerId &&
-        request.resource.data.createdAt == resource.data.createdAt;
+        isValidCrewNameUpdate();
 
       allow delete: if isCrewOwner(crewId) &&
         isOwnerMembershipDeletedWithCrew(crewId);
     }
 
     match /crew_memberships/{membershipId} {
-      allow read: if signedIn() && isCrewMember(resource.data.crewId);
+      allow read: if signedIn() &&
+        (
+          resource.data.userId == request.auth.uid ||
+          isCrewMember(resource.data.crewId)
+        );
 
       allow create: if signedIn() &&
         isValidMembershipPayload(membershipId) &&

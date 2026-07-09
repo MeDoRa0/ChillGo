@@ -4,6 +4,7 @@ import '../entities/crew_invitation.dart';
 
 abstract class CrewRepository {
   Future<String> createCrew(String name);
+  Future<bool> usernameExists(String username);
   Stream<List<Crew>> streamCrews();
   Stream<Crew?> streamCrew(String crewId);
   Stream<List<CrewMembership>> streamMembers(String crewId);

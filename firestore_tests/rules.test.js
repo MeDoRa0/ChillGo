@@ -157,6 +157,9 @@ describe('Firebase Security Rules', () => {
 
       await testing.assertSucceeds(batch.commit());
       await testing.assertSucceeds(crewDoc.get());
+      await testing.assertSucceeds(
+        aliceDb.collection('crew_memberships').where('userId', '==', 'alice').get(),
+      );
 
       // Bob tries to read the crew but fails because he is not a member yet
       await testing.assertFails(bobDb.collection('crews').doc('crew1').get());
@@ -250,6 +253,41 @@ describe('Firebase Security Rules', () => {
           invitedByDisplayName: 'Bob',
           invitedUsername: 'charlie',
         }),
+      );
+    });
+
+    it('allows owner to update only the crew name', async () => {
+      const aliceDb = testEnv.authenticatedContext('alice').firestore();
+
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        await adminDb.collection('users').doc('alice').set({
+          username: 'alice',
+          displayName: 'Alice',
+          createdAt: '2026-07-01T00:00:00Z',
+        });
+        await adminDb.collection('crews').doc('crew1').set({
+          id: 'crew1',
+          name: 'Weekend Hikers',
+          ownerId: 'alice',
+          createdAt: '2026-07-01T00:00:00Z',
+        });
+        await adminDb.collection('crew_memberships').doc('crew1_alice').set({
+          id: 'crew1_alice',
+          crewId: 'crew1',
+          userId: 'alice',
+          role: 'owner',
+          joinedAt: '2026-07-01T00:00:00Z',
+          username: 'alice',
+          displayName: 'Alice',
+        });
+      });
+
+      await testing.assertSucceeds(
+        aliceDb.collection('crews').doc('crew1').update({ name: 'Trail Crew' }),
+      );
+      await testing.assertFails(
+        aliceDb.collection('crews').doc('crew1').update({ ownerId: 'bob' }),
       );
     });
 
@@ -387,6 +425,11 @@ describe('Firebase Security Rules', () => {
 
       // Now Bob is a member, he can read the crew details
       await testing.assertSucceeds(bobDb.collection('crews').doc('crew1').get());
+
+      // Bob is a member, but only the owner can list all pending invites for the crew.
+      await testing.assertFails(
+        bobDb.collection('crew_invitations').where('crewId', '==', 'crew1').get(),
+      );
 
       // Bob leaves the crew (deletes membership)
       await testing.assertSucceeds(bobDb.collection('crew_memberships').doc('crew1_bob').delete());

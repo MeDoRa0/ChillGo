@@ -36,9 +36,11 @@ Future<void> init() async {
     final sharedPreferences = await SharedPreferences.getInstance();
     sl.registerSingleton<SharedPreferences>(sharedPreferences);
   }
-  
+
   if (!sl.isRegistered<FirebaseFirestore>()) {
-    sl.registerLazySingleton<FirebaseFirestore>(() => FirebaseFirestore.instance);
+    sl.registerLazySingleton<FirebaseFirestore>(
+      () => FirebaseFirestore.instance,
+    );
   }
   if (!sl.isRegistered<FirebaseAuth>()) {
     sl.registerLazySingleton<FirebaseAuth>(() => FirebaseAuth.instance);
@@ -50,60 +52,54 @@ Future<void> init() async {
     sl.registerLazySingleton<GoogleSignIn>(() => GoogleSignIn());
   }
   if (!sl.isRegistered<FirebaseCrashlytics>()) {
-    sl.registerLazySingleton<FirebaseCrashlytics>(() => FirebaseCrashlytics.instance);
+    sl.registerLazySingleton<FirebaseCrashlytics>(
+      () => FirebaseCrashlytics.instance,
+    );
   }
   if (!sl.isRegistered<FirebaseAnalytics>()) {
-    sl.registerLazySingleton<FirebaseAnalytics>(() => FirebaseAnalytics.instance);
+    sl.registerLazySingleton<FirebaseAnalytics>(
+      () => FirebaseAnalytics.instance,
+    );
   }
 
   // Datasources
   if (!sl.isRegistered<FirebaseAuthDatasource>()) {
     sl.registerLazySingleton<FirebaseAuthDatasource>(
-      () => FirebaseAuthDatasource(
-        firebaseAuth: sl(),
-        googleSignIn: sl(),
-      ),
+      () => FirebaseAuthDatasource(firebaseAuth: sl(), googleSignIn: sl()),
     );
   }
   if (!sl.isRegistered<FirestoreProfileDatasource>()) {
     sl.registerLazySingleton<FirestoreProfileDatasource>(
-      () => FirestoreProfileDatasource(
-        firestore: sl(),
-        storage: sl(),
-      ),
+      () => FirestoreProfileDatasource(firestore: sl(), storage: sl()),
     );
   }
 
   // Repositories
   if (!sl.isRegistered<ConfigRepository>()) {
     sl.registerLazySingleton<ConfigRepository>(
-      () => ConfigRepositoryImpl(
-        sharedPreferences: sl(),
-        firestore: sl(),
-      ),
+      () => ConfigRepositoryImpl(sharedPreferences: sl(), firestore: sl()),
     );
   }
   if (!sl.isRegistered<DiagnosticsRepository>()) {
     sl.registerLazySingleton<DiagnosticsRepository>(
       () => DiagnosticsRepositoryImpl(
-        crashlytics: sl(),
-        analytics: sl(),
+        crashlytics: isCrashlyticsSupportedPlatform
+            ? sl<FirebaseCrashlytics>()
+            : null,
+        analytics: isAnalyticsSupportedPlatform
+            ? sl<FirebaseAnalytics>()
+            : null,
       ),
     );
   }
   if (!sl.isRegistered<AuthRepository>()) {
     sl.registerLazySingleton<AuthRepository>(
-      () => AuthRepositoryImpl(
-        authDatasource: sl(),
-        profileRepository: sl(),
-      ),
+      () => AuthRepositoryImpl(authDatasource: sl(), profileRepository: sl()),
     );
   }
   if (!sl.isRegistered<ProfileRepository>()) {
     sl.registerLazySingleton<ProfileRepository>(
-      () => ProfileRepositoryImpl(
-        profileDatasource: sl(),
-      ),
+      () => ProfileRepositoryImpl(profileDatasource: sl()),
     );
   }
 
@@ -118,14 +114,6 @@ Future<void> init() async {
       () => CrewRepositoryImpl(
         datasource: sl<FirestoreCrewsDatasource>(),
         currentUid: () => sl<AuthRepository>().currentCredentials?.uid ?? '',
-        // The ChillGo username is populated by AuthRepository once the user
-        // completes onboarding and a profile doc exists. Until then we return
-        // the empty string — invitations written before onboarding are
-        // impossible by construction (the app routes them to /onboarding).
-        currentUsername: () =>
-            sl<AuthRepository>().currentCredentials?.username ?? '',
-        currentDisplayName: () =>
-            sl<AuthRepository>().currentCredentials?.displayName ?? '',
       ),
     );
   }
@@ -135,7 +123,9 @@ Future<void> init() async {
     sl.registerFactory(() => AuthBloc(authRepository: sl()));
   }
   if (!sl.isRegistered<OnboardingCubit>()) {
-    sl.registerFactory(() => OnboardingCubit(profileRepository: sl(), authRepository: sl()));
+    sl.registerFactory(
+      () => OnboardingCubit(profileRepository: sl(), authRepository: sl()),
+    );
   }
   if (!sl.isRegistered<ProfileCubit>()) {
     sl.registerFactory(() => ProfileCubit(profileRepository: sl()));
