@@ -17,6 +17,9 @@ void main() {
     when(
       () => mockAuthRepository.status,
     ).thenAnswer((_) => const Stream.empty());
+    when(
+      () => mockAuthRepository.currentStatus,
+    ).thenReturn(AuthStatus.unknown);
   });
 
   group('AuthBloc', () {
@@ -28,7 +31,10 @@ void main() {
         ).thenAnswer((_) => Stream.value(AuthStatus.unauthenticated));
         return AuthBloc(authRepository: mockAuthRepository);
       },
-      expect: () => const <AuthState>[AuthState.unauthenticated()],
+      expect: () => const <AuthState>[
+        AuthState.unknown(),
+        AuthState.unauthenticated(),
+      ],
     );
 
     blocTest<AuthBloc, AuthState>(
@@ -43,6 +49,7 @@ void main() {
         return AuthBloc(authRepository: mockAuthRepository);
       },
       expect: () => const <AuthState>[
+        AuthState.unknown(),
         AuthState.authenticatedNoProfile(
           UserCredentials(uid: 'test_uid', email: 'test@example.com'),
         ),

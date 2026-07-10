@@ -27,6 +27,12 @@ import '../../features/crews/data/repositories/crew_repository_impl.dart';
 import '../../features/crews/domain/repositories/crew_repository.dart';
 import '../../features/crews/presentation/blocs/crews_list/crews_list_cubit.dart';
 import '../../features/crews/presentation/blocs/invitations/invitations_cubit.dart';
+import '../../features/outings/data/datasources/firestore_outings_datasource.dart';
+import '../../features/outings/data/repositories/outing_repository_impl.dart';
+import '../../features/outings/domain/repositories/outing_repository.dart';
+import '../../features/outings/presentation/cubit/outing_detail/outing_detail_cubit.dart';
+import '../../features/outings/presentation/cubit/outing_form/outing_form_cubit.dart';
+import '../../features/outings/presentation/cubit/outings_list/outings_list_cubit.dart';
 
 final sl = GetIt.instance;
 
@@ -117,6 +123,19 @@ Future<void> init() async {
       ),
     );
   }
+  if (!sl.isRegistered<FirestoreOutingsDatasource>()) {
+    sl.registerLazySingleton<FirestoreOutingsDatasource>(
+      () => FirestoreOutingsDatasource(firestore: sl()),
+    );
+  }
+  if (!sl.isRegistered<OutingRepository>()) {
+    sl.registerLazySingleton<OutingRepository>(
+      () => OutingRepositoryImpl(
+        datasource: sl<FirestoreOutingsDatasource>(),
+        currentUid: () => sl<AuthRepository>().currentCredentials?.uid ?? '',
+      ),
+    );
+  }
 
   // Blocs & Cubits
   if (!sl.isRegistered<AuthBloc>()) {
@@ -135,6 +154,15 @@ Future<void> init() async {
   }
   if (!sl.isRegistered<InvitationsCubit>()) {
     sl.registerFactory(() => InvitationsCubit(crewRepository: sl()));
+  }
+  if (!sl.isRegistered<OutingsListCubit>()) {
+    sl.registerFactory(() => OutingsListCubit(outingRepository: sl()));
+  }
+  if (!sl.isRegistered<OutingDetailCubit>()) {
+    sl.registerFactory(() => OutingDetailCubit(outingRepository: sl()));
+  }
+  if (!sl.isRegistered<OutingFormCubit>()) {
+    sl.registerFactory(() => OutingFormCubit(outingRepository: sl()));
   }
 
   // Global Error Handler

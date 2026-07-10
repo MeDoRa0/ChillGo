@@ -4,6 +4,7 @@ import 'package:chillgo/features/crews/domain/entities/crew.dart';
 import 'package:chillgo/features/crews/domain/entities/crew_membership.dart';
 import 'package:chillgo/features/crews/domain/entities/crew_role.dart';
 import 'package:chillgo/features/crews/domain/repositories/crew_repository.dart';
+import 'package:go_router/go_router.dart';
 
 class CrewDetailsScreen extends StatelessWidget {
   final String crewId;
@@ -49,7 +50,9 @@ class CrewDetailsScreen extends StatelessWidget {
             children: [
               _CrewHeader(crew: crew),
               const SizedBox(height: 16),
-              _CreateOutingButton(crewName: crew.name),
+              _CreateOutingButton(crewId: crew.id),
+              const SizedBox(height: 12),
+              _OutingsButton(crewId: crew.id),
               const SizedBox(height: 24),
               const Text(
                 'Members',
@@ -130,9 +133,9 @@ class _CrewHeader extends StatelessWidget {
 }
 
 class _CreateOutingButton extends StatelessWidget {
-  final String crewName;
+  final String crewId;
 
-  const _CreateOutingButton({required this.crewName});
+  const _CreateOutingButton({required this.crewId});
 
   @override
   Widget build(BuildContext context) {
@@ -140,15 +143,37 @@ class _CreateOutingButton extends StatelessWidget {
       width: double.infinity,
       child: FilledButton.icon(
         onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Create outing for $crewName')),
-          );
+          context.go('/crews/$crewId/outings/new');
         },
         icon: const Icon(Icons.add_location_alt_outlined),
         label: const Text('Create outing'),
         style: FilledButton.styleFrom(
           backgroundColor: const Color(0xFF6366F1),
           foregroundColor: Colors.white,
+          minimumSize: const Size.fromHeight(48),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      ),
+    );
+  }
+}
+
+class _OutingsButton extends StatelessWidget {
+  final String crewId;
+
+  const _OutingsButton({required this.crewId});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: () => context.go('/crews/$crewId/outings'),
+        icon: const Icon(Icons.event_note),
+        label: const Text('View outings'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: Colors.white,
+          side: const BorderSide(color: Color(0xFF6366F1)),
           minimumSize: const Size.fromHeight(48),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),

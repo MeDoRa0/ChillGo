@@ -134,6 +134,183 @@ service cloud.firestore {
         get(ownerMembershipPath(crewId, request.auth.uid)).data.role == 'owner';
     }
 
+    function outingPath(outingId) {
+      return /databases/$(database)/documents/outings/$(outingId);
+    }
+
+    function participantPath(participantId) {
+      return /databases/$(database)/documents/outing_participants/$(participantId);
+    }
+
+    function isValidOutingString(value, min, max) {
+      return value is string && value.size() >= min && value.size() <= max;
+    }
+
+    function isValidOutingStatus(status) {
+      return status in ['draft', 'planning', 'confirmed', 'meeting', 'completed', 'archived', 'cancelled'];
+    }
+
+    function isCrewMemberByUid(crewId, uid) {
+      return signedIn() && exists(membershipPath(crewId + '_' + uid));
+    }
+
+    function isOutingCrewMember(outingId) {
+      return signedIn() &&
+        exists(outingPath(outingId)) &&
+        isCrewMember(get(outingPath(outingId)).data.crewId);
+    }
+
+    function isOutingManager(outingId) {
+      return signedIn() &&
+        exists(outingPath(outingId)) &&
+        (
+          get(outingPath(outingId)).data.createdByUserId == request.auth.uid ||
+          isCrewOwner(get(outingPath(outingId)).data.crewId)
+        );
+    }
+
+    function isValidTransition(fromStatus, toStatus) {
+      return (
+        (fromStatus == 'draft' && (toStatus == 'planning' || toStatus == 'cancelled')) ||
+        (fromStatus == 'planning' && (toStatus == 'confirmed' || toStatus == 'cancelled')) ||
+        (fromStatus == 'confirmed' && (toStatus == 'meeting' || toStatus == 'cancelled')) ||
+        (fromStatus == 'meeting' && toStatus == 'completed') ||
+        (fromStatus == 'completed' && toStatus == 'archived')
+      );
+    }
+
+    function hasValidOutingShape(outingId) {
+      return request.resource.data.keys().hasOnly([
+          'id', 'crewId', 'title', 'description', 'scheduledAt', 'locationText',
+          'status', 'createdByUserId', 'createdAt', 'updatedAt',
+          'cancelledReason', 'cancelledAt', 'archivedAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'id', 'crewId', 'title', 'scheduledAt', 'locationText',
+          'status', 'createdByUserId', 'createdAt', 'updatedAt'
+        ]) &&
+        request.resource.data.id == outingId &&
+        request.resource.data.crewId is string &&
+        request.resource.data.createdByUserId is string &&
+        isValidOutingStatus(request.resource.data.status) &&
+        isValidOutingString(request.resource.data.title, 3, 80) &&
+        isValidOutingString(request.resource.data.locationText, 1, 120) &&
+        request.resource.data.scheduledAt is string &&
+        request.resource.data.createdAt is string &&
+        request.resource.data.updatedAt is string &&
+        (
+          !request.resource.data.keys().hasAny(['description']) ||
+          isValidOutingString(request.resource.data.description, 0, 500)
+        ) &&
+        (
+          request.resource.data.status == 'cancelled' ||
+          (
+            !request.resource.data.keys().hasAny(['cancelledReason']) &&
+            !request.resource.data.keys().hasAny(['cancelledAt'])
+          )
+        ) &&
+        (
+          request.resource.data.status != 'cancelled' ||
+          (
+            isValidOutingString(request.resource.data.cancelledReason, 3, 200) &&
+            request.resource.data.cancelledAt is string
+          )
+        ) &&
+        (
+          request.resource.data.status == 'archived' ||
+          !request.resource.data.keys().hasAny(['archivedAt'])
+        ) &&
+        (
+          request.resource.data.status != 'archived' ||
+          request.resource.data.archivedAt is string
+        );
+    }
+
+    function isValidOutingCreatePayload(outingId) {
+      return hasValidOutingShape(outingId) &&
+        request.resource.data.createdByUserId == request.auth.uid &&
+        request.resource.data.status == 'draft' &&
+        exists(crewPath(request.resource.data.crewId)) &&
+        isCrewMember(request.resource.data.crewId);
+    }
+
+    function keepsOutingIdentity() {
+      return request.resource.data.id == resource.data.id &&
+        request.resource.data.crewId == resource.data.crewId &&
+        request.resource.data.createdByUserId == resource.data.createdByUserId &&
+        request.resource.data.createdAt == resource.data.createdAt;
+    }
+
+    function isOutingDetailEdit() {
+      return resource.data.status in ['draft', 'planning', 'confirmed', 'meeting'] &&
+        request.resource.data.status == resource.data.status &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'title', 'description', 'scheduledAt', 'locationText', 'updatedAt'
+        ]);
+    }
+
+    function isOutingLifecycleEdit() {
+      return request.resource.data.status != resource.data.status &&
+        isValidTransition(resource.data.status, request.resource.data.status) &&
+        (
+          (
+            request.resource.data.status == 'cancelled' &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status', 'cancelledReason', 'cancelledAt', 'updatedAt'
+            ])
+          ) ||
+          (
+            request.resource.data.status == 'archived' &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status', 'archivedAt', 'updatedAt'
+            ])
+          ) ||
+          (
+            !(request.resource.data.status in ['cancelled', 'archived']) &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status', 'updatedAt'
+            ])
+          )
+        );
+    }
+
+    function isValidOutingUpdatePayload(outingId) {
+      return hasValidOutingShape(outingId) &&
+        keepsOutingIdentity() &&
+        request.resource.data.crewId == resource.data.crewId &&
+        (isOutingDetailEdit() || isOutingLifecycleEdit());
+    }
+
+    function isValidParticipantPayload(participantId) {
+      return request.resource.data.keys().hasOnly([
+          'id', 'outingId', 'crewId', 'userId', 'username', 'displayName',
+          'avatarUrl', 'addedByUserId', 'addedAt', 'isCreatorParticipant'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'id', 'outingId', 'crewId', 'userId', 'username', 'displayName',
+          'addedByUserId', 'addedAt', 'isCreatorParticipant'
+        ]) &&
+        request.resource.data.id == participantId &&
+        participantId == request.resource.data.outingId + '_' + request.resource.data.userId &&
+        request.resource.data.addedByUserId == request.auth.uid &&
+        (
+          (
+            exists(outingPath(request.resource.data.outingId)) &&
+            get(outingPath(request.resource.data.outingId)).data.crewId == request.resource.data.crewId
+          ) ||
+          (
+            !exists(outingPath(request.resource.data.outingId)) &&
+            existsAfter(outingPath(request.resource.data.outingId)) &&
+            getAfter(outingPath(request.resource.data.outingId)).data.crewId == request.resource.data.crewId
+          )
+        ) &&
+        isCrewMemberByUid(request.resource.data.crewId, request.resource.data.userId) &&
+        exists(userPath(request.resource.data.userId)) &&
+        get(userPath(request.resource.data.userId)).data.username == request.resource.data.username &&
+        get(userPath(request.resource.data.userId)).data.displayName == request.resource.data.displayName &&
+        request.resource.data.get('avatarUrl', null) == get(userPath(request.resource.data.userId)).data.get('avatarUrl', null);
+    }
+
     function isOwnerMembershipCreatedWithCrew(crewId) {
       return existsAfter(membershipPath(crewId + '_' + request.auth.uid));
     }
@@ -246,6 +423,35 @@ service cloud.firestore {
           resource.data.invitedUserId == request.auth.uid ||
           isCrewOwner(resource.data.crewId)
         );
+    }
+
+    match /outings/{outingId} {
+      allow read: if isCrewMember(resource.data.crewId);
+      allow create: if signedIn() &&
+        isValidOutingCreatePayload(outingId) &&
+        existsAfter(participantPath(outingId + '_' + request.auth.uid));
+      allow update: if isOutingManager(outingId) &&
+        isValidOutingUpdatePayload(outingId);
+      allow delete: if false;
+    }
+
+    match /outing_participants/{participantId} {
+      allow read: if isOutingCrewMember(resource.data.outingId);
+      allow create: if signedIn() &&
+        isValidParticipantPayload(participantId) &&
+        (
+          (
+            request.resource.data.isCreatorParticipant == true &&
+            request.resource.data.userId == request.auth.uid &&
+            !exists(outingPath(request.resource.data.outingId)) &&
+            existsAfter(outingPath(request.resource.data.outingId)) &&
+            getAfter(outingPath(request.resource.data.outingId)).data.createdByUserId == request.auth.uid
+          ) ||
+          isOutingManager(request.resource.data.outingId)
+        );
+      allow update: if false;
+      allow delete: if isOutingManager(resource.data.outingId) &&
+        get(outingPath(resource.data.outingId)).data.status in ['draft', 'planning', 'confirmed', 'meeting'];
     }
   }
 }

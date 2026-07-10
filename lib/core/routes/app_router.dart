@@ -12,6 +12,9 @@ import '../../features/profile/presentation/screens/onboarding_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/crews/presentation/screens/crew_details_screen.dart';
 import '../../features/crews/presentation/screens/invitations_screen.dart';
+import '../../features/outings/presentation/screens/outing_form_screen.dart';
+import '../../features/outings/presentation/screens/outings_list_screen.dart';
+import '../../features/outings/presentation/screens/outing_details_screen.dart';
 import '../di/injection_container.dart';
 
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -121,6 +124,39 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) {
         final crewId = state.pathParameters['crewId'] ?? '';
         return CrewDetailsScreen(crewId: crewId);
+      },
+    ),
+    GoRoute(
+      path: '/crews/:crewId/outings/new',
+      name: 'outing-create',
+      builder: (context, state) {
+        final crewId = state.pathParameters['crewId'] ?? '';
+        return OutingFormScreen(crewId: crewId);
+      },
+    ),
+    GoRoute(
+      path: '/crews/:crewId/outings',
+      name: 'crew-outings',
+      builder: (context, state) {
+        final crewId = state.pathParameters['crewId'] ?? '';
+        return OutingsListScreen(crewId: crewId);
+      },
+    ),
+    GoRoute(
+      path: '/outings/:outingId',
+      name: 'outing-details',
+      builder: (context, state) {
+        final outingId = state.pathParameters['outingId'] ?? '';
+        return OutingDetailsScreen(outingId: outingId);
+      },
+    ),
+    GoRoute(
+      path: '/outings/:outingId/edit',
+      name: 'outing-edit',
+      builder: (context, state) {
+        final outingId = state.pathParameters['outingId'] ?? '';
+        final crewId = state.uri.queryParameters['crewId'] ?? '';
+        return OutingFormScreen(crewId: crewId, outingId: outingId);
       },
     ),
   ],
