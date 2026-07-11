@@ -19,10 +19,28 @@ class MockDocumentReference extends Mock
 class MockDocumentSnapshot extends Mock
     implements DocumentSnapshot<Map<String, dynamic>> {}
 
+class MockQuery extends Mock implements Query<Map<String, dynamic>> {}
+
+class MockQuerySnapshot extends Mock
+    implements QuerySnapshot<Map<String, dynamic>> {}
+
+class MockQueryDocumentSnapshot extends Mock
+    implements QueryDocumentSnapshot<Map<String, dynamic>> {}
+
+class MockWriteBatch extends Mock implements WriteBatch {}
+
+class FakeDocumentReference extends Fake
+    implements DocumentReference<Map<String, dynamic>> {}
+
 void main() {
   late MockFirebaseFirestore mockFirestore;
   late MockFirebaseStorage mockStorage;
   late FirestoreProfileDatasource datasource;
+
+  setUpAll(() {
+    registerFallbackValue(FakeDocumentReference());
+    registerFallbackValue(<String, dynamic>{});
+  });
 
   setUp(() {
     mockFirestore = MockFirebaseFirestore();
@@ -92,4 +110,83 @@ void main() {
       },
     );
   });
+
+  test('getProfile reads native Firestore timestamps', () async {
+    final users = MockCollectionReference();
+    final userRef = MockDocumentReference();
+    final userSnapshot = MockDocumentSnapshot();
+    final createdAt = DateTime.utc(2026, 7, 1, 12);
+
+    when(() => mockFirestore.collection('users')).thenReturn(users);
+    when(() => users.doc('alice')).thenReturn(userRef);
+    when(() => userRef.get()).thenAnswer((_) async => userSnapshot);
+    when(() => userSnapshot.exists).thenReturn(true);
+    when(() => userSnapshot.data()).thenReturn({
+      'username': 'alice',
+      'displayName': 'Alice',
+      'createdAt': Timestamp.fromDate(createdAt),
+    });
+
+    final profile = await datasource.getProfile('alice');
+
+    expect(profile?.createdAt, createdAt);
+  });
+
+  test(
+    'updateProfile synchronizes membership and participant caches',
+    () async {
+      final users = MockCollectionReference();
+      final memberships = MockCollectionReference();
+      final participants = MockCollectionReference();
+      final membershipsQuery = MockQuery();
+      final participantsQuery = MockQuery();
+      final membershipsSnapshot = MockQuerySnapshot();
+      final participantsSnapshot = MockQuerySnapshot();
+      final membershipDocument = MockQueryDocumentSnapshot();
+      final participantDocument = MockQueryDocumentSnapshot();
+      final userRef = MockDocumentReference();
+      final membershipRef = MockDocumentReference();
+      final participantRef = MockDocumentReference();
+      final batch = MockWriteBatch();
+
+      when(() => mockFirestore.collection('users')).thenReturn(users);
+      when(
+        () => mockFirestore.collection('crew_memberships'),
+      ).thenReturn(memberships);
+      when(
+        () => mockFirestore.collection('outing_participants'),
+      ).thenReturn(participants);
+      when(() => users.doc('alice')).thenReturn(userRef);
+      when(
+        () => memberships.where('userId', isEqualTo: 'alice'),
+      ).thenReturn(membershipsQuery);
+      when(
+        () => participants.where('userId', isEqualTo: 'alice'),
+      ).thenReturn(participantsQuery);
+      when(
+        () => membershipsQuery.get(),
+      ).thenAnswer((_) async => membershipsSnapshot);
+      when(
+        () => participantsQuery.get(),
+      ).thenAnswer((_) async => participantsSnapshot);
+      when(() => membershipsSnapshot.docs).thenReturn([membershipDocument]);
+      when(() => participantsSnapshot.docs).thenReturn([participantDocument]);
+      when(() => membershipDocument.reference).thenReturn(membershipRef);
+      when(() => participantDocument.reference).thenReturn(participantRef);
+      when(() => mockFirestore.batch()).thenReturn(batch);
+      when(() => batch.update(any(), any())).thenReturn(null);
+      when(() => batch.commit()).thenAnswer((_) async {});
+
+      await datasource.updateProfile(
+        uid: 'alice',
+        displayName: 'Alice Updated',
+      );
+
+      const expectedUpdate = {'displayName': 'Alice Updated'};
+      verify(() => batch.update(userRef, expectedUpdate)).called(1);
+      verify(() => batch.update(membershipRef, expectedUpdate)).called(1);
+      verify(() => batch.update(participantRef, expectedUpdate)).called(1);
+      verify(() => batch.commit()).called(1);
+    },
+  );
 }

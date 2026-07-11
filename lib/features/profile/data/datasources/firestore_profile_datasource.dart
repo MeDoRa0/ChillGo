@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import '../../../../core/data/firestore_timestamp.dart';
 import '../../../authentication/domain/entities/user_profile.dart';
 
 class FirestoreProfileDatasource {
@@ -18,8 +19,8 @@ class FirestoreProfileDatasource {
     // rather than crashing on null casts.
     final username = data['username'] as String?;
     final displayName = data['displayName'] as String?;
-    final createdAtRaw = data['createdAt'] as String?;
-    if (username == null || displayName == null || createdAtRaw == null) {
+    final createdAt = readFirestoreTimestamp(data['createdAt']);
+    if (username == null || displayName == null || createdAt == null) {
       return null;
     }
 
@@ -28,7 +29,7 @@ class FirestoreProfileDatasource {
       username: username,
       displayName: displayName,
       avatarUrl: data['avatarUrl'] as String?,
-      createdAt: DateTime.parse(createdAtRaw),
+      createdAt: createdAt,
     );
   }
 
@@ -81,7 +82,7 @@ class FirestoreProfileDatasource {
         'username': lowercaseUsername,
         'displayName': displayName,
         'avatarUrl': avatarUrl,
-        'createdAt': DateTime.now().toIso8601String(),
+        'createdAt': writeFirestoreTimestamp(DateTime.now()),
       });
     });
   }
@@ -91,12 +92,30 @@ class FirestoreProfileDatasource {
     String? displayName,
     String? avatarUrl,
   }) async {
-    final updates = <String, dynamic>{};
-    if (displayName != null) updates['displayName'] = displayName;
-    if (avatarUrl != null) updates['avatarUrl'] = avatarUrl;
-    if (updates.isNotEmpty) {
-      await firestore.collection('users').doc(uid).update(updates);
+    final profileUpdates = <String, dynamic>{
+      if (displayName != null) 'displayName': displayName,
+      if (avatarUrl != null) 'avatarUrl': avatarUrl,
+    };
+    if (profileUpdates.isEmpty) return;
+
+    final memberships = await firestore
+        .collection('crew_memberships')
+        .where('userId', isEqualTo: uid)
+        .get();
+    final participants = await firestore
+        .collection('outing_participants')
+        .where('userId', isEqualTo: uid)
+        .get();
+    final batch = firestore.batch();
+
+    batch.update(firestore.collection('users').doc(uid), profileUpdates);
+    for (final membership in memberships.docs) {
+      batch.update(membership.reference, profileUpdates);
     }
+    for (final participant in participants.docs) {
+      batch.update(participant.reference, profileUpdates);
+    }
+    await batch.commit();
   }
 
   Future<String> uploadAvatar({

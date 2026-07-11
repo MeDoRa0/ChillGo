@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/di/injection_container.dart';
+import '../../../../core/presentation/widgets/app_back_button.dart';
 import '../blocs/invitations/invitations_cubit.dart';
 import '../../domain/entities/crew_invitation.dart';
 
@@ -26,6 +27,7 @@ class _InvitationsView extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: const Color(0xFF0F0F1A),
         elevation: 0,
+        leading: const AppBackButton(),
         iconTheme: const IconThemeData(color: Colors.white),
         title: const Text(
           'Invitations',

@@ -6,6 +6,7 @@ import 'package:chillgo/features/crews/domain/repositories/crew_repository.dart'
 import 'package:chillgo/features/crews/presentation/screens/crew_details_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mocktail/mocktail.dart';
 
 class MockCrewRepository extends Mock implements CrewRepository {}
@@ -76,14 +77,27 @@ void main() {
   testWidgets('create outing button is wired for the selected crew', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      const MaterialApp(home: CrewDetailsScreen(crewId: 'crew1')),
+    final router = GoRouter(
+      initialLocation: '/',
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (_, __) => const CrewDetailsScreen(crewId: 'crew1'),
+        ),
+        GoRoute(
+          path: '/crews/:crewId/outings/new',
+          builder: (_, state) =>
+              Text('Create ${state.pathParameters['crewId']}'),
+        ),
+      ],
     );
+
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Create outing'));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    expect(find.text('Create outing for Weekend Hikers'), findsOneWidget);
+    expect(find.text('Create crew1'), findsOneWidget);
   });
 }

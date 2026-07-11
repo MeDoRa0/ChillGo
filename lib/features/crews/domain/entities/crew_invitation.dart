@@ -28,7 +28,6 @@ class CrewInvitation {
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
       'crewId': crewId,
       'invitedUserId': invitedUserId,
       'invitedByUserId': invitedByUserId,
@@ -46,9 +45,7 @@ class CrewInvitation {
       crewId: map['crewId'] as String? ?? '',
       invitedUserId: map['invitedUserId'] as String? ?? '',
       invitedByUserId: map['invitedByUserId'] as String? ?? '',
-      createdAt:
-          DateTime.tryParse(map['createdAt'] as String? ?? '') ??
-          DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+      createdAt: _readDate(map['createdAt']),
       crewName: map['crewName'] as String? ?? '',
       invitedByUsername: map['invitedByUsername'] as String? ?? '',
       invitedByDisplayName: map['invitedByDisplayName'] as String? ?? '',
@@ -78,5 +75,14 @@ class CrewInvitation {
       invitedByDisplayName: invitedByDisplayName ?? this.invitedByDisplayName,
       invitedUsername: invitedUsername ?? this.invitedUsername,
     );
+  }
+
+  static DateTime _readDate(Object? rawDate) {
+    if (rawDate is DateTime) return rawDate.toUtc();
+    if (rawDate is String) {
+      return DateTime.tryParse(rawDate)?.toUtc() ??
+          DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+    }
+    return DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
   }
 }

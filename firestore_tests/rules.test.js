@@ -1,4 +1,4 @@
-const testing = require('@firebase/rules-unit-testing');
+﻿const testing = require('@firebase/rules-unit-testing');
 const fs = require('fs');
 const path = require('path');
 
@@ -42,7 +42,7 @@ describe('Firebase Security Rules', () => {
         username: 'alice',
         displayName: 'Alice',
         avatarUrl: null,
-        createdAt: '2026-06-29T16:15:00.000Z',
+        createdAt: new Date('2026-06-29T16:15:00.000Z'),
       }));
       await testing.assertSucceeds(aliceDoc.update({ displayName: 'Alice Smith' }));
     });
@@ -54,7 +54,7 @@ describe('Firebase Security Rules', () => {
       await testing.assertFails(bobDoc.set({
         username: 'bob',
         displayName: 'Bob',
-        createdAt: '2026-06-29T16:15:00.000Z',
+        createdAt: new Date('2026-06-29T16:15:00.000Z'),
       }));
       await testing.assertFails(bobDoc.update({ displayName: 'Robert' }));
     });
@@ -64,7 +64,7 @@ describe('Firebase Security Rules', () => {
         await context.firestore().collection('users').doc('bob').set({
           username: 'bob',
           displayName: 'Bob',
-          createdAt: '2026-06-29T16:15:00.000Z',
+          createdAt: new Date('2026-06-29T16:15:00.000Z'),
         });
       });
 
@@ -135,22 +135,20 @@ describe('Firebase Security Rules', () => {
         await context.firestore().collection('users').doc('alice').set({
           username: 'alice',
           displayName: 'Alice',
-          createdAt: '2026-07-01T00:00:00Z',
+          createdAt: new Date('2026-07-01T00:00:00Z'),
         });
       });
 
       batch.set(crewDoc, {
-        id: 'crew1',
         name: 'Weekend Hikers',
         ownerId: 'alice',
-        createdAt: '2026-07-01T00:00:00Z',
+        createdAt: new Date('2026-07-01T00:00:00Z'),
       });
       batch.set(aliceMembership, {
-        id: 'crew1_alice',
         crewId: 'crew1',
         userId: 'alice',
         role: 'owner',
-        joinedAt: '2026-07-01T00:00:00Z',
+        joinedAt: new Date('2026-07-01T00:00:00Z'),
         username: 'alice',
         displayName: 'Alice',
       });
@@ -167,21 +165,19 @@ describe('Firebase Security Rules', () => {
       // Bob tries to create membership directly without invitation and fails
       const bobMembership = bobDb.collection('crew_memberships').doc('crew1_bob');
       await testing.assertFails(bobMembership.set({
-        id: 'crew1_bob',
         crewId: 'crew1',
         userId: 'bob',
         role: 'member',
-        joinedAt: '2026-07-01T00:00:00Z',
+        joinedAt: new Date('2026-07-01T00:00:00Z'),
         username: 'bob',
         displayName: 'Bob',
       }));
 
       await testing.assertFails(bobMembership.set({
-        id: 'crew1_bob',
         crewId: 'crew1',
         userId: 'bob',
         role: 'owner',
-        joinedAt: '2026-07-01T00:00:00Z',
+        joinedAt: new Date('2026-07-01T00:00:00Z'),
         username: 'bob',
         displayName: 'Bob',
       }));
@@ -191,11 +187,10 @@ describe('Firebase Security Rules', () => {
       const aliceDb = testEnv.authenticatedContext('alice').firestore();
 
       await testing.assertFails(aliceDb.collection('crew_memberships').doc('ghostCrew_alice').set({
-        id: 'ghostCrew_alice',
         crewId: 'ghostCrew',
         userId: 'alice',
         role: 'owner',
-        joinedAt: '2026-07-01T00:00:00Z',
+        joinedAt: new Date('2026-07-01T00:00:00Z'),
         username: 'alice',
         displayName: 'Alice',
       }));
@@ -209,29 +204,26 @@ describe('Firebase Security Rules', () => {
         await adminDb.collection('users').doc('charlie').set({
           username: 'charlie',
           displayName: 'Charlie',
-          createdAt: '2026-07-01T00:00:00Z',
+          createdAt: new Date('2026-07-01T00:00:00Z'),
         });
         await adminDb.collection('crews').doc('crew1').set({
-          id: 'crew1',
           name: 'Weekend Hikers',
           ownerId: 'alice',
-          createdAt: '2026-07-01T00:00:00Z',
+          createdAt: new Date('2026-07-01T00:00:00Z'),
         });
         await adminDb.collection('crew_memberships').doc('crew1_alice').set({
-          id: 'crew1_alice',
           crewId: 'crew1',
           userId: 'alice',
           role: 'owner',
-          joinedAt: '2026-07-01T00:00:00Z',
+          joinedAt: new Date('2026-07-01T00:00:00Z'),
           username: 'alice',
           displayName: 'Alice',
         });
         await adminDb.collection('crew_memberships').doc('crew1_bob').set({
-          id: 'crew1_bob',
           crewId: 'crew1',
           userId: 'bob',
           role: 'member',
-          joinedAt: '2026-07-01T00:00:00Z',
+          joinedAt: new Date('2026-07-01T00:00:00Z'),
           username: 'bob',
           displayName: 'Bob',
         });
@@ -243,11 +235,10 @@ describe('Firebase Security Rules', () => {
       await testing.assertFails(bobDb.collection('crews').doc('crew1').delete());
       await testing.assertFails(
         bobDb.collection('crew_invitations').doc('crew1_charlie').set({
-          id: 'crew1_charlie',
           crewId: 'crew1',
           invitedUserId: 'charlie',
           invitedByUserId: 'bob',
-          createdAt: '2026-07-01T00:00:00Z',
+          createdAt: new Date('2026-07-01T00:00:00Z'),
           crewName: 'Weekend Hikers',
           invitedByUsername: 'bob',
           invitedByDisplayName: 'Bob',
@@ -264,20 +255,18 @@ describe('Firebase Security Rules', () => {
         await adminDb.collection('users').doc('alice').set({
           username: 'alice',
           displayName: 'Alice',
-          createdAt: '2026-07-01T00:00:00Z',
+          createdAt: new Date('2026-07-01T00:00:00Z'),
         });
         await adminDb.collection('crews').doc('crew1').set({
-          id: 'crew1',
           name: 'Weekend Hikers',
           ownerId: 'alice',
-          createdAt: '2026-07-01T00:00:00Z',
+          createdAt: new Date('2026-07-01T00:00:00Z'),
         });
         await adminDb.collection('crew_memberships').doc('crew1_alice').set({
-          id: 'crew1_alice',
           crewId: 'crew1',
           userId: 'alice',
           role: 'owner',
-          joinedAt: '2026-07-01T00:00:00Z',
+          joinedAt: new Date('2026-07-01T00:00:00Z'),
           username: 'alice',
           displayName: 'Alice',
         });
@@ -299,43 +288,39 @@ describe('Firebase Security Rules', () => {
         await adminDb.collection('users').doc('alice').set({
           username: 'alice',
           displayName: 'Alice',
-          createdAt: '2026-07-01T00:00:00Z',
+          createdAt: new Date('2026-07-01T00:00:00Z'),
         });
         await adminDb.collection('users').doc('bob').set({
           username: 'bob',
           displayName: 'Bob',
-          createdAt: '2026-07-01T00:00:00Z',
+          createdAt: new Date('2026-07-01T00:00:00Z'),
         });
         await adminDb.collection('crews').doc('crew1').set({
-          id: 'crew1',
           name: 'Weekend Hikers',
           ownerId: 'alice',
-          createdAt: '2026-07-01T00:00:00Z',
+          createdAt: new Date('2026-07-01T00:00:00Z'),
         });
         await adminDb.collection('crew_memberships').doc('crew1_alice').set({
-          id: 'crew1_alice',
           crewId: 'crew1',
           userId: 'alice',
           role: 'owner',
-          joinedAt: '2026-07-01T00:00:00Z',
+          joinedAt: new Date('2026-07-01T00:00:00Z'),
           username: 'alice',
           displayName: 'Alice',
         });
         await adminDb.collection('crew_memberships').doc('crew1_bob').set({
-          id: 'crew1_bob',
           crewId: 'crew1',
           userId: 'bob',
           role: 'member',
-          joinedAt: '2026-07-01T00:00:00Z',
+          joinedAt: new Date('2026-07-01T00:00:00Z'),
           username: 'bob',
           displayName: 'Bob',
         });
         await adminDb.collection('crew_invitations').doc('crew1_charlie').set({
-          id: 'crew1_charlie',
           crewId: 'crew1',
           invitedUserId: 'charlie',
           invitedByUserId: 'alice',
-          createdAt: '2026-07-01T00:00:00Z',
+          createdAt: new Date('2026-07-01T00:00:00Z'),
           crewName: 'Weekend Hikers',
           invitedByUsername: 'alice',
           invitedByDisplayName: 'Alice',
@@ -362,25 +347,23 @@ describe('Firebase Security Rules', () => {
         await adminDb.collection('users').doc('alice').set({
           username: 'alice',
           displayName: 'Alice',
-          createdAt: '2026-07-01T00:00:00Z',
+          createdAt: new Date('2026-07-01T00:00:00Z'),
         });
         await adminDb.collection('users').doc('bob').set({
           username: 'bob',
           displayName: 'Bob',
-          createdAt: '2026-07-01T00:00:00Z',
+          createdAt: new Date('2026-07-01T00:00:00Z'),
         });
         await adminDb.collection('crews').doc('crew1').set({
-          id: 'crew1',
           name: 'Weekend Hikers',
           ownerId: 'alice',
-          createdAt: '2026-07-01T00:00:00Z',
+          createdAt: new Date('2026-07-01T00:00:00Z'),
         });
         await adminDb.collection('crew_memberships').doc('crew1_alice').set({
-          id: 'crew1_alice',
           crewId: 'crew1',
           userId: 'alice',
           role: 'owner',
-          joinedAt: '2026-07-01T00:00:00Z',
+          joinedAt: new Date('2026-07-01T00:00:00Z'),
           username: 'alice',
           displayName: 'Alice',
         });
@@ -389,11 +372,10 @@ describe('Firebase Security Rules', () => {
       // Alice invites Bob
       const invitationDoc = aliceDb.collection('crew_invitations').doc('crew1_bob');
       await testing.assertSucceeds(invitationDoc.set({
-        id: 'crew1_bob',
         crewId: 'crew1',
         invitedUserId: 'bob',
         invitedByUserId: 'alice',
-        createdAt: '2026-07-01T00:00:00Z',
+        createdAt: new Date('2026-07-01T00:00:00Z'),
         crewName: 'Weekend Hikers',
         invitedByUsername: 'alice',
         invitedByDisplayName: 'Alice',
@@ -407,11 +389,10 @@ describe('Firebase Security Rules', () => {
       // invitation is consumed in the same atomic request.
       const bobMembership = bobDb.collection('crew_memberships').doc('crew1_bob');
       const membershipPayload = {
-        id: 'crew1_bob',
         crewId: 'crew1',
         userId: 'bob',
         role: 'member',
-        joinedAt: '2026-07-01T00:00:00Z',
+        joinedAt: new Date('2026-07-01T00:00:00Z'),
         username: 'bob',
         displayName: 'Bob',
       };
@@ -446,34 +427,31 @@ describe('Firebase Security Rules', () => {
         await adminDb.collection('users').doc('alice').set({
           username: 'alice',
           displayName: 'Alice',
-          createdAt: '2026-07-01T00:00:00Z',
+          createdAt: new Date('2026-07-01T00:00:00Z'),
         });
         await adminDb.collection('users').doc('bob').set({
           username: 'bob',
           displayName: 'Bob',
-          createdAt: '2026-07-01T00:00:00Z',
+          createdAt: new Date('2026-07-01T00:00:00Z'),
         });
         await adminDb.collection('crews').doc('crew1').set({
-          id: 'crew1',
           name: 'Weekend Hikers',
           ownerId: 'alice',
-          createdAt: '2026-07-01T00:00:00Z',
+          createdAt: new Date('2026-07-01T00:00:00Z'),
         });
         await adminDb.collection('crew_memberships').doc('crew1_alice').set({
-          id: 'crew1_alice',
           crewId: 'crew1',
           userId: 'alice',
           role: 'owner',
-          joinedAt: '2026-07-01T00:00:00Z',
+          joinedAt: new Date('2026-07-01T00:00:00Z'),
           username: 'alice',
           displayName: 'Alice',
         });
         await adminDb.collection('crew_invitations').doc('crew1_bob').set({
-          id: 'crew1_bob',
           crewId: 'crew1',
           invitedUserId: 'bob',
           invitedByUserId: 'alice',
-          createdAt: '2026-07-01T00:00:00Z',
+          createdAt: new Date('2026-07-01T00:00:00Z'),
           crewName: 'Weekend Hikers',
           invitedByUsername: 'alice',
           invitedByDisplayName: 'Alice',
@@ -482,21 +460,19 @@ describe('Firebase Security Rules', () => {
       });
 
       await testing.assertFails(bobDb.collection('crew_memberships').doc('crew1_bob').set({
-        id: 'crew1_bob',
         crewId: 'crew1',
         userId: 'bob',
         role: 'member',
-        joinedAt: '2026-07-01T00:00:00Z',
+        joinedAt: new Date('2026-07-01T00:00:00Z'),
         username: 'bob',
         displayName: 'Not Bob',
       }));
 
       await testing.assertFails(bobDb.collection('crew_memberships').doc('crew1_bob').set({
-        id: 'crew1_bob',
         crewId: 'crew1',
         userId: 'bob',
         role: 'member',
-        joinedAt: '2026-07-01T00:00:00Z',
+        joinedAt: new Date('2026-07-01T00:00:00Z'),
         username: 'bob',
         displayName: 'Bob',
         avatarUrl: 'https://example.com/spoofed.png',
@@ -511,36 +487,33 @@ describe('Firebase Security Rules', () => {
         await adminDb.collection('users').doc('alice').set({
           username: 'alice',
           displayName: 'Alice',
-          createdAt: '2026-07-01T00:00:00Z',
+          createdAt: new Date('2026-07-01T00:00:00Z'),
         });
         await adminDb.collection('users').doc('bob').set({
           username: 'bob',
           displayName: 'Bob',
-          createdAt: '2026-07-01T00:00:00Z',
+          createdAt: new Date('2026-07-01T00:00:00Z'),
         });
         await adminDb.collection('crews').doc('crew1').set({
-          id: 'crew1',
           name: 'Weekend Hikers',
           ownerId: 'alice',
-          createdAt: '2026-07-01T00:00:00Z',
+          createdAt: new Date('2026-07-01T00:00:00Z'),
         });
         await adminDb.collection('crew_memberships').doc('crew1_alice').set({
-          id: 'crew1_alice',
           crewId: 'crew1',
           userId: 'alice',
           role: 'owner',
-          joinedAt: '2026-07-01T00:00:00Z',
+          joinedAt: new Date('2026-07-01T00:00:00Z'),
           username: 'alice',
           displayName: 'Alice',
         });
       });
 
       const validInvitation = {
-        id: 'crew1_bob',
         crewId: 'crew1',
         invitedUserId: 'bob',
         invitedByUserId: 'alice',
-        createdAt: '2026-07-01T00:00:00Z',
+        createdAt: new Date('2026-07-01T00:00:00Z'),
         crewName: 'Weekend Hikers',
         invitedByUsername: 'alice',
         invitedByDisplayName: 'Alice',
@@ -555,6 +528,161 @@ describe('Firebase Security Rules', () => {
         ...validInvitation,
         invitedByDisplayName: 'Mallory',
       }));
+    });
+  });
+
+  describe('Firestore outing rules', () => {
+    it('allows users to synchronize cached profile fields atomically', async () => {
+      const aliceDb = testEnv.authenticatedContext('alice').firestore();
+
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        await adminDb.collection('users').doc('alice').set({
+          username: 'alice',
+          displayName: 'Old Name',
+          createdAt: new Date('2026-07-01T00:00:00Z'),
+        });
+        await adminDb.collection('crew_memberships').doc('crew1_alice').set({
+          crewId: 'crew1',
+          userId: 'alice',
+          role: 'member',
+          joinedAt: new Date('2026-07-01T00:00:00Z'),
+          username: 'alice',
+          displayName: 'Old Name',
+        });
+        await adminDb.collection('outing_participants').doc('outing1_alice').set({
+          outingId: 'outing1',
+          crewId: 'crew1',
+          userId: 'alice',
+          username: 'alice',
+          displayName: 'Old Name',
+        });
+      });
+
+      await testing.assertFails(
+        aliceDb.collection('crew_memberships').doc('crew1_alice').update({
+          displayName: 'Spoofed Name',
+        }),
+      );
+
+      const updateBatch = aliceDb.batch();
+      updateBatch.update(aliceDb.collection('users').doc('alice'), {
+        displayName: 'Alice Updated',
+      });
+      updateBatch.update(aliceDb.collection('crew_memberships').doc('crew1_alice'), {
+        displayName: 'Alice Updated',
+      });
+      updateBatch.update(aliceDb.collection('outing_participants').doc('outing1_alice'), {
+        displayName: 'Alice Updated',
+      });
+      await testing.assertSucceeds(updateBatch.commit());
+    });
+
+    it('allows a crew member to accept an active outing', async () => {
+      const bobDb = testEnv.authenticatedContext('bob').firestore();
+
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        await adminDb.collection('users').doc('bob').set({
+          username: 'bob',
+          displayName: 'Bob',
+          createdAt: new Date('2026-07-01T00:00:00Z'),
+        });
+        await adminDb.collection('crews').doc('crew1').set({
+          name: 'Weekend Hikers',
+          ownerId: 'alice',
+          createdAt: new Date('2026-07-01T00:00:00Z'),
+        });
+        await adminDb.collection('crew_memberships').doc('crew1_bob').set({
+          crewId: 'crew1',
+          userId: 'bob',
+          role: 'member',
+          joinedAt: new Date('2026-07-01T00:00:00Z'),
+          username: 'bob',
+          displayName: 'Bob',
+        });
+        await adminDb.collection('outings').doc('outing1').set({
+          crewId: 'crew1',
+          title: 'Friday Cafe',
+          scheduledAt: new Date('2030-01-01T00:00:00.000Z'),
+          locationText: 'City Center',
+          status: 'planning',
+          createdByUserId: 'alice',
+          createdAt: new Date('2026-07-01T00:00:00.000Z'),
+          updatedAt: new Date('2026-07-01T00:00:00.000Z'),
+        });
+      });
+
+      await testing.assertSucceeds(
+        bobDb.collection('outing_participants').doc('outing1_bob').set({
+          outingId: 'outing1',
+          crewId: 'crew1',
+          userId: 'bob',
+          username: 'bob',
+          displayName: 'Bob',
+          addedByUserId: 'bob',
+          addedAt: new Date('2026-07-01T00:00:00.000Z'),
+          isCreatorParticipant: false,
+        }),
+      );
+    });
+
+    it('allows only the creator to delete an outing with its participants', async () => {
+      const aliceDb = testEnv.authenticatedContext('alice').firestore();
+      const bobDb = testEnv.authenticatedContext('bob').firestore();
+
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        await adminDb.collection('crews').doc('crew1').set({
+          name: 'Weekend Hikers',
+          ownerId: 'alice',
+          createdAt: new Date('2026-07-01T00:00:00Z'),
+        });
+        await adminDb.collection('crew_memberships').doc('crew1_alice').set({
+          crewId: 'crew1',
+          userId: 'alice',
+          role: 'owner',
+          joinedAt: new Date('2026-07-01T00:00:00Z'),
+          username: 'alice',
+          displayName: 'Alice',
+        });
+        await adminDb.collection('crew_memberships').doc('crew1_bob').set({
+          crewId: 'crew1',
+          userId: 'bob',
+          role: 'member',
+          joinedAt: new Date('2026-07-01T00:00:00Z'),
+          username: 'bob',
+          displayName: 'Bob',
+        });
+        await adminDb.collection('outings').doc('outing1').set({
+          crewId: 'crew1',
+          title: 'Friday Cafe',
+          scheduledAt: new Date('2030-01-01T00:00:00.000Z'),
+          locationText: 'City Center',
+          status: 'archived',
+          createdByUserId: 'alice',
+          createdAt: new Date('2026-07-01T00:00:00.000Z'),
+          updatedAt: new Date('2026-07-01T00:00:00.000Z'),
+        });
+        await adminDb.collection('outing_participants').doc('outing1_alice').set({
+          outingId: 'outing1',
+          crewId: 'crew1',
+          userId: 'alice',
+        });
+        await adminDb.collection('outing_participants').doc('outing1_bob').set({
+          outingId: 'outing1',
+          crewId: 'crew1',
+          userId: 'bob',
+        });
+      });
+
+      await testing.assertFails(bobDb.collection('outings').doc('outing1').delete());
+
+      const deleteBatch = aliceDb.batch();
+      deleteBatch.delete(aliceDb.collection('outing_participants').doc('outing1_alice'));
+      deleteBatch.delete(aliceDb.collection('outing_participants').doc('outing1_bob'));
+      deleteBatch.delete(aliceDb.collection('outings').doc('outing1'));
+      await testing.assertSucceeds(deleteBatch.commit());
     });
   });
 });
