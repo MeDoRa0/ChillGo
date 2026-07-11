@@ -40,6 +40,8 @@ void main() {
   late MockCollectionReference invitations;
   late MockCollectionReference usernames;
   late MockCollectionReference users;
+  late MockCollectionReference outings;
+  late MockCollectionReference participants;
   late FirestoreCrewsDatasource datasource;
 
   setUpAll(() {
@@ -54,6 +56,8 @@ void main() {
     invitations = MockCollectionReference();
     usernames = MockCollectionReference();
     users = MockCollectionReference();
+    outings = MockCollectionReference();
+    participants = MockCollectionReference();
 
     when(() => firestore.collection('crews')).thenReturn(crews);
     when(
@@ -64,6 +68,27 @@ void main() {
     ).thenReturn(invitations);
     when(() => firestore.collection('usernames')).thenReturn(usernames);
     when(() => firestore.collection('users')).thenReturn(users);
+    when(() => firestore.collection('outings')).thenReturn(outings);
+    when(
+      () => firestore.collection('outing_participants'),
+    ).thenReturn(participants);
+
+    final outingsQuery = MockQuery();
+    final outingsSnapshot = MockQuerySnapshot();
+    final participantsQuery = MockQuery();
+    final participantsSnapshot = MockQuerySnapshot();
+    when(
+      () => outings.where('crewId', isEqualTo: 'crew1'),
+    ).thenReturn(outingsQuery);
+    when(() => outingsQuery.get()).thenAnswer((_) async => outingsSnapshot);
+    when(() => outingsSnapshot.docs).thenReturn([]);
+    when(
+      () => participants.where('crewId', isEqualTo: 'crew1'),
+    ).thenReturn(participantsQuery);
+    when(
+      () => participantsQuery.get(),
+    ).thenAnswer((_) async => participantsSnapshot);
+    when(() => participantsSnapshot.docs).thenReturn([]);
 
     datasource = FirestoreCrewsDatasource(firestore: firestore);
   });
@@ -123,7 +148,7 @@ void main() {
       final invitationData =
           verify(() => invitationRef.set(captureAny())).captured.single
               as Map<String, dynamic>;
-      expect(invitationData['id'], 'crew1_bob');
+      expect(invitationData, isNot(contains('id')));
       expect(invitationData['crewId'], 'crew1');
       expect(invitationData['invitedUserId'], 'bob');
       expect(invitationData['invitedByUserId'], 'alice');
@@ -300,7 +325,7 @@ void main() {
                   ),
                 ).captured.single
                 as Map<String, dynamic>;
-        expect(membershipData['id'], 'crew_actual_alice');
+        expect(membershipData, isNot(contains('id')));
         expect(membershipData['crewId'], 'crew_actual');
         expect(membershipData['userId'], 'alice');
         expect(membershipData['role'], 'member');
@@ -352,6 +377,44 @@ void main() {
     });
   });
 
+  test('removeMember deletes that user participant records in the crew', () async {
+    final participantQuery = MockQuery();
+    final participantSnapshot = MockQuerySnapshot();
+    final crewParticipant = MockQueryDocumentSnapshot();
+    final otherCrewParticipant = MockQueryDocumentSnapshot();
+    final crewParticipantRef = MockDocumentReference();
+    final otherCrewParticipantRef = MockDocumentReference();
+    final membershipRef = MockDocumentReference();
+    final batch = MockWriteBatch();
+
+    when(
+      () => participants.where('userId', isEqualTo: 'bob'),
+    ).thenReturn(participantQuery);
+    when(
+      () => participantQuery.get(),
+    ).thenAnswer((_) async => participantSnapshot);
+    when(
+      () => participantSnapshot.docs,
+    ).thenReturn([crewParticipant, otherCrewParticipant]);
+    when(() => crewParticipant.data()).thenReturn({'crewId': 'crew1'});
+    when(() => otherCrewParticipant.data()).thenReturn({'crewId': 'crew2'});
+    when(() => crewParticipant.reference).thenReturn(crewParticipantRef);
+    when(
+      () => otherCrewParticipant.reference,
+    ).thenReturn(otherCrewParticipantRef);
+    when(() => memberships.doc('crew1_bob')).thenReturn(membershipRef);
+    when(() => firestore.batch()).thenReturn(batch);
+    when(() => batch.delete(any())).thenReturn(null);
+    when(() => batch.commit()).thenAnswer((_) async {});
+
+    await datasource.removeMember('crew1', 'bob');
+
+    verify(() => batch.delete(crewParticipantRef)).called(1);
+    verifyNever(() => batch.delete(otherCrewParticipantRef));
+    verify(() => batch.delete(membershipRef)).called(1);
+    verify(() => batch.commit()).called(1);
+  });
+
   group('deleteCrew', () {
     test('splits deletes across batches at Firestore write limit', () async {
       const crewId = 'crew1';
@@ -360,6 +423,8 @@ void main() {
       final membershipsSnap = MockQuerySnapshot();
       final invitationsSnap = MockQuerySnapshot();
       final crewRef = MockDocumentReference();
+      final crewSnap = MockDocumentSnapshot();
+      final ownerMembershipRef = MockDocumentReference();
       final firstBatch = MockWriteBatch();
       final secondBatch = MockWriteBatch();
       var batchIndex = 0;
@@ -384,6 +449,7 @@ void main() {
       when(() => membershipsSnap.docs).thenReturn(membershipDocs);
       for (var i = 0; i < membershipDocs.length; i++) {
         when(() => membershipDocs[i].reference).thenReturn(membershipRefs[i]);
+        when(() => membershipDocs[i].id).thenReturn('member_$i');
       }
 
       when(
@@ -396,6 +462,12 @@ void main() {
       when(() => invitationDocs.single.reference).thenReturn(invitationRef);
 
       when(() => crews.doc(crewId)).thenReturn(crewRef);
+      when(() => crewRef.get()).thenAnswer((_) async => crewSnap);
+      when(() => crewSnap.data()).thenReturn({'ownerId': 'owner'});
+      when(
+        () => memberships.doc('${crewId}_owner'),
+      ).thenReturn(ownerMembershipRef);
+      when(() => ownerMembershipRef.id).thenReturn('${crewId}_owner');
       when(() => firestore.batch()).thenAnswer((_) {
         final batch = [firstBatch, secondBatch][batchIndex];
         batchIndex++;
@@ -410,6 +482,7 @@ void main() {
 
       verify(() => firstBatch.delete(any())).called(500);
       verify(() => firstBatch.commit()).called(1);
+      verify(() => secondBatch.delete(ownerMembershipRef)).called(1);
       verify(() => secondBatch.delete(crewRef)).called(1);
       verify(() => secondBatch.commit()).called(1);
     });
@@ -423,6 +496,9 @@ void main() {
       final membershipDoc = MockQueryDocumentSnapshot();
       final membershipRef = MockDocumentReference();
       final crewRef = MockDocumentReference();
+      final crewSnap = MockDocumentSnapshot();
+      final ownerMembershipRef = MockDocumentReference();
+      final dependencyBatch = MockWriteBatch();
       final failedBatch = MockWriteBatch();
       final retryBatch = MockWriteBatch();
       var batchIndex = 0;
@@ -435,6 +511,7 @@ void main() {
       ).thenAnswer((_) async => membershipsSnap);
       when(() => membershipsSnap.docs).thenReturn([membershipDoc]);
       when(() => membershipDoc.reference).thenReturn(membershipRef);
+      when(() => membershipDoc.id).thenReturn('crew1_member');
 
       when(
         () => invitations.where('crewId', isEqualTo: crewId),
@@ -445,13 +522,21 @@ void main() {
       when(() => invitationsSnap.docs).thenReturn([]);
 
       when(() => crews.doc(crewId)).thenReturn(crewRef);
+      when(() => crewRef.get()).thenAnswer((_) async => crewSnap);
+      when(() => crewSnap.data()).thenReturn({'ownerId': 'owner'});
+      when(
+        () => memberships.doc('${crewId}_owner'),
+      ).thenReturn(ownerMembershipRef);
+      when(() => ownerMembershipRef.id).thenReturn('${crewId}_owner');
       when(() => firestore.batch()).thenAnswer((_) {
-        final batch = [failedBatch, retryBatch][batchIndex];
+        final batch = [dependencyBatch, failedBatch, retryBatch][batchIndex];
         batchIndex++;
         return batch;
       });
+      when(() => dependencyBatch.delete(any())).thenReturn(null);
       when(() => failedBatch.delete(any())).thenReturn(null);
       when(() => retryBatch.delete(any())).thenReturn(null);
+      when(() => dependencyBatch.commit()).thenAnswer((_) async {});
       when(() => failedBatch.commit()).thenThrow(
         FirebaseException(plugin: 'cloud_firestore', code: 'unavailable'),
       );
@@ -459,10 +544,12 @@ void main() {
 
       await datasource.deleteCrew(crewId);
 
-      verify(() => failedBatch.delete(membershipRef)).called(1);
+      verify(() => dependencyBatch.delete(membershipRef)).called(1);
+      verify(() => dependencyBatch.commit()).called(1);
+      verify(() => failedBatch.delete(ownerMembershipRef)).called(1);
       verify(() => failedBatch.delete(crewRef)).called(1);
       verify(() => failedBatch.commit()).called(1);
-      verify(() => retryBatch.delete(membershipRef)).called(1);
+      verify(() => retryBatch.delete(ownerMembershipRef)).called(1);
       verify(() => retryBatch.delete(crewRef)).called(1);
       verify(() => retryBatch.commit()).called(1);
     });
@@ -474,6 +561,8 @@ void main() {
       final membershipsSnap = MockQuerySnapshot();
       final invitationsSnap = MockQuerySnapshot();
       final crewRef = MockDocumentReference();
+      final crewSnap = MockDocumentSnapshot();
+      final ownerMembershipRef = MockDocumentReference();
       final committedBatch = MockWriteBatch();
       final failedBatches = [
         MockWriteBatch(),
@@ -502,6 +591,7 @@ void main() {
       when(() => membershipsSnap.docs).thenReturn(membershipDocs);
       for (var i = 0; i < membershipDocs.length; i++) {
         when(() => membershipDocs[i].reference).thenReturn(membershipRefs[i]);
+        when(() => membershipDocs[i].id).thenReturn('member_$i');
       }
 
       when(
@@ -514,6 +604,12 @@ void main() {
       when(() => invitationDocs.single.reference).thenReturn(invitationRef);
 
       when(() => crews.doc(crewId)).thenReturn(crewRef);
+      when(() => crewRef.get()).thenAnswer((_) async => crewSnap);
+      when(() => crewSnap.data()).thenReturn({'ownerId': 'owner'});
+      when(
+        () => memberships.doc('${crewId}_owner'),
+      ).thenReturn(ownerMembershipRef);
+      when(() => ownerMembershipRef.id).thenReturn('${crewId}_owner');
       when(() => firestore.batch()).thenAnswer((_) {
         final batches = [committedBatch, ...failedBatches];
         final batch = batches[batchIndex];
@@ -548,7 +644,7 @@ void main() {
               .having(
                 (error) => error.remainingDocumentCount,
                 'remainingDocumentCount',
-                1,
+                2,
               ),
         ),
       );

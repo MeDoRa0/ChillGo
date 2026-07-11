@@ -13,19 +13,18 @@ Represents an event organized within a crew.
 
 | Field Name | Type | Description |
 |------------|------|-------------|
-| `id` | String | Unique outing identifier |
 | `crewId` | String | Crew that owns the outing |
 | `title` | String | Outing title |
 | `description` | String (nullable) | Optional outing description |
-| `scheduledAt` | String | Canonical ISO 8601 UTC timestamp for the outing date and time |
+| `scheduledAt` | Timestamp | Firestore timestamp for the outing date and time |
 | `locationText` | String | Free-text location only |
 | `status` | String | One of `draft`, `planning`, `confirmed`, `meeting`, `completed`, `archived`, `cancelled` |
 | `createdByUserId` | String | UID of the outing creator |
-| `createdAt` | String | Canonical ISO 8601 UTC timestamp of creation |
-| `updatedAt` | String | Canonical ISO 8601 UTC timestamp of last update |
+| `createdAt` | Timestamp | Firestore timestamp of creation |
+| `updatedAt` | Timestamp | Firestore timestamp of last update |
 | `cancelledReason` | String (nullable) | Required when status is `cancelled` |
-| `cancelledAt` | String (nullable) | Canonical ISO 8601 UTC timestamp of cancellation |
-| `archivedAt` | String (nullable) | Canonical ISO 8601 UTC timestamp of archive |
+| `cancelledAt` | Timestamp (nullable) | Firestore timestamp of cancellation |
+| `archivedAt` | Timestamp (nullable) | Firestore timestamp of archive |
 
 #### Validation Rules
 
@@ -40,7 +39,8 @@ Represents an event organized within a crew.
 - `cancelledReason` MUST be present, trimmed, and between 3 and 200 characters when `status` is `cancelled`.
 - Planning details MUST NOT be edited when `status` is `cancelled`, `completed`, or `archived`.
 - `archivedAt` MUST be set when `status` is `archived`.
-- Timestamp strings MUST use UTC with fixed millisecond precision (`yyyy-MM-ddTHH:mm:ss.SSSZ`) so lexical ordering matches chronological ordering.
+- Date fields MUST use native Firestore timestamps.
+- The outing ID MUST be derived from the Firestore document ID and MUST NOT be duplicated as a stored field.
 
 ---
 
@@ -53,7 +53,6 @@ Represents a crew member included in a specific outing roster.
 
 | Field Name | Type | Description |
 |------------|------|-------------|
-| `id` | String | Unique identifier (`outingId_userId`) |
 | `outingId` | String | Outing identifier |
 | `crewId` | String | Crew that owns the outing |
 | `userId` | String | UID of the participant |
@@ -61,12 +60,12 @@ Represents a crew member included in a specific outing roster.
 | `displayName` | String | Cached display name for roster display |
 | `avatarUrl` | String (nullable) | Cached avatar URL for roster display |
 | `addedByUserId` | String | UID of the creator or manager who added this participant |
-| `addedAt` | String | Canonical ISO 8601 UTC timestamp of participant creation |
+| `addedAt` | Timestamp | Firestore timestamp of participant creation |
 | `isCreatorParticipant` | Boolean | Whether this record was automatically created for the outing creator |
 
 #### Validation Rules
 
-- `id` MUST equal `${outingId}_${userId}`.
+- The document ID MUST equal `${outingId}_${userId}` and MUST NOT be duplicated as a stored field.
 - `outingId` MUST reference an existing outing.
 - `crewId` MUST match the outing's `crewId`.
 - `userId` MUST be a current member of `crewId`.

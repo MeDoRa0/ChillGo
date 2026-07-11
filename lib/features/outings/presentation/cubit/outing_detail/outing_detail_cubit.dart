@@ -51,17 +51,16 @@ class OutingDetailCubit extends Cubit<OutingDetailState> {
   void load(String outingId) {
     emit(const OutingDetailLoading());
     _subscription?.cancel();
-    _subscription = outingRepository.streamOutingDetail(outingId).listen(
-      (detail) {
-        if (detail == null) {
-          emit(const OutingDetailError('Outing not found.'));
-          return;
-        }
-        _currentDetail = detail;
-        emit(OutingDetailLoaded(detail));
-      },
-      onError: (Object error) => emit(OutingDetailError(error.toString())),
-    );
+    _subscription = outingRepository.streamOutingDetail(outingId).listen((
+      detail,
+    ) {
+      if (detail == null) {
+        emit(const OutingDetailError('Outing not found.'));
+        return;
+      }
+      _currentDetail = detail;
+      emit(OutingDetailLoaded(detail));
+    }, onError: (Object error) => emit(OutingDetailError(error.toString())));
   }
 
   Future<void> addParticipant(String userId) async {
@@ -94,13 +93,24 @@ class OutingDetailCubit extends Cubit<OutingDetailState> {
     );
   }
 
-  Future<void> _runAction(Future<void> Function() action, String message) async {
+  Future<bool> deleteOuting() {
+    return _runAction(
+      () => outingRepository.deleteOuting(outingId: _requireDetail().outing.id),
+      'Outing deleted.',
+    );
+  }
+
+  Future<bool> _runAction(
+    Future<void> Function() action,
+    String message,
+  ) async {
     try {
       await action();
       final detail = _currentDetail;
       if (detail != null) {
         emit(OutingDetailLoaded(detail, actionMessage: message));
       }
+      return true;
     } catch (error) {
       final detail = _currentDetail;
       if (detail != null) {
@@ -108,6 +118,7 @@ class OutingDetailCubit extends Cubit<OutingDetailState> {
       } else {
         emit(OutingDetailError(error.toString()));
       }
+      return false;
     }
   }
 

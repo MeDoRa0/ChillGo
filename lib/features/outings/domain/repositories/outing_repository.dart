@@ -34,10 +34,16 @@ abstract class OutingRepository {
     required String cancelledReason,
   });
 
+  /// Permanently removes an outing and its participant roster.
+  Future<void> deleteOuting({required String outingId});
+
   Future<void> addParticipant({
     required String outingId,
     required String userId,
   });
+
+  /// Adds the signed-in crew member to an outing they want to attend.
+  Future<void> acceptOuting({required String outingId});
 
   Future<void> removeParticipant({
     required String outingId,

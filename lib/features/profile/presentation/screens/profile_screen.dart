@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/di/injection_container.dart';
+import '../../../../core/presentation/widgets/app_back_button.dart';
 import '../../../authentication/presentation/blocs/auth/auth_bloc.dart';
 import '../../../authentication/presentation/blocs/auth/auth_state.dart';
 import '../../../authentication/presentation/blocs/auth/auth_event.dart';
@@ -52,6 +53,7 @@ class _ProfileViewState extends State<_ProfileView> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFF0F0F1A),
+        leading: const AppBackButton(),
         title: const Text('Profile'),
         elevation: 0,
       ),

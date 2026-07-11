@@ -6,6 +6,8 @@ import 'package:chillgo/features/crews/domain/entities/crew_invitation.dart';
 import 'package:chillgo/features/crews/domain/entities/crew_membership.dart';
 import 'package:chillgo/features/crews/domain/entities/crew_role.dart';
 import 'package:chillgo/features/crews/domain/repositories/crew_repository.dart';
+import 'package:chillgo/features/outings/domain/entities/outing.dart';
+import 'package:chillgo/features/outings/domain/repositories/outing_repository.dart';
 
 class CrewCard extends StatelessWidget {
   final Crew crew;
@@ -19,63 +21,108 @@ class CrewCard extends StatelessWidget {
     final canViewPendingInvites =
         currentUid != null && crew.ownerId == currentUid;
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E1E2F),
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFF2E2E4F)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E1E2F),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFF2E2E4F)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF6366F1).withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.groups,
-                      color: Color(0xFF6366F1),
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      crew.name,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF6366F1).withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.groups,
+                          color: Color(0xFF6366F1),
+                          size: 20,
+                        ),
                       ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          crew.name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
-                  const Icon(
-                    Icons.chevron_right,
-                    color: Colors.white38,
-                    size: 20,
+                  const SizedBox(height: 12),
+                  _CrewMembersSummary(
+                    crewId: crew.id,
+                    showPendingInvites: canViewPendingInvites,
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              _CrewMembersSummary(
-                crewId: crew.id,
-                showPendingInvites: canViewPendingInvites,
-              ),
-            ],
+            ),
           ),
         ),
-      ),
+        _OutingIndicator(crewId: crew.id),
+      ],
+    );
+  }
+}
+
+class _OutingIndicator extends StatelessWidget {
+  final String crewId;
+
+  const _OutingIndicator({required this.crewId});
+
+  @override
+  Widget build(BuildContext context) {
+    if (!sl.isRegistered<OutingRepository>()) return const SizedBox.shrink();
+    return StreamBuilder<List<Outing>>(
+      stream: sl<OutingRepository>().streamCrewOutings(crewId),
+      builder: (context, snapshot) {
+        final hasActiveOuting = (snapshot.data ?? const <Outing>[]).any(
+          (outing) => !outing.status.isHistorical,
+        );
+        if (!hasActiveOuting) return const SizedBox.shrink();
+        return Positioned(
+          top: 8,
+          right: 8,
+          child: Semantics(
+            label: 'Active outing',
+            child: Container(
+              width: 26,
+              height: 26,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFC857),
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFF1E1E2F), width: 2),
+                boxShadow: const [
+                  BoxShadow(color: Color(0x88FFC857), blurRadius: 8),
+                ],
+              ),
+              child: const Icon(
+                Icons.event_available_rounded,
+                size: 14,
+                color: Color(0xFF241B3F),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

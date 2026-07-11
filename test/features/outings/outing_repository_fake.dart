@@ -19,6 +19,7 @@ class FakeOutingRepository implements OutingRepository {
   String? removedParticipantUserId;
   String? cancelledOutingId;
   String? cancelledReason;
+  String? deletedOutingId;
   String? changedStatusOutingId;
   String? createdCrewId;
   String? createdTitle;
@@ -30,6 +31,7 @@ class FakeOutingRepository implements OutingRepository {
   String? updatedDescription;
   DateTime? updatedScheduledAt;
   String? updatedLocationText;
+  String? acceptedOutingId;
 
   FakeOutingRepository({
     this.createdOutingId = 'outing-id',
@@ -89,6 +91,12 @@ class FakeOutingRepository implements OutingRepository {
   }
 
   @override
+  Future<void> acceptOuting({required String outingId}) async {
+    _throwIfNeeded();
+    acceptedOutingId = outingId;
+  }
+
+  @override
   Future<void> cancelOuting({
     required String outingId,
     required String cancelledReason,
@@ -96,6 +104,12 @@ class FakeOutingRepository implements OutingRepository {
     _throwIfNeeded();
     cancelledOutingId = outingId;
     this.cancelledReason = cancelledReason;
+  }
+
+  @override
+  Future<void> deleteOuting({required String outingId}) async {
+    _throwIfNeeded();
+    deletedOutingId = outingId;
   }
 
   @override

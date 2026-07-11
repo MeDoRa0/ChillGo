@@ -23,7 +23,6 @@ class CrewMembership {
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
       'crewId': crewId,
       'userId': userId,
       'role': role.value,
@@ -40,9 +39,7 @@ class CrewMembership {
       crewId: map['crewId'] as String? ?? '',
       userId: map['userId'] as String? ?? '',
       role: CrewRole.fromValue(map['role'] as String?),
-      joinedAt:
-          DateTime.tryParse(map['joinedAt'] as String? ?? '') ??
-          DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+      joinedAt: _readDate(map['joinedAt']),
       username: map['username'] as String? ?? '',
       displayName: map['displayName'] as String? ?? '',
       avatarUrl: map['avatarUrl'] as String?,
@@ -69,5 +66,14 @@ class CrewMembership {
       displayName: displayName ?? this.displayName,
       avatarUrl: avatarUrl ?? this.avatarUrl,
     );
+  }
+
+  static DateTime _readDate(Object? rawDate) {
+    if (rawDate is DateTime) return rawDate.toUtc();
+    if (rawDate is String) {
+      return DateTime.tryParse(rawDate)?.toUtc() ??
+          DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+    }
+    return DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
   }
 }

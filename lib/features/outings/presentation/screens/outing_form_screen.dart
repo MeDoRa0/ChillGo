@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection_container.dart';
+import '../../../../core/presentation/widgets/app_back_button.dart';
 import '../../domain/entities/outing.dart';
 import '../../domain/repositories/outing_repository.dart';
 import '../cubit/outing_form/outing_form_cubit.dart';
@@ -22,7 +23,6 @@ class OutingFormScreen extends StatefulWidget {
 class _OutingFormScreenState extends State<OutingFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
-  final _descriptionController = TextEditingController();
   final _locationController = TextEditingController();
   late DateTime _scheduledAt;
   StreamSubscription<OutingDetail?>? _outingSubscription;
@@ -42,7 +42,6 @@ class _OutingFormScreenState extends State<OutingFormScreen> {
   @override
   void dispose() {
     _titleController.dispose();
-    _descriptionController.dispose();
     _locationController.dispose();
     _outingSubscription?.cancel();
     super.dispose();
@@ -55,7 +54,11 @@ class _OutingFormScreenState extends State<OutingFormScreen> {
       child: BlocConsumer<OutingFormCubit, OutingFormState>(
         listener: (context, state) {
           if (state is OutingFormSuccess) {
-            context.go('/outings/${state.outingId}');
+            context.go(
+              _isEditMode
+                  ? '/outings/${state.outingId}'
+                  : '/crews/${widget.crewId}',
+            );
           } else if (state is OutingFormFailure) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(state.message)),
@@ -71,10 +74,11 @@ class _OutingFormScreenState extends State<OutingFormScreen> {
             appBar: AppBar(
               backgroundColor: const Color(0xFF0F0F1A),
               elevation: 0,
+              leading: AppBackButton(fallbackRoute: '/crews/${widget.crewId}'),
               iconTheme: const IconThemeData(color: Colors.white),
-              title: const Text(
-                'Outing',
-                style: TextStyle(color: Colors.white),
+              title: Text(
+                _isEditMode ? 'Edit outing' : 'Make a plan',
+                style: const TextStyle(color: Colors.white),
               ),
             ),
             body: Form(
@@ -100,35 +104,18 @@ class _OutingFormScreenState extends State<OutingFormScreen> {
                         style: TextStyle(color: Colors.white70),
                       ),
                     ),
-                  _Field(
-                    controller: _titleController,
-                    label: 'Title',
-                    enabled: isEditable,
-                    validator: (value) {
-                      final text = value?.trim() ?? '';
-                      if (text.length < 3 || text.length > 80) {
-                        return 'Title must be between 3 and 80 characters.';
-                      }
-                      return null;
-                    },
+                  Text(
+                    _isEditMode
+                        ? 'Update the details for your crew.'
+                        : 'A couple taps and the crew is in the loop ✨',
+                    style: const TextStyle(color: Colors.white70, fontSize: 16),
                   ),
-                  const SizedBox(height: 12),
-                  _Field(
-                    controller: _descriptionController,
-                    label: 'Description',
-                    maxLines: 3,
-                    enabled: isEditable,
-                    validator: (value) {
-                      if ((value ?? '').trim().length > 500) {
-                        return 'Description must be 500 characters or fewer.';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 24),
+                  const _QuestionLabel('Where do you want to go?'),
+                  const SizedBox(height: 10),
                   _Field(
                     controller: _locationController,
-                    label: 'Location',
+                    label: 'e.g. the new ramen spot',
                     enabled: isEditable,
                     validator: (value) {
                       final text = value?.trim() ?? '';
@@ -138,14 +125,16 @@ class _OutingFormScreenState extends State<OutingFormScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 24),
+                  const _QuestionLabel('When do you want to go out?'),
+                  const SizedBox(height: 10),
                   _ScheduleTile(
                     scheduledAt: _scheduledAt,
                     onChanged: isEditable
                         ? (value) => setState(() => _scheduledAt = value)
                         : null,
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 28),
                   FilledButton(
                     onPressed: isSubmitting || !isEditable || (_isEditMode && outing == null)
                         ? null
@@ -164,7 +153,7 @@ class _OutingFormScreenState extends State<OutingFormScreen> {
                             height: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : Text(_isEditMode ? 'Save changes' : 'Create outing'),
+                        : Text(_isEditMode ? 'Save changes' : 'Share with crew'),
                   ),
                   if (_isEditMode && outing != null && outing.status.isCancellable) ...[
                     const SizedBox(height: 12),
@@ -184,16 +173,23 @@ class _OutingFormScreenState extends State<OutingFormScreen> {
 
   void _submit(BuildContext context) {
     if (!_formKey.currentState!.validate()) return;
-    final title = _titleController.text.trim();
-    final description = _descriptionController.text.trim();
+    if (!_scheduledAt.isAfter(DateTime.now())) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pick a future date and time.')),
+      );
+      return;
+    }
     final locationText = _locationController.text.trim();
+    final title = _isEditMode
+        ? _titleController.text.trim()
+        : 'Outing at ${locationText.length > 70 ? locationText.substring(0, 70) : locationText}';
     final cubit = context.read<OutingFormCubit>();
     final outing = _outing;
     if (_isEditMode && outing != null) {
       cubit.updateOuting(
         outing: outing,
         title: title,
-        description: description,
+        description: null,
         scheduledAt: _scheduledAt,
         locationText: locationText,
       );
@@ -201,7 +197,7 @@ class _OutingFormScreenState extends State<OutingFormScreen> {
       cubit.createOuting(
         crewId: widget.crewId,
         title: title,
-        description: description,
+        description: null,
         scheduledAt: _scheduledAt,
         locationText: locationText,
       );
@@ -222,7 +218,6 @@ class _OutingFormScreenState extends State<OutingFormScreen> {
               _outing = outing;
               if (outing != null) {
                 _titleController.text = outing.title;
-                _descriptionController.text = outing.description ?? '';
                 _locationController.text = outing.locationText;
                 _scheduledAt = outing.scheduledAt;
               }
@@ -276,14 +271,12 @@ class _OutingFormScreenState extends State<OutingFormScreen> {
 class _Field extends StatelessWidget {
   final TextEditingController controller;
   final String label;
-  final int maxLines;
   final bool enabled;
   final String? Function(String?)? validator;
 
   const _Field({
     required this.controller,
     required this.label,
-    this.maxLines = 1,
     this.enabled = true,
     this.validator,
   });
@@ -293,11 +286,11 @@ class _Field extends StatelessWidget {
     return TextFormField(
       controller: controller,
       enabled: enabled,
-      maxLines: maxLines,
       validator: validator,
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
-        labelText: label,
+        hintText: label,
+        hintStyle: const TextStyle(color: Colors.white54),
         labelStyle: const TextStyle(color: Colors.white70),
         filled: true,
         fillColor: const Color(0xFF1E1E2F),
@@ -316,29 +309,74 @@ class _ScheduleTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: const Color(0xFF1E1E2F),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         children: [
-          const Icon(Icons.event, color: Colors.white70),
-          const SizedBox(width: 12),
+          const Icon(Icons.calendar_month_rounded, color: Color(0xFFB8A7FF)),
+          const SizedBox(width: 14),
           Expanded(
             child: Text(
-              '${scheduledAt.toLocal()}',
-              style: const TextStyle(color: Colors.white),
+              '${_dateLabel(scheduledAt)} • ${_timeLabel(scheduledAt)}',
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
             ),
           ),
-          TextButton(
-            onPressed: onChanged == null
-                ? null
-                : () => onChanged!(DateTime.now().add(const Duration(days: 1))),
-            child: const Text('Tomorrow'),
+          IconButton(
+            tooltip: 'Choose date and time',
+            onPressed: onChanged == null ? null : () => _pickSchedule(context),
+            icon: const Icon(Icons.edit_calendar_rounded, color: Color(0xFFB8A7FF)),
           ),
         ],
       ),
     );
   }
+
+  Future<void> _pickSchedule(BuildContext context) async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: scheduledAt,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+    );
+    if (date == null || !context.mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(scheduledAt),
+    );
+    if (time == null) return;
+    onChanged!(DateTime(date.year, date.month, date.day, time.hour, time.minute));
+  }
+
+  String _dateLabel(DateTime value) =>
+      '${_monthName(value.month)} ${value.day}, ${value.year}';
+
+  String _timeLabel(DateTime value) {
+    final hour = value.hour % 12 == 0 ? 12 : value.hour % 12;
+    final period = value.hour < 12 ? 'AM' : 'PM';
+    return '$hour:${value.minute.toString().padLeft(2, '0')} $period';
+  }
+
+  String _monthName(int month) => const [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December',
+      ][month - 1];
+}
+
+class _QuestionLabel extends StatelessWidget {
+  final String text;
+
+  const _QuestionLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) => Text(
+        text,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 22,
+          fontWeight: FontWeight.w700,
+        ),
+      );
 }

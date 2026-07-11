@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection_container.dart';
+import '../../../../core/presentation/widgets/app_back_button.dart';
 import '../../domain/entities/outing.dart';
 import '../../domain/repositories/outing_repository.dart';
 import '../cubit/outings_list/outings_list_cubit.dart';
@@ -22,6 +23,7 @@ class OutingsListScreen extends StatelessWidget {
         backgroundColor: const Color(0xFF0F0F1A),
         appBar: AppBar(
           backgroundColor: const Color(0xFF0F0F1A),
+          leading: AppBackButton(fallbackRoute: '/crews/$crewId'),
           iconTheme: const IconThemeData(color: Colors.white),
           title: const Text('Outings', style: TextStyle(color: Colors.white)),
           actions: [

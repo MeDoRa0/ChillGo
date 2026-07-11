@@ -25,7 +25,6 @@ class OutingParticipant {
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
       'outingId': outingId,
       'crewId': crewId,
       'userId': userId,
@@ -101,6 +100,7 @@ class OutingParticipant {
 
   static DateTime _readRequiredDate(Map<String, dynamic> map, String field) {
     final value = map[field];
+    if (value is DateTime) return value.toUtc();
     if (value is! String || value.isEmpty) {
       throw FormatException('Missing or invalid outingParticipant.$field');
     }

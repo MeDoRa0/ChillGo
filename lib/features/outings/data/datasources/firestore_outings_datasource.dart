@@ -3,6 +3,7 @@ import 'dart:developer' as developer;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../../../core/data/firestore_timestamp.dart';
 import '../../domain/entities/outing.dart';
 import '../../domain/entities/outing_participant.dart';
 import '../../domain/entities/outing_status.dart';
@@ -43,27 +44,25 @@ class FirestoreOutingsDatasource {
     final batch = firestore.batch();
 
     batch.set(outingRef, {
-      'id': outingId,
       'crewId': crewId,
       'title': title.trim(),
       if (description != null && description.trim().isNotEmpty)
         'description': description.trim(),
-      'scheduledAt': _writeDate(scheduledAt),
+      'scheduledAt': writeFirestoreTimestamp(scheduledAt),
       'locationText': locationText.trim(),
       'status': OutingStatus.draft.value,
       'createdByUserId': creatorUserId,
-      'createdAt': _writeDate(now),
-      'updatedAt': _writeDate(now),
+      'createdAt': writeFirestoreTimestamp(now),
+      'updatedAt': writeFirestoreTimestamp(now),
     });
 
     batch.set(participants.doc(participantId), {
-      'id': participantId,
       'outingId': outingId,
       'crewId': crewId,
       'userId': creatorUserId,
       ...creatorProfile,
       'addedByUserId': creatorUserId,
-      'addedAt': _writeDate(now),
+      'addedAt': writeFirestoreTimestamp(now),
       'isCreatorParticipant': true,
     });
 
@@ -91,18 +90,17 @@ class FirestoreOutingsDatasource {
   }
 
   Stream<List<OutingParticipant>> streamParticipants(String outingId) {
-    return participants
-        .where('outingId', isEqualTo: outingId)
-        .snapshots()
-        .map((snap) {
-          final values = <OutingParticipant>[];
-          for (final doc in snap.docs) {
-            final participant = _tryReadParticipant(doc.data(), doc.id);
-            if (participant != null) values.add(participant);
-          }
-          values.sort((a, b) => a.addedAt.compareTo(b.addedAt));
-          return values;
-        });
+    return participants.where('outingId', isEqualTo: outingId).snapshots().map((
+      snap,
+    ) {
+      final values = <OutingParticipant>[];
+      for (final doc in snap.docs) {
+        final participant = _tryReadParticipant(doc.data(), doc.id);
+        if (participant != null) values.add(participant);
+      }
+      values.sort((a, b) => a.addedAt.compareTo(b.addedAt));
+      return values;
+    });
   }
 
   Future<Outing?> getOuting(String outingId) async {
@@ -129,9 +127,9 @@ class FirestoreOutingsDatasource {
           'description': description.trim()
         else
           'description': FieldValue.delete(),
-        'scheduledAt': _writeDate(scheduledAt),
+        'scheduledAt': writeFirestoreTimestamp(scheduledAt),
         'locationText': locationText.trim(),
-        'updatedAt': _writeDate(DateTime.now()),
+        'updatedAt': writeFirestoreTimestamp(DateTime.now()),
       });
     });
   }
@@ -140,7 +138,7 @@ class FirestoreOutingsDatasource {
     required String outingId,
     required String cancelledReason,
   }) async {
-    final now = _writeDate(DateTime.now());
+    final now = writeFirestoreTimestamp(DateTime.now());
     final ref = outings.doc(outingId);
     await firestore.runTransaction((transaction) async {
       final snap = await transaction.get(ref);
@@ -155,6 +153,19 @@ class FirestoreOutingsDatasource {
     });
   }
 
+  Future<void> deleteOuting(String outingId) async {
+    final participantSnapshots = await participants
+        .where('outingId', isEqualTo: outingId)
+        .get();
+    final batch = firestore.batch();
+
+    for (final participant in participantSnapshots.docs) {
+      batch.delete(participant.reference);
+    }
+    batch.delete(outings.doc(outingId));
+    await batch.commit();
+  }
+
   Future<OutingParticipant> addParticipant({
     required String outingId,
     required String userId,
@@ -164,11 +175,10 @@ class FirestoreOutingsDatasource {
     await _requireCrewMember(outing.crewId, userId);
     final profile = await _requireUserProfile(userId);
     final participantId = _participantId(outingId, userId);
-    final now = _writeDate(DateTime.now());
+    final now = writeFirestoreTimestamp(DateTime.now());
     final ref = participants.doc(participantId);
 
     final payload = {
-      'id': participantId,
       'outingId': outingId,
       'crewId': outing.crewId,
       'userId': userId,
@@ -177,11 +187,7 @@ class FirestoreOutingsDatasource {
       'addedAt': now,
       'isCreatorParticipant': false,
     };
-    await firestore.runTransaction((transaction) async {
-      final snap = await transaction.get(ref);
-      if (snap.exists) throw Exception('duplicate-participant');
-      transaction.set(ref, payload);
-    });
+    await ref.set(payload);
     return OutingParticipantModel.fromMap(payload, participantId);
   }
 
@@ -203,7 +209,7 @@ class FirestoreOutingsDatasource {
     required String outingId,
     required OutingStatus nextStatus,
   }) async {
-    final now = _writeDate(DateTime.now());
+    final now = writeFirestoreTimestamp(DateTime.now());
     final ref = outings.doc(outingId);
     await firestore.runTransaction((transaction) async {
       final snap = await transaction.get(ref);
@@ -254,7 +260,8 @@ class FirestoreOutingsDatasource {
     };
   }
 
-  String _participantId(String outingId, String userId) => '${outingId}_$userId';
+  String _participantId(String outingId, String userId) =>
+      '${outingId}_$userId';
 
   int _compareOutingsForList(Outing a, Outing b) {
     if (a.status.isHistorical != b.status.isHistorical) {
@@ -264,19 +271,6 @@ class FirestoreOutingsDatasource {
       return a.scheduledAt.compareTo(b.scheduledAt);
     }
     return b.scheduledAt.compareTo(a.scheduledAt);
-  }
-
-  String _writeDate(DateTime value) {
-    final utc = value.toUtc();
-    return DateTime.utc(
-      utc.year,
-      utc.month,
-      utc.day,
-      utc.hour,
-      utc.minute,
-      utc.second,
-      utc.millisecond,
-    ).toIso8601String();
   }
 
   Outing? _tryReadOuting(Map<String, dynamic> data, String docId) {

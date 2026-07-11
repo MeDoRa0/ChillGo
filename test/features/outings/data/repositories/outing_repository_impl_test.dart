@@ -38,7 +38,9 @@ void main() {
           scheduledAt: DateTime.now().add(const Duration(days: 1)),
           locationText: 'Cafe',
         ),
-        _throwsExceptionContaining('Title must be between 3 and 80 characters.'),
+        _throwsExceptionContaining(
+          'Title must be between 3 and 80 characters.',
+        ),
       );
       verifyNever(
         () => datasource.createOuting(
@@ -105,14 +107,19 @@ void main() {
   group('streamOutingDetail', () {
     test('emits updates from outing and participant streams', () async {
       final outingController = StreamController<Outing?>();
-      final participantsController = StreamController<List<OutingParticipant>>();
-      when(() => datasource.streamOuting('outing-1'))
-          .thenAnswer((_) => outingController.stream);
-      when(() => datasource.streamParticipants('outing-1'))
-          .thenAnswer((_) => participantsController.stream);
+      final participantsController =
+          StreamController<List<OutingParticipant>>();
+      when(
+        () => datasource.streamOuting('outing-1'),
+      ).thenAnswer((_) => outingController.stream);
+      when(
+        () => datasource.streamParticipants('outing-1'),
+      ).thenAnswer((_) => participantsController.stream);
 
       final emitted = <String>[];
-      final subscription = repository.streamOutingDetail('outing-1').listen(
+      final subscription = repository
+          .streamOutingDetail('outing-1')
+          .listen(
             (detail) => emitted.add(
               '${detail?.outing.title}:${detail?.participants.length}',
             ),
@@ -135,6 +142,33 @@ void main() {
       await outingController.close();
       await participantsController.close();
     });
+
+    test('emits no outing detail after sign-out', () async {
+      final signedOutRepository = OutingRepositoryImpl(
+        datasource: datasource,
+        currentUid: () => '',
+      );
+
+      expect(
+        await signedOutRepository.streamOutingDetail('outing-1').toList(),
+        isEmpty,
+      );
+      verifyNever(() => datasource.streamOuting('outing-1'));
+      verifyNever(() => datasource.streamParticipants('outing-1'));
+    });
+  });
+
+  test('emits no crew outings after sign-out', () async {
+    final signedOutRepository = OutingRepositoryImpl(
+      datasource: datasource,
+      currentUid: () => '',
+    );
+
+    expect(
+      await signedOutRepository.streamCrewOutings('crew-1').toList(),
+      isEmpty,
+    );
+    verifyNever(() => datasource.streamCrewOutings('crew-1'));
   });
 
   group('management operations', () {
@@ -142,8 +176,9 @@ void main() {
       when(() => datasource.getOuting(any())).thenAnswer(
         (_) async => FakeOutingRepository.sampleOuting(id: 'outing-1'),
       );
-      when(() => datasource.isCrewOwner('crew-1', 'user-1'))
-          .thenAnswer((_) async => false);
+      when(
+        () => datasource.isCrewOwner('crew-1', 'user-1'),
+      ).thenAnswer((_) async => false);
       when(
         () => datasource.updateOutingDetails(
           outingId: any(named: 'outingId'),
@@ -159,6 +194,7 @@ void main() {
           cancelledReason: any(named: 'cancelledReason'),
         ),
       ).thenAnswer((_) async {});
+      when(() => datasource.deleteOuting(any())).thenAnswer((_) async {});
       when(
         () => datasource.addParticipant(
           outingId: any(named: 'outingId'),
@@ -214,9 +250,34 @@ void main() {
       );
     });
 
+    test('allows only the creator to delete an outing', () async {
+      await repository.deleteOuting(outingId: 'outing-1');
+
+      verify(() => datasource.deleteOuting('outing-1')).called(1);
+    });
+
+    test('rejects delete requests from non-creators', () async {
+      final nonCreatorRepository = OutingRepositoryImpl(
+        datasource: datasource,
+        currentUid: () => 'user-2',
+      );
+      when(
+        () => datasource.isCrewOwner('crew-1', 'user-2'),
+      ).thenAnswer((_) async => true);
+
+      await expectLater(
+        nonCreatorRepository.deleteOuting(outingId: 'outing-1'),
+        _throwsExceptionContaining('outing-creator-required'),
+      );
+      verifyNever(() => datasource.deleteOuting(any()));
+    });
+
     test('adds and removes participants', () async {
       await repository.addParticipant(outingId: 'outing-1', userId: 'user-2');
-      await repository.removeParticipant(outingId: 'outing-1', userId: 'user-2');
+      await repository.removeParticipant(
+        outingId: 'outing-1',
+        userId: 'user-2',
+      );
 
       verify(
         () => datasource.addParticipant(
@@ -226,7 +287,22 @@ void main() {
         ),
       ).called(1);
       verify(
-        () => datasource.removeParticipant(outingId: 'outing-1', userId: 'user-2'),
+        () => datasource.removeParticipant(
+          outingId: 'outing-1',
+          userId: 'user-2',
+        ),
+      ).called(1);
+    });
+
+    test('lets a crew member accept an active outing', () async {
+      await repository.acceptOuting(outingId: 'outing-1');
+
+      verify(
+        () => datasource.addParticipant(
+          outingId: 'outing-1',
+          userId: 'user-1',
+          addedByUserId: 'user-1',
+        ),
       ).called(1);
     });
 
@@ -278,6 +354,10 @@ void main() {
 
 Matcher _throwsExceptionContaining(String message) {
   return throwsA(
-    isA<Exception>().having((error) => error.toString(), 'message', contains(message)),
+    isA<Exception>().having(
+      (error) => error.toString(),
+      'message',
+      contains(message),
+    ),
   );
 }

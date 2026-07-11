@@ -40,4 +40,18 @@ void main() {
 
     await cubit.close();
   });
+
+  test('OutingDetailCubit deletes the loaded outing', () async {
+    final repository = FakeOutingRepository(
+      detail: FakeOutingRepository.sampleDetail(),
+    );
+    final cubit = OutingDetailCubit(outingRepository: repository);
+
+    cubit.load('outing-1');
+    await cubit.stream.firstWhere((state) => state is OutingDetailLoaded);
+
+    expect(await cubit.deleteOuting(), isTrue);
+    expect(repository.deletedOutingId, 'outing-1');
+    await cubit.close();
+  });
 }

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection_container.dart';
+import '../../../../core/presentation/widgets/app_back_button.dart';
 import '../../../crews/domain/entities/crew_membership.dart';
 import '../../../crews/domain/repositories/crew_repository.dart';
 import '../../domain/entities/outing.dart';
@@ -25,9 +26,9 @@ class OutingDetailsScreen extends StatelessWidget {
       child: BlocConsumer<OutingDetailCubit, OutingDetailState>(
         listener: (context, state) {
           if (state is OutingDetailLoaded && state.actionMessage != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.actionMessage!)),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(state.actionMessage!)));
           }
         },
         builder: (context, state) {
@@ -35,6 +36,7 @@ class OutingDetailsScreen extends StatelessWidget {
             backgroundColor: const Color(0xFF0F0F1A),
             appBar: AppBar(
               backgroundColor: const Color(0xFF0F0F1A),
+              leading: const AppBackButton(),
               iconTheme: const IconThemeData(color: Colors.white),
               title: const Text(
                 'Outing details',
@@ -88,10 +90,7 @@ class _Body extends StatelessWidget {
             body: detail.outing.cancelledReason!,
           ),
         const SizedBox(height: 16),
-        _Participants(
-          outing: detail.outing,
-          participants: detail.participants,
-        ),
+        _Participants(outing: detail.outing, participants: detail.participants),
         const SizedBox(height: 16),
         _LifecycleControls(outing: detail.outing),
       ],

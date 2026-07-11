@@ -33,7 +33,6 @@ class Outing {
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
       'crewId': crewId,
       'title': title,
       if (description != null) 'description': description,
@@ -127,6 +126,7 @@ class Outing {
 
   static DateTime? _readNullableDate(Object? value) {
     if (value == null) return null;
+    if (value is DateTime) return value.toUtc();
     if (value is! String || value.isEmpty) {
       throw FormatException('Invalid outing timestamp: $value');
     }

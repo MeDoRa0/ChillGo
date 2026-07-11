@@ -4,6 +4,11 @@ import 'package:chillgo/features/crews/domain/entities/crew.dart';
 import 'package:chillgo/features/crews/domain/entities/crew_membership.dart';
 import 'package:chillgo/features/crews/domain/entities/crew_role.dart';
 import 'package:chillgo/features/crews/domain/repositories/crew_repository.dart';
+import 'package:chillgo/features/authentication/domain/repositories/auth_repository.dart';
+import 'package:chillgo/features/outings/domain/entities/outing.dart';
+import 'package:chillgo/features/outings/domain/entities/outing_participant.dart';
+import 'package:chillgo/features/outings/domain/repositories/outing_repository.dart';
+import 'package:chillgo/core/presentation/widgets/app_back_button.dart';
 import 'package:go_router/go_router.dart';
 
 class CrewDetailsScreen extends StatelessWidget {
@@ -20,6 +25,7 @@ class CrewDetailsScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: const Color(0xFF0F0F1A),
         elevation: 0,
+        leading: const AppBackButton(),
         iconTheme: const IconThemeData(color: Colors.white),
         title: const Text(
           'Crew Details',
@@ -51,8 +57,8 @@ class CrewDetailsScreen extends StatelessWidget {
               _CrewHeader(crew: crew),
               const SizedBox(height: 16),
               _CreateOutingButton(crewId: crew.id),
-              const SizedBox(height: 12),
-              _OutingsButton(crewId: crew.id),
+              const SizedBox(height: 20),
+              _CrewOutings(crewId: crew.id),
               const SizedBox(height: 24),
               const Text(
                 'Members',
@@ -158,25 +164,173 @@ class _CreateOutingButton extends StatelessWidget {
   }
 }
 
-class _OutingsButton extends StatelessWidget {
+class _CrewOutings extends StatelessWidget {
   final String crewId;
 
-  const _OutingsButton({required this.crewId});
+  const _CrewOutings({required this.crewId});
 
   @override
   Widget build(BuildContext context) {
+    if (!sl.isRegistered<OutingRepository>()) return const SizedBox.shrink();
+    final outingRepository = sl<OutingRepository>();
+    final currentUserId = sl.isRegistered<AuthRepository>()
+        ? sl<AuthRepository>().currentCredentials?.uid
+        : null;
+    return StreamBuilder<List<Outing>>(
+      stream: outingRepository.streamCrewOutings(crewId),
+      builder: (context, snapshot) {
+        final outings = snapshot.data ?? const <Outing>[];
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text('Crew plans', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                ),
+                TextButton(
+                  onPressed: () => context.go('/crews/$crewId/outings'),
+                  child: const Text('See all'),
+                ),
+              ],
+            ),
+            if (snapshot.hasError)
+              const Text('Couldn’t load plans right now.', style: TextStyle(color: Colors.white70))
+            else if (outings.isEmpty)
+              const _InlineMessage(message: 'No plans yet — start the vibe.' )
+            else
+              for (final outing in outings.take(3))
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _OutingCard(
+                    outing: outing,
+                    repository: outingRepository,
+                    currentUserId: currentUserId,
+                  ),
+                ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _OutingCard extends StatelessWidget {
+  final Outing outing;
+  final OutingRepository repository;
+  final String? currentUserId;
+
+  const _OutingCard({required this.outing, required this.repository, required this.currentUserId});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<OutingDetail?>(
+      stream: repository.streamOutingDetail(outing.id),
+      builder: (context, snapshot) {
+        final participants = snapshot.data?.participants ?? const <OutingParticipant>[];
+        final hasAccepted = currentUserId != null && participants.any((member) => member.userId == currentUserId);
+        return InkWell(
+          onTap: () => context.go('/outings/${outing.id}'),
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E1E2F),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFF3B3560)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        outing.locationText,
+                        style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    if (outing.createdByUserId == currentUserId)
+                      IconButton(
+                        tooltip: 'Delete outing',
+                        onPressed: () => _confirmDeletion(context),
+                        icon: const Icon(Icons.delete_outline, color: Colors.white70),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(_scheduleLabel(outing.scheduledAt), style: const TextStyle(color: Color(0xFFB8A7FF), fontWeight: FontWeight.w600)),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(child: _AcceptedAvatars(participants: participants)),
+                    if (currentUserId != null && !hasAccepted)
+                      FilledButton(
+                        onPressed: () => repository.acceptOuting(outingId: outing.id),
+                        style: FilledButton.styleFrom(backgroundColor: const Color(0xFF7C5CFC), foregroundColor: Colors.white),
+                        child: const Text('I’m in'),
+                      )
+                    else if (hasAccepted)
+                      const Text('You’re in ✨', style: TextStyle(color: Colors.white70)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _confirmDeletion(BuildContext context) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete outing?'),
+        content: const Text('This permanently removes the outing for every crew member.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (shouldDelete == true) await repository.deleteOuting(outingId: outing.id);
+  }
+
+  String _scheduleLabel(DateTime value) {
+    final local = value.toLocal();
+    final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
+    final period = local.hour < 12 ? 'AM' : 'PM';
+    return '${local.month}/${local.day} • $hour:${local.minute.toString().padLeft(2, '0')} $period';
+  }
+}
+
+class _AcceptedAvatars extends StatelessWidget {
+  final List<OutingParticipant> participants;
+
+  const _AcceptedAvatars({required this.participants});
+
+  @override
+  Widget build(BuildContext context) {
+    if (participants.isEmpty) return const Text('Be the first one in', style: TextStyle(color: Colors.white54));
+    final shown = participants.take(4).toList();
     return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton.icon(
-        onPressed: () => context.go('/crews/$crewId/outings'),
-        icon: const Icon(Icons.event_note),
-        label: const Text('View outings'),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: Colors.white,
-          side: const BorderSide(color: Color(0xFF6366F1)),
-          minimumSize: const Size.fromHeight(48),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
+      height: 34,
+      child: Stack(
+        children: [
+          for (var index = 0; index < shown.length; index++)
+            Positioned(
+              left: index * 22.0,
+              child: CircleAvatar(
+                radius: 17,
+                backgroundColor: const Color(0xFFB8A7FF),
+                backgroundImage: shown[index].avatarUrl?.isNotEmpty == true ? NetworkImage(shown[index].avatarUrl!) : null,
+                child: shown[index].avatarUrl?.isNotEmpty == true ? null : Text(shown[index].displayName[0].toUpperCase(), style: const TextStyle(color: Color(0xFF161324), fontWeight: FontWeight.bold)),
+              ),
+            ),
+          if (participants.length > shown.length)
+            Positioned(left: shown.length * 22.0, child: CircleAvatar(radius: 17, backgroundColor: const Color(0xFF3B3560), child: Text('+${participants.length - shown.length}', style: const TextStyle(color: Colors.white, fontSize: 11)))),
+        ],
       ),
     );
   }

@@ -1,3 +1,4 @@
+import '../../../../core/data/firestore_timestamp.dart';
 import '../../domain/entities/outing_participant.dart';
 
 class OutingParticipantModel extends OutingParticipant {
@@ -18,7 +19,10 @@ class OutingParticipantModel extends OutingParticipant {
     Map<String, dynamic> map,
     String docId,
   ) {
-    final participant = OutingParticipant.fromMap(map, docId);
+    final normalizedMap = Map<String, dynamic>.from(map);
+    final addedAt = readFirestoreTimestamp(normalizedMap['addedAt']);
+    if (addedAt != null) normalizedMap['addedAt'] = addedAt;
+    final participant = OutingParticipant.fromMap(normalizedMap, docId);
     return OutingParticipantModel.fromEntity(participant);
   }
 

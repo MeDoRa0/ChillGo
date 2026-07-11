@@ -20,13 +20,13 @@ class OutingRepositoryImpl implements OutingRepository {
 
   @override
   Stream<List<Outing>> streamCrewOutings(String crewId) {
-    _requireCurrentUid();
+    if (!_isAuthenticated) return const Stream.empty();
     return datasource.streamCrewOutings(crewId);
   }
 
   @override
   Stream<OutingDetail?> streamOutingDetail(String outingId) {
-    _requireCurrentUid();
+    if (!_isAuthenticated) return const Stream.empty();
     return _combineOutingAndParticipants(
       datasource.streamOuting(outingId),
       datasource.streamParticipants(outingId),
@@ -91,7 +91,9 @@ class OutingRepositoryImpl implements OutingRepository {
     final uid = _requireCurrentUid();
     final reason = cancelledReason.trim();
     if (reason.length < 3 || reason.length > 200) {
-      throw Exception('Cancellation reason must be between 3 and 200 characters.');
+      throw Exception(
+        'Cancellation reason must be between 3 and 200 characters.',
+      );
     }
     final outing = await _requireOuting(outingId);
     await _ensureManager(outing, uid);
@@ -102,6 +104,16 @@ class OutingRepositoryImpl implements OutingRepository {
       outingId: outingId,
       cancelledReason: cancelledReason,
     );
+  }
+
+  @override
+  Future<void> deleteOuting({required String outingId}) async {
+    final uid = _requireCurrentUid();
+    final outing = await _requireOuting(outingId);
+    if (outing.createdByUserId != uid) {
+      throw Exception('outing-creator-required');
+    }
+    await datasource.deleteOuting(outingId);
   }
 
   @override
@@ -116,6 +128,18 @@ class OutingRepositoryImpl implements OutingRepository {
     await datasource.addParticipant(
       outingId: outingId,
       userId: userId,
+      addedByUserId: uid,
+    );
+  }
+
+  @override
+  Future<void> acceptOuting({required String outingId}) async {
+    final uid = _requireCurrentUid();
+    final outing = await _requireOuting(outingId);
+    if (!outing.status.isEditable) throw Exception('outing-not-open');
+    await datasource.addParticipant(
+      outingId: outingId,
+      userId: uid,
       addedByUserId: uid,
     );
   }
@@ -201,6 +225,8 @@ class OutingRepositoryImpl implements OutingRepository {
     return uid;
   }
 
+  bool get _isAuthenticated => currentUid().isNotEmpty;
+
   Stream<OutingDetail?> _combineOutingAndParticipants(
     Stream<Outing?> outingStream,
     Stream<List<OutingParticipant>> participantsStream,
@@ -227,22 +253,16 @@ class OutingRepositoryImpl implements OutingRepository {
     }
 
     controller.onListen = () {
-      outingSubscription = outingStream.listen(
-        (outing) {
-          latestOuting = outing;
-          hasOuting = true;
-          emitIfReady();
-        },
-        onError: controller.addError,
-      );
-      participantsSubscription = participantsStream.listen(
-        (participants) {
-          latestParticipants = participants;
-          hasParticipants = true;
-          emitIfReady();
-        },
-        onError: controller.addError,
-      );
+      outingSubscription = outingStream.listen((outing) {
+        latestOuting = outing;
+        hasOuting = true;
+        emitIfReady();
+      }, onError: controller.addError);
+      participantsSubscription = participantsStream.listen((participants) {
+        latestParticipants = participants;
+        hasParticipants = true;
+        emitIfReady();
+      }, onError: controller.addError);
     };
     controller.onCancel = () async {
       await outingSubscription.cancel();

@@ -1,3 +1,4 @@
+import '../../../../core/data/firestore_timestamp.dart';
 import '../../domain/entities/outing.dart';
 
 class OutingModel extends Outing {
@@ -18,7 +19,18 @@ class OutingModel extends Outing {
   });
 
   factory OutingModel.fromMap(Map<String, dynamic> map, String docId) {
-    final outing = Outing.fromMap(map, docId);
+    final normalizedMap = Map<String, dynamic>.from(map);
+    for (final field in const [
+      'scheduledAt',
+      'createdAt',
+      'updatedAt',
+      'cancelledAt',
+      'archivedAt',
+    ]) {
+      final parsedTimestamp = readFirestoreTimestamp(normalizedMap[field]);
+      if (parsedTimestamp != null) normalizedMap[field] = parsedTimestamp;
+    }
+    final outing = Outing.fromMap(normalizedMap, docId);
     return OutingModel.fromEntity(outing);
   }
 

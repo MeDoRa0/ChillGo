@@ -13,7 +13,6 @@ class Crew {
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
       'name': name,
       'ownerId': ownerId,
       'createdAt': createdAt.toUtc().toIso8601String(),
@@ -25,9 +24,7 @@ class Crew {
       id: docId,
       name: map['name'] as String? ?? '',
       ownerId: map['ownerId'] as String? ?? '',
-      createdAt:
-          DateTime.tryParse(map['createdAt'] as String? ?? '') ??
-          DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+      createdAt: _readDate(map['createdAt']),
     );
   }
 
@@ -43,5 +40,14 @@ class Crew {
       ownerId: ownerId ?? this.ownerId,
       createdAt: createdAt ?? this.createdAt,
     );
+  }
+
+  static DateTime _readDate(Object? rawDate) {
+    if (rawDate is DateTime) return rawDate.toUtc();
+    if (rawDate is String) {
+      return DateTime.tryParse(rawDate)?.toUtc() ??
+          DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+    }
+    return DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
   }
 }
