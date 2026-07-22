@@ -1,0 +1,4 @@
+import {initializeApp,getApps} from "firebase-admin/app";import {getFirestore,FieldValue} from "firebase-admin/firestore";
+import {onDocumentCreated} from "firebase-functions/v2/firestore";import {AgreementTransactions} from "./agreement_transactions";import {CommandError,parseCommand} from "./command_schema";
+if(!getApps().length)initializeApp();
+export const agreementCommandCreated=onDocumentCreated("agreement_commands/{commandId}",async event=>{const snap=event.data;if(!snap)return;try{const command=parseCommand(snap.data());await new AgreementTransactions(getFirestore()).process(snap.id,event.id,command);}catch(error){const safe=error instanceof CommandError?error:new CommandError("internal_error","Agreement service failed.");if(safe.code==="already_processed")return;await snap.ref.update({status:"failed",errorCode:safe.code,errorMessage:safe.message,processedAt:FieldValue.serverTimestamp()});}});

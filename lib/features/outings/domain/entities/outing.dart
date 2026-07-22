@@ -1,5 +1,7 @@
 import 'outing_status.dart';
 
+const outingCleanupDelay = Duration(hours: 12);
+
 class Outing {
   final String id;
   final String crewId;
@@ -14,6 +16,9 @@ class Outing {
   final String? cancelledReason;
   final DateTime? cancelledAt;
   final DateTime? archivedAt;
+  final int agreementRoundSequence;
+  final String? activeAgreementRoundId;
+  final String? confirmedAgreementRoundId;
 
   const Outing({
     required this.id,
@@ -29,7 +34,18 @@ class Outing {
     this.cancelledReason,
     this.cancelledAt,
     this.archivedAt,
+    this.agreementRoundSequence = 0,
+    this.activeAgreementRoundId,
+    this.confirmedAgreementRoundId,
   });
+
+  bool isOutdatedAt(DateTime now) => scheduledAt.isBefore(now);
+
+  bool isCleanupEligibleAt(DateTime now) =>
+      !scheduledAt.add(outingCleanupDelay).isAfter(now);
+
+  bool isCurrentCrewPlanAt(DateTime now) =>
+      !status.isHistorical && !isOutdatedAt(now);
 
   Map<String, dynamic> toMap() {
     return {
@@ -43,9 +59,13 @@ class Outing {
       'createdAt': _writeDate(createdAt),
       'updatedAt': _writeDate(updatedAt),
       if (cancelledReason != null) 'cancelledReason': cancelledReason,
-      if (cancelledAt != null)
-        'cancelledAt': _writeDate(cancelledAt!),
+      if (cancelledAt != null) 'cancelledAt': _writeDate(cancelledAt!),
       if (archivedAt != null) 'archivedAt': _writeDate(archivedAt!),
+      'agreementRoundSequence': agreementRoundSequence,
+      if (activeAgreementRoundId != null)
+        'activeAgreementRoundId': activeAgreementRoundId,
+      if (confirmedAgreementRoundId != null)
+        'confirmedAgreementRoundId': confirmedAgreementRoundId,
     };
   }
 
@@ -64,6 +84,15 @@ class Outing {
       cancelledReason: _readOptionalString(map, 'cancelledReason'),
       cancelledAt: _readNullableDate(map['cancelledAt']),
       archivedAt: _readNullableDate(map['archivedAt']),
+      agreementRoundSequence: map['agreementRoundSequence'] as int? ?? 0,
+      activeAgreementRoundId: _readOptionalString(
+        map,
+        'activeAgreementRoundId',
+      ),
+      confirmedAgreementRoundId: _readOptionalString(
+        map,
+        'confirmedAgreementRoundId',
+      ),
     );
   }
 
@@ -85,6 +114,11 @@ class Outing {
     bool clearCancelledAt = false,
     DateTime? archivedAt,
     bool clearArchivedAt = false,
+    int? agreementRoundSequence,
+    String? activeAgreementRoundId,
+    bool clearActiveAgreementRoundId = false,
+    String? confirmedAgreementRoundId,
+    bool clearConfirmedAgreementRoundId = false,
   }) {
     return Outing(
       id: id ?? this.id,
@@ -102,6 +136,14 @@ class Outing {
           : cancelledReason ?? this.cancelledReason,
       cancelledAt: clearCancelledAt ? null : cancelledAt ?? this.cancelledAt,
       archivedAt: clearArchivedAt ? null : archivedAt ?? this.archivedAt,
+      agreementRoundSequence:
+          agreementRoundSequence ?? this.agreementRoundSequence,
+      activeAgreementRoundId: clearActiveAgreementRoundId
+          ? null
+          : activeAgreementRoundId ?? this.activeAgreementRoundId,
+      confirmedAgreementRoundId: clearConfirmedAgreementRoundId
+          ? null
+          : confirmedAgreementRoundId ?? this.confirmedAgreementRoundId,
     );
   }
 

@@ -7,8 +7,10 @@ class AppConfiguration {
   final bool isCrashlyticsEnabled;
   final bool isAnalyticsEnabled;
   final bool isFcmEnabled;
+
   /// One of the supported runtime platforms.
   final SupportedPlatform platform;
+
   /// Semantic-version string, e.g. "1.2.3" or "1.2.3-beta+001".
   final String appVersion;
   final DateTime lastStartupTime;

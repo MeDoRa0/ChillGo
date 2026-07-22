@@ -1,12 +1,20 @@
 class DiagnosticsLog {
   /// Allowed diagnostic severity levels.
-  static const allowedSeverities = {'debug', 'info', 'warning', 'error', 'fatal'};
+  static const allowedSeverities = {
+    'debug',
+    'info',
+    'warning',
+    'error',
+    'fatal',
+  };
 
   final String id;
   final String errorMessage;
   final String? stackTrace;
+
   /// Must be one of: debug, info, warning, error, fatal.
   final String severity;
+
   /// Must not be in the future.
   final DateTime timestamp;
   final Map<String, dynamic> deviceMetadata;
@@ -25,7 +33,9 @@ class DiagnosticsLog {
       );
     }
     if (timestamp.isAfter(DateTime.now().add(const Duration(minutes: 1)))) {
-      throw ArgumentError('timestamp must not be in the future, got: $timestamp');
+      throw ArgumentError(
+        'timestamp must not be in the future, got: $timestamp',
+      );
     }
   }
 }

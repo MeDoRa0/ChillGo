@@ -9,9 +9,15 @@ const firebaseToolsRoot = path.join(
   'firebase-tools',
   'lib',
 );
-const firebaseAuth = require(path.join(firebaseToolsRoot, 'auth.js'));
-const firebaseApi = require(path.join(firebaseToolsRoot, 'apiv2.js'));
-const firestoreApi = require(path.join(firebaseToolsRoot, 'gcp', 'firestore.js'));
+let firebaseAuth;
+let firebaseApi;
+let firestoreApi;
+
+function loadFirebaseCli() {
+  firebaseAuth ??= require(path.join(firebaseToolsRoot, 'auth.js'));
+  firebaseApi ??= require(path.join(firebaseToolsRoot, 'apiv2.js'));
+  firestoreApi ??= require(path.join(firebaseToolsRoot, 'gcp', 'firestore.js'));
+}
 
 const collectionDates = new Map([
   ['users', ['createdAt']],
@@ -22,16 +28,18 @@ const collectionDates = new Map([
     'outings',
     ['scheduledAt', 'createdAt', 'updatedAt', 'cancelledAt', 'archivedAt'],
   ],
-  ['outing_participants', ['addedAt']],
+  ['outing_participants', ['addedAt', 'respondedAt']],
 ]);
 
 function initializeFirebaseCliAuth() {
+  loadFirebaseCli();
   const account = firebaseAuth.getGlobalDefaultAccount();
   if (!account) throw new Error('Firebase CLI authentication is required.');
   firebaseAuth.setActiveAccount({}, account);
 }
 
 async function readCollection(collectionName) {
+  loadFirebaseCli();
   const query = { from: [{ collectionId: collectionName }] };
   const response = await firestoreApi.queryCollection(projectId, query);
   return response.documents;
@@ -74,6 +82,20 @@ function fieldsChanged(before, after) {
   return JSON.stringify(before) !== JSON.stringify(after);
 }
 
+function addPhase4Defaults(collectionName, fields, migrationTime = new Date()) {
+  if (collectionName === 'outing_participants' && !fields.attendanceStatus) {
+    const creator = fields.isCreatorParticipant?.booleanValue === true;
+    fields.attendanceStatus = { stringValue: creator ? 'accepted' : 'invited' };
+    fields.respondedAt = creator
+      ? { timestampValue: migrationTime.toISOString() }
+      : { nullValue: null };
+  }
+  if (collectionName === 'outings' && !fields.agreementRoundSequence) {
+    fields.agreementRoundSequence = { integerValue: '0' };
+  }
+  return fields;
+}
+
 async function collectMigrations() {
   const users = await readCollection('users');
   const profiles = new Map(
@@ -90,6 +112,7 @@ async function collectMigrations() {
       if (collectionName === 'crew_memberships' || collectionName === 'outing_participants') {
         synchronizeCachedProfile(fields, profiles);
       }
+      addPhase4Defaults(collectionName, fields);
       if (fieldsChanged(document.fields, fields)) {
         migrations.push({ document, fields });
         changedDocuments++;
@@ -104,6 +127,7 @@ async function collectMigrations() {
 }
 
 async function applyMigrations(migrations) {
+  loadFirebaseCli();
   const client = new firebaseApi.Client({
     auth: true,
     apiVersion: 'v1',
@@ -133,7 +157,10 @@ async function main() {
   console.log(`Migrated ${migrations.length} document(s) in ${projectId}.`);
 }
 
-main().catch((error) => {
-  console.error(error.message);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error.message);
+    process.exitCode = 1;
+  });
+}
+module.exports = { timestampFields, fieldsChanged, addPhase4Defaults };

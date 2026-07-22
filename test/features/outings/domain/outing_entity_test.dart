@@ -40,6 +40,67 @@ void main() {
       expect(updated.id, outing.id);
     });
 
+    test('identifies outdated and current crew-plan boundaries', () {
+      final now = DateTime.utc(2030, 1, 1, 10);
+      final outing = Outing.fromMap({
+        'crewId': 'crew-1',
+        'title': 'Friday Cafe',
+        'scheduledAt': now.toIso8601String(),
+        'locationText': 'City Center Cafe',
+        'status': 'draft',
+        'createdByUserId': 'user-1',
+        'createdAt': '2026-01-01T10:00:00.000Z',
+        'updatedAt': '2026-01-01T10:00:00.000Z',
+      }, 'outing-1');
+
+      final outdatedOuting = outing.copyWith(
+        scheduledAt: now.subtract(const Duration(seconds: 1)),
+      );
+      final futureOuting = outing.copyWith(
+        scheduledAt: now.add(const Duration(seconds: 1)),
+      );
+
+      expect(outdatedOuting.isOutdatedAt(now), isTrue);
+      expect(outdatedOuting.isCurrentCrewPlanAt(now), isFalse);
+      expect(outing.isOutdatedAt(now), isFalse);
+      expect(outing.isCurrentCrewPlanAt(now), isTrue);
+      expect(futureOuting.isOutdatedAt(now), isFalse);
+      expect(futureOuting.isCurrentCrewPlanAt(now), isTrue);
+      expect(
+        outing
+            .copyWith(status: OutingStatus.completed)
+            .isCurrentCrewPlanAt(now),
+        isFalse,
+      );
+    });
+
+    test('becomes cleanup eligible exactly twelve hours after schedule', () {
+      final scheduledAt = DateTime.utc(2030, 1, 1, 10);
+      final outing = Outing.fromMap({
+        'crewId': 'crew-1',
+        'title': 'Friday Cafe',
+        'scheduledAt': scheduledAt.toIso8601String(),
+        'locationText': 'City Center Cafe',
+        'status': 'draft',
+        'createdByUserId': 'user-1',
+        'createdAt': '2026-01-01T10:00:00.000Z',
+        'updatedAt': '2026-01-01T10:00:00.000Z',
+      }, 'outing-1');
+
+      expect(
+        outing.isCleanupEligibleAt(
+          scheduledAt
+              .add(outingCleanupDelay)
+              .subtract(const Duration(milliseconds: 1)),
+        ),
+        isFalse,
+      );
+      expect(
+        outing.isCleanupEligibleAt(scheduledAt.add(outingCleanupDelay)),
+        isTrue,
+      );
+    });
+
     test('rejects missing required fields', () {
       expect(
         () => Outing.fromMap({

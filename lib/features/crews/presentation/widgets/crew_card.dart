@@ -44,7 +44,9 @@ class CrewCard extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF6366F1).withValues(alpha: 0.15),
+                          color: const Color(
+                            0xFF6366F1,
+                          ).withValues(alpha: 0.15),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
@@ -94,8 +96,9 @@ class _OutingIndicator extends StatelessWidget {
     return StreamBuilder<List<Outing>>(
       stream: sl<OutingRepository>().streamCrewOutings(crewId),
       builder: (context, snapshot) {
+        final now = DateTime.now();
         final hasActiveOuting = (snapshot.data ?? const <Outing>[]).any(
-          (outing) => !outing.status.isHistorical,
+          (outing) => outing.isCurrentCrewPlanAt(now),
         );
         if (!hasActiveOuting) return const SizedBox.shrink();
         return Positioned(

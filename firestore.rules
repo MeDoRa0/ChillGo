@@ -30,31 +30,28 @@ service cloud.firestore {
     }
 
     function isValidCrewPayload() {
-      return request.resource.data.keys().hasOnly(['name', 'ownerId', 'createdAt']) &&
-        request.resource.data.keys().hasAll(['name', 'ownerId', 'createdAt']) &&
+      return request.resource.data.keys().hasAll(['name', 'ownerId', 'createdAt']) &&
         isValidCrewName(request.resource.data.name) &&
         request.resource.data.ownerId is string &&
         request.resource.data.createdAt is timestamp;
     }
 
-    function isValidCrewNameUpdate() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name']) &&
-        isValidCrewName(request.resource.data.name) &&
+    function isValidCrewUpdate() {
+      return isValidCrewPayload() &&
         request.resource.data.ownerId == resource.data.ownerId &&
         request.resource.data.createdAt == resource.data.createdAt;
     }
 
     function isValidMembershipPayload(membershipId) {
-      return request.resource.data.keys().hasOnly([
-          'crewId',
-          'userId',
-          'role',
-          'joinedAt',
-          'username',
-          'displayName',
-          'avatarUrl'
-        ]) &&
-        request.resource.data.keys().hasAll([
+      return hasValidMembershipFields(membershipId) &&
+        exists(userPath(request.resource.data.userId)) &&
+        get(userPath(request.resource.data.userId)).data.username == request.resource.data.username &&
+        get(userPath(request.resource.data.userId)).data.displayName == request.resource.data.displayName &&
+        request.resource.data.get('avatarUrl', null) == get(userPath(request.resource.data.userId)).data.get('avatarUrl', null);
+    }
+
+    function hasValidMembershipFields(membershipId) {
+      return request.resource.data.keys().hasAll([
           'crewId',
           'userId',
           'role',
@@ -63,29 +60,21 @@ service cloud.firestore {
           'displayName'
         ]) &&
         membershipId == request.resource.data.crewId + '_' + request.resource.data.userId &&
+        request.resource.data.crewId is string &&
         request.resource.data.userId is string &&
         (request.resource.data.role == 'owner' || request.resource.data.role == 'member') &&
         request.resource.data.joinedAt is timestamp &&
         request.resource.data.username is string &&
         request.resource.data.displayName is string &&
-        exists(userPath(request.resource.data.userId)) &&
-        get(userPath(request.resource.data.userId)).data.username == request.resource.data.username &&
-        get(userPath(request.resource.data.userId)).data.displayName == request.resource.data.displayName &&
-        request.resource.data.get('avatarUrl', null) == get(userPath(request.resource.data.userId)).data.get('avatarUrl', null);
+        (
+          !request.resource.data.keys().hasAny(['avatarUrl']) ||
+          request.resource.data.avatarUrl == null ||
+          request.resource.data.avatarUrl is string
+        );
     }
 
     function isValidInvitationPayload(invitationId) {
-      return request.resource.data.keys().hasOnly([
-          'crewId',
-          'invitedUserId',
-          'invitedByUserId',
-          'createdAt',
-          'crewName',
-          'invitedByUsername',
-          'invitedByDisplayName',
-          'invitedUsername'
-        ]) &&
-        request.resource.data.keys().hasAll([
+      return request.resource.data.keys().hasAll([
           'crewId',
           'invitedUserId',
           'invitedByUserId',
@@ -102,6 +91,10 @@ service cloud.firestore {
         request.resource.data.crewName is string &&
         request.resource.data.invitedByUsername is string &&
         request.resource.data.invitedByDisplayName is string &&
+        (
+          !request.resource.data.keys().hasAny(['invitedUsername']) ||
+          request.resource.data.invitedUsername is string
+        ) &&
         exists(crewPath(request.resource.data.crewId)) &&
         exists(userPath(request.resource.data.invitedByUserId)) &&
         exists(userPath(request.resource.data.invitedUserId)) &&
@@ -143,22 +136,21 @@ service cloud.firestore {
     }
 
     function isValidUserProfile() {
-      return request.resource.data.keys().hasOnly([
-          'username', 'displayName', 'avatarUrl', 'createdAt'
-        ]) &&
-        request.resource.data.keys().hasAll([
+      return request.resource.data.keys().hasAll([
           'username', 'displayName', 'createdAt'
         ]) &&
         request.resource.data.username is string &&
         request.resource.data.displayName is string &&
-        request.resource.data.createdAt is timestamp;
+        request.resource.data.createdAt is timestamp &&
+        (
+          !request.resource.data.keys().hasAny(['avatarUrl']) ||
+          request.resource.data.avatarUrl == null ||
+          request.resource.data.avatarUrl is string
+        );
     }
 
     function isValidUserProfileUpdate() {
       return isValidUserProfile() &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'displayName', 'avatarUrl'
-        ]) &&
         request.resource.data.username == resource.data.username &&
         request.resource.data.createdAt == resource.data.createdAt;
     }
@@ -172,18 +164,95 @@ service cloud.firestore {
 
     function isValidMembershipProfileUpdate() {
       return request.auth.uid == resource.data.userId &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'username', 'displayName', 'avatarUrl'
-        ]) &&
+        request.resource.data.crewId == resource.data.crewId &&
+        request.resource.data.userId == resource.data.userId &&
+        request.resource.data.role == resource.data.role &&
+        request.resource.data.joinedAt == resource.data.joinedAt &&
+        hasValidMembershipFields(resource.data.crewId + '_' + resource.data.userId) &&
         matchesUpdatedUserProfile(resource.data.userId);
+    }
+
+    function keepsParticipantIdentity() {
+      return request.resource.data.get('outingId', null) == resource.data.get('outingId', null) &&
+        request.resource.data.get('crewId', null) == resource.data.get('crewId', null) &&
+        request.resource.data.get('userId', null) == resource.data.get('userId', null) &&
+        request.resource.data.get('addedByUserId', null) == resource.data.get('addedByUserId', null) &&
+        request.resource.data.get('addedAt', null) == resource.data.get('addedAt', null) &&
+        request.resource.data.get('isCreatorParticipant', null) == resource.data.get('isCreatorParticipant', null);
     }
 
     function isValidParticipantProfileUpdate() {
       return request.auth.uid == resource.data.userId &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'username', 'displayName', 'avatarUrl'
-        ]) &&
+        keepsParticipantIdentity() &&
+        request.resource.data.get('attendanceStatus', null) == resource.data.get('attendanceStatus', null) &&
+        request.resource.data.get('respondedAt', null) == resource.data.get('respondedAt', null) &&
         matchesUpdatedUserProfile(resource.data.userId);
+    }
+
+    function agreementRoundPath(roundId) {
+      return /databases/$(database)/documents/agreement_rounds/$(roundId);
+    }
+    function agreementProposalPath(proposalId) {
+      return /databases/$(database)/documents/agreement_proposals/$(proposalId);
+    }
+    function isAcceptedParticipant(outingId) {
+      let id = outingId + '_' + request.auth.uid;
+      return signedIn() && exists(participantPath(id)) &&
+        get(participantPath(id)).data.attendanceStatus == 'accepted';
+    }
+    function validVoteId(voteId) {
+      return voteId == request.resource.data.roundId + '_' + request.resource.data.category + '_' + request.auth.uid;
+    }
+    function validVoteTarget() {
+      let round = get(agreementRoundPath(request.resource.data.roundId)).data;
+      let proposal = get(agreementProposalPath(request.resource.data.proposalId)).data;
+      let outing = get(outingPath(round.outingId)).data;
+      return request.resource.data.keys().hasOnly(['roundId','outingId','crewId','category','proposalId','userId','createdAt','updatedAt']) &&
+        request.resource.data.keys().hasAll(['roundId','outingId','crewId','category','proposalId','userId','createdAt','updatedAt']) &&
+        request.resource.data.roundId is string && request.resource.data.outingId is string &&
+        request.resource.data.crewId is string && request.resource.data.proposalId is string &&
+        request.resource.data.category in ['time','location'] && request.resource.data.userId == request.auth.uid &&
+        round.status == 'open' && round.outingId == request.resource.data.outingId && round.crewId == request.resource.data.crewId &&
+        outing.status == 'planning' && outing.activeAgreementRoundId == request.resource.data.roundId &&
+        outing.get('deletionPending', false) == false &&
+        proposal.roundId == request.resource.data.roundId && proposal.category == request.resource.data.category &&
+        isCrewMember(round.crewId) && isAcceptedParticipant(round.outingId) &&
+        (request.resource.data.category != 'time' || proposal.timeValue > request.time);
+    }
+    function validCommandPayload(type, payload) {
+      return (type == 'open_round' && payload.keys().hasOnly([])) ||
+        (type == 'create_proposal' && (
+          (payload.keys().hasOnly(['category','timeValue']) &&
+            payload.keys().hasAll(['category','timeValue']) &&
+            payload.category == 'time' && payload.timeValue is timestamp &&
+            payload.timeValue > request.time) ||
+          (payload.keys().hasOnly(['category','locationText']) &&
+            payload.keys().hasAll(['category','locationText']) &&
+            payload.category == 'location' &&
+            isValidOutingString(payload.locationText, 1, 120))
+        )) ||
+        (type == 'preview_confirmation' && payload.keys().hasOnly([])) ||
+        (type == 'delete_outing' && payload.keys().hasOnly([])) ||
+        (type == 'expire_outing' && payload.keys().hasOnly([])) ||
+        (type == 'confirm_round' &&
+          payload.keys().hasOnly(['selectedTimeProposalId','selectedLocationProposalId']) &&
+          (!payload.keys().hasAny(['selectedTimeProposalId']) || payload.selectedTimeProposalId is string) &&
+          (!payload.keys().hasAny(['selectedLocationProposalId']) || payload.selectedLocationProposalId is string)) ||
+        ((type == 'reopen_round' || type == 'cancel_outing') &&
+          payload.keys().hasOnly(['reason']) && payload.keys().hasAll(['reason']) &&
+          isValidOutingString(payload.reason, 3, 200));
+    }
+
+    function isValidAttendanceUpdate() {
+      return request.auth.uid == resource.data.userId &&
+        isCrewMember(resource.data.crewId) &&
+        get(outingPath(resource.data.outingId)).data.status in ['draft', 'planning', 'confirmed'] &&
+        get(outingPath(resource.data.outingId)).data.get('deletionPending', false) == false &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'attendanceStatus', 'respondedAt'
+        ]) &&
+        request.resource.data.attendanceStatus in ['accepted', 'declined'] &&
+        request.resource.data.respondedAt == request.time;
     }
 
     function isCrewMemberByUid(crewId, uid) {
@@ -218,14 +287,10 @@ service cloud.firestore {
     }
 
     function hasValidOutingShape() {
-      return request.resource.data.keys().hasOnly([
-          'crewId', 'title', 'description', 'scheduledAt', 'locationText',
-          'status', 'createdByUserId', 'createdAt', 'updatedAt',
-          'cancelledReason', 'cancelledAt', 'archivedAt'
-        ]) &&
-        request.resource.data.keys().hasAll([
+      return request.resource.data.keys().hasAll([
           'crewId', 'title', 'scheduledAt', 'locationText',
           'status', 'createdByUserId', 'createdAt', 'updatedAt'
+          ,'agreementRoundSequence'
         ]) &&
         request.resource.data.crewId is string &&
         request.resource.data.createdByUserId is string &&
@@ -235,6 +300,18 @@ service cloud.firestore {
         request.resource.data.scheduledAt is timestamp &&
         request.resource.data.createdAt is timestamp &&
         request.resource.data.updatedAt is timestamp &&
+        request.resource.data.agreementRoundSequence is int &&
+        request.resource.data.agreementRoundSequence >= 0 &&
+        (
+          !request.resource.data.keys().hasAny(['activeAgreementRoundId']) ||
+          request.resource.data.activeAgreementRoundId == null ||
+          request.resource.data.activeAgreementRoundId is string
+        ) &&
+        (
+          !request.resource.data.keys().hasAny(['confirmedAgreementRoundId']) ||
+          request.resource.data.confirmedAgreementRoundId == null ||
+          request.resource.data.confirmedAgreementRoundId is string
+        ) &&
         (
           !request.resource.data.keys().hasAny(['description']) ||
           isValidOutingString(request.resource.data.description, 0, 500)
@@ -267,6 +344,11 @@ service cloud.firestore {
       return hasValidOutingShape() &&
         request.resource.data.createdByUserId == request.auth.uid &&
         request.resource.data.status == 'draft' &&
+        request.resource.data.agreementRoundSequence == 0 &&
+        !request.resource.data.keys().hasAny([
+          'activeAgreementRoundId', 'confirmedAgreementRoundId',
+          'deletionPending'
+        ]) &&
         exists(crewPath(request.resource.data.crewId)) &&
         isCrewMember(request.resource.data.crewId);
     }
@@ -274,38 +356,56 @@ service cloud.firestore {
     function keepsOutingIdentity() {
       return request.resource.data.crewId == resource.data.crewId &&
         request.resource.data.createdByUserId == resource.data.createdByUserId &&
-        request.resource.data.createdAt == resource.data.createdAt;
+        request.resource.data.createdAt == resource.data.createdAt &&
+        request.resource.data.agreementRoundSequence == resource.data.agreementRoundSequence &&
+        request.resource.data.get('activeAgreementRoundId', null) == resource.data.get('activeAgreementRoundId', null) &&
+        request.resource.data.get('confirmedAgreementRoundId', null) == resource.data.get('confirmedAgreementRoundId', null);
     }
 
     function isOutingDetailEdit() {
       return resource.data.status in ['draft', 'planning', 'confirmed', 'meeting'] &&
         request.resource.data.status == resource.data.status &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'title', 'description', 'scheduledAt', 'locationText', 'updatedAt'
-        ]);
+        (
+          (
+            resource.data.status == 'draft' &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'title', 'description', 'scheduledAt', 'locationText', 'updatedAt'
+            ])
+          ) ||
+          (
+            resource.data.status in ['planning', 'confirmed', 'meeting'] &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'title', 'description', 'updatedAt'
+            ])
+          )
+        );
     }
 
     function isOutingLifecycleEdit() {
-      return request.resource.data.status != resource.data.status &&
-        isValidTransition(resource.data.status, request.resource.data.status) &&
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return isValidTransition(resource.data.status, request.resource.data.status) &&
         (
           (
+            resource.data.status == 'draft' &&
             request.resource.data.status == 'cancelled' &&
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            changed.hasOnly([
               'status', 'cancelledReason', 'cancelledAt', 'updatedAt'
             ])
           ) ||
           (
-            request.resource.data.status == 'archived' &&
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-              'status', 'archivedAt', 'updatedAt'
-            ])
+            resource.data.status == 'confirmed' &&
+            request.resource.data.status == 'meeting' &&
+            changed.hasOnly(['status', 'updatedAt'])
           ) ||
           (
-            !(request.resource.data.status in ['cancelled', 'archived']) &&
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-              'status', 'updatedAt'
-            ])
+            resource.data.status == 'meeting' &&
+            request.resource.data.status == 'completed' &&
+            changed.hasOnly(['status', 'updatedAt'])
+          ) ||
+          (
+            resource.data.status == 'completed' &&
+            request.resource.data.status == 'archived' &&
+            changed.hasOnly(['status', 'archivedAt', 'updatedAt'])
           )
         );
     }
@@ -318,17 +418,39 @@ service cloud.firestore {
     }
 
     function isValidParticipantPayload(participantId) {
-      return request.resource.data.keys().hasOnly([
+      return request.resource.data.keys().hasAll([
           'outingId', 'crewId', 'userId', 'username', 'displayName',
-          'avatarUrl', 'addedByUserId', 'addedAt', 'isCreatorParticipant'
-        ]) &&
-        request.resource.data.keys().hasAll([
-          'outingId', 'crewId', 'userId', 'username', 'displayName',
-          'addedByUserId', 'addedAt', 'isCreatorParticipant'
+          'addedByUserId', 'addedAt', 'isCreatorParticipant',
+          'attendanceStatus', 'respondedAt'
         ]) &&
         participantId == request.resource.data.outingId + '_' + request.resource.data.userId &&
+        request.resource.data.outingId is string &&
+        request.resource.data.crewId is string &&
+        request.resource.data.userId is string &&
+        request.resource.data.username is string &&
+        request.resource.data.displayName is string &&
+        request.resource.data.addedByUserId is string &&
         request.resource.data.addedAt is timestamp &&
+        request.resource.data.isCreatorParticipant is bool &&
+        (
+          !request.resource.data.keys().hasAny(['avatarUrl']) ||
+          request.resource.data.avatarUrl == null ||
+          request.resource.data.avatarUrl is string
+        ) &&
         request.resource.data.addedByUserId == request.auth.uid &&
+        request.resource.data.attendanceStatus in ['invited', 'accepted', 'declined'] &&
+        (
+          (request.resource.data.isCreatorParticipant == true &&
+            request.resource.data.attendanceStatus == 'accepted' &&
+            request.resource.data.respondedAt is timestamp) ||
+          (request.resource.data.isCreatorParticipant == false &&
+            request.resource.data.attendanceStatus == 'invited' &&
+            request.resource.data.respondedAt == null) ||
+          (request.resource.data.isCreatorParticipant == false &&
+            request.resource.data.userId == request.auth.uid &&
+            request.resource.data.attendanceStatus in ['accepted', 'declined'] &&
+            request.resource.data.respondedAt == request.time)
+        ) &&
         (
           (
             exists(outingPath(request.resource.data.outingId)) &&
@@ -347,12 +469,12 @@ service cloud.firestore {
         request.resource.data.get('avatarUrl', null) == get(userPath(request.resource.data.userId)).data.get('avatarUrl', null);
     }
 
-    function isOutingSelfAcceptance() {
+    function isOutingSelfResponse() {
       return request.resource.data.userId == request.auth.uid &&
         request.resource.data.addedByUserId == request.auth.uid &&
         request.resource.data.isCreatorParticipant == false &&
         exists(outingPath(request.resource.data.outingId)) &&
-        get(outingPath(request.resource.data.outingId)).data.status in ['draft', 'planning', 'confirmed', 'meeting'];
+        get(outingPath(request.resource.data.outingId)).data.status in ['draft', 'planning', 'confirmed'];
     }
 
     function isOwnerMembershipCreatedWithCrew(crewId) {
@@ -390,7 +512,11 @@ service cloud.firestore {
     // Username Registry Rules (Ensures Uniqueness)
     match /usernames/{username} {
       allow read: if request.auth != null;
-      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+      allow create: if request.auth != null &&
+        request.resource.data.keys().hasOnly(['uid']) &&
+        request.resource.data.keys().hasAll(['uid']) &&
+        request.resource.data.uid is string &&
+        request.resource.data.uid == request.auth.uid;
       allow update, delete: if false; // Usernames are immutable
     }
 
@@ -403,7 +529,7 @@ service cloud.firestore {
         isOwnerMembershipCreatedWithCrew(crewId);
 
       allow update: if isCrewOwner(crewId) &&
-        isValidCrewNameUpdate();
+        isValidCrewUpdate();
 
       allow delete: if isCrewOwner(crewId) &&
         isOwnerMembershipDeletedWithCrew(crewId);
@@ -480,11 +606,7 @@ service cloud.firestore {
         existsAfter(participantPath(outingId + '_' + request.auth.uid));
       allow update: if isOutingManager(outingId) &&
         isValidOutingUpdatePayload();
-      allow delete: if signedIn() &&
-        (
-          resource.data.createdByUserId == request.auth.uid ||
-          isCrewOwner(resource.data.crewId)
-        );
+      allow delete: if false;
     }
 
     match /outing_participants/{participantId} {
@@ -500,9 +622,10 @@ service cloud.firestore {
             getAfter(outingPath(request.resource.data.outingId)).data.createdByUserId == request.auth.uid
           ) ||
           isOutingManager(request.resource.data.outingId) ||
-          isOutingSelfAcceptance()
+          isOutingSelfResponse()
         );
-      allow update: if signedIn() && isValidParticipantProfileUpdate();
+      allow update: if signedIn() &&
+        (isValidParticipantProfileUpdate() || isValidAttendanceUpdate());
       allow delete: if signedIn() &&
         (
           isOutingManager(resource.data.outingId) ||
@@ -511,6 +634,50 @@ service cloud.firestore {
             !existsAfter(membershipPath(resource.data.crewId + '_' + request.auth.uid))
           )
         );
+    }
+
+    match /agreement_rounds/{roundId} {
+      allow read: if isCrewMember(resource.data.crewId);
+      allow write: if false;
+    }
+    match /agreement_proposals/{proposalId} {
+      allow read: if isCrewMember(resource.data.crewId);
+      allow write: if false;
+    }
+    match /agreement_votes/{voteId} {
+      allow get: if signedIn() && resource.data.userId == request.auth.uid;
+      allow list: if false;
+      allow create: if validVoteId(voteId) && validVoteTarget() &&
+        request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time;
+      allow update: if validVoteId(voteId) && validVoteTarget() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['proposalId','updatedAt']) &&
+        request.resource.data.createdAt == resource.data.createdAt && request.resource.data.updatedAt == request.time;
+      allow delete: if signedIn() && resource.data.userId == request.auth.uid &&
+        get(agreementRoundPath(resource.data.roundId)).data.status == 'open' &&
+        isCrewMember(resource.data.crewId) && isAcceptedParticipant(resource.data.outingId);
+    }
+    match /agreement_results/{resultId} {
+      allow read: if isCrewMember(resource.data.crewId) &&
+        get(agreementRoundPath(resource.data.roundId)).data.status != 'open';
+      allow write: if false;
+    }
+    match /agreement_commands/{commandId} {
+      allow create: if signedIn() && request.resource.data.keys().hasOnly([
+          'type','outingId','crewId','requestedByUserId','payload','status','createdAt']) &&
+        request.resource.data.keys().hasAll(['type','outingId','crewId','requestedByUserId','payload','status','createdAt']) &&
+        request.resource.data.type is string && request.resource.data.outingId is string &&
+        request.resource.data.crewId is string && request.resource.data.requestedByUserId is string &&
+        request.resource.data.payload is map &&
+        request.resource.data.requestedByUserId == request.auth.uid && request.resource.data.status == 'pending' &&
+        request.resource.data.createdAt == request.time &&
+        get(outingPath(request.resource.data.outingId)).data.crewId == request.resource.data.crewId &&
+        isCrewMember(request.resource.data.crewId) &&
+        (request.resource.data.type in ['delete_outing', 'expire_outing'] ||
+          get(outingPath(request.resource.data.outingId)).data.get('deletionPending', false) == false) &&
+        (request.resource.data.type != 'delete_outing' || isOutingCreator(request.resource.data.outingId)) &&
+        validCommandPayload(request.resource.data.type, request.resource.data.payload);
+      allow get, list: if signedIn() && resource.data.requestedByUserId == request.auth.uid;
+      allow update, delete: if false;
     }
   }
 }

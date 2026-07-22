@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -33,6 +34,11 @@ import '../../features/outings/domain/repositories/outing_repository.dart';
 import '../../features/outings/presentation/cubit/outing_detail/outing_detail_cubit.dart';
 import '../../features/outings/presentation/cubit/outing_form/outing_form_cubit.dart';
 import '../../features/outings/presentation/cubit/outings_list/outings_list_cubit.dart';
+import '../../features/voting/data/datasources/firestore_agreement_datasource.dart';
+import '../../features/voting/data/repositories/agreement_repository_impl.dart';
+import '../../features/voting/domain/repositories/agreement_repository.dart';
+import '../../features/voting/presentation/cubit/agreement_detail/agreement_detail_cubit.dart';
+import '../../features/voting/presentation/cubit/agreement_command/agreement_command_cubit.dart';
 
 final sl = GetIt.instance;
 
@@ -55,7 +61,11 @@ Future<void> init() async {
     sl.registerLazySingleton<FirebaseStorage>(() => FirebaseStorage.instance);
   }
   if (!sl.isRegistered<GoogleSignIn>()) {
-    sl.registerLazySingleton<GoogleSignIn>(() => GoogleSignIn());
+    final googleSignIn = GoogleSignIn.instance;
+    if (!kIsWeb) {
+      await googleSignIn.initialize();
+    }
+    sl.registerSingleton<GoogleSignIn>(googleSignIn);
   }
   if (!sl.isRegistered<FirebaseCrashlytics>()) {
     sl.registerLazySingleton<FirebaseCrashlytics>(
@@ -133,6 +143,28 @@ Future<void> init() async {
       () => OutingRepositoryImpl(
         datasource: sl<FirestoreOutingsDatasource>(),
         currentUid: () => sl<AuthRepository>().currentCredentials?.uid ?? '',
+        agreementCancel: (outingId, reason) async {
+          await sl<AgreementRepository>().cancelOuting(outingId, reason);
+        },
+        agreementDelete: (outingId) async {
+          await sl<AgreementRepository>().deleteOuting(outingId);
+        },
+        agreementExpiryCleanup: (outingId) async {
+          await sl<AgreementRepository>().requestOutingExpiry(outingId);
+        },
+      ),
+    );
+  }
+  if (!sl.isRegistered<FirestoreAgreementDatasource>()) {
+    sl.registerLazySingleton(
+      () => FirestoreAgreementDatasource(firestore: sl()),
+    );
+  }
+  if (!sl.isRegistered<AgreementRepository>()) {
+    sl.registerLazySingleton<AgreementRepository>(
+      () => AgreementRepositoryImpl(
+        datasource: sl(),
+        currentUid: () => sl<AuthRepository>().currentCredentials?.uid ?? '',
       ),
     );
   }
@@ -163,6 +195,12 @@ Future<void> init() async {
   }
   if (!sl.isRegistered<OutingFormCubit>()) {
     sl.registerFactory(() => OutingFormCubit(outingRepository: sl()));
+  }
+  if (!sl.isRegistered<AgreementDetailCubit>()) {
+    sl.registerFactory(() => AgreementDetailCubit(repository: sl()));
+  }
+  if (!sl.isRegistered<AgreementCommandCubit>()) {
+    sl.registerFactory(() => AgreementCommandCubit(repository: sl()));
   }
 
   // Global Error Handler

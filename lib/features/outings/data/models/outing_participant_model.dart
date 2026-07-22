@@ -13,6 +13,8 @@ class OutingParticipantModel extends OutingParticipant {
     required super.addedByUserId,
     required super.addedAt,
     required super.isCreatorParticipant,
+    super.attendanceStatus,
+    super.respondedAt,
   });
 
   factory OutingParticipantModel.fromMap(
@@ -22,6 +24,8 @@ class OutingParticipantModel extends OutingParticipant {
     final normalizedMap = Map<String, dynamic>.from(map);
     final addedAt = readFirestoreTimestamp(normalizedMap['addedAt']);
     if (addedAt != null) normalizedMap['addedAt'] = addedAt;
+    final respondedAt = readFirestoreTimestamp(normalizedMap['respondedAt']);
+    if (respondedAt != null) normalizedMap['respondedAt'] = respondedAt;
     final participant = OutingParticipant.fromMap(normalizedMap, docId);
     return OutingParticipantModel.fromEntity(participant);
   }
@@ -38,6 +42,8 @@ class OutingParticipantModel extends OutingParticipant {
       addedByUserId: participant.addedByUserId,
       addedAt: participant.addedAt,
       isCreatorParticipant: participant.isCreatorParticipant,
+      attendanceStatus: participant.attendanceStatus,
+      respondedAt: participant.respondedAt,
     );
   }
 }

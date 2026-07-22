@@ -7,6 +7,7 @@ import 'package:chillgo/features/outings/domain/entities/outing_participant.dart
 import 'package:chillgo/features/outings/data/datasources/firestore_outings_datasource.dart';
 import 'package:chillgo/features/outings/data/repositories/outing_repository_impl.dart';
 import 'package:chillgo/features/outings/domain/entities/outing_status.dart';
+import 'package:chillgo/features/outings/domain/entities/attendance_status.dart';
 
 import '../../outing_repository_fake.dart';
 
@@ -19,6 +20,7 @@ void main() {
 
   setUpAll(() {
     registerFallbackValue(OutingStatus.draft);
+    registerFallbackValue(AttendanceStatus.invited);
   });
 
   setUp(() {
@@ -251,9 +253,55 @@ void main() {
     });
 
     test('allows only the creator to delete an outing', () async {
-      await repository.deleteOuting(outingId: 'outing-1');
+      final deleted = <String>[];
+      final commandRepository = OutingRepositoryImpl(
+        datasource: datasource,
+        currentUid: () => 'user-1',
+        agreementDelete: (outingId) async => deleted.add(outingId),
+      );
 
-      verify(() => datasource.deleteOuting('outing-1')).called(1);
+      await commandRepository.deleteOuting(outingId: 'outing-1');
+
+      expect(deleted, ['outing-1']);
+      verifyNever(() => datasource.deleteOuting(any()));
+    });
+
+    test('allows creator deletion in every lifecycle status', () async {
+      for (final status in OutingStatus.values) {
+        when(() => datasource.getOuting(any())).thenAnswer(
+          (_) async => FakeOutingRepository.sampleOuting(
+            id: 'outing-${status.value}',
+            status: status,
+          ),
+        );
+        final deleted = <String>[];
+        final commandRepository = OutingRepositoryImpl(
+          datasource: datasource,
+          currentUid: () => 'user-1',
+          agreementDelete: (outingId) async => deleted.add(outingId),
+        );
+
+        await commandRepository.deleteOuting(
+          outingId: 'outing-${status.value}',
+        );
+
+        expect(deleted, ['outing-${status.value}']);
+      }
+    });
+
+    test('delegates expiry cleanup for an authenticated user', () async {
+      final cleanupRequests = <String>[];
+      final cleanupRepository = OutingRepositoryImpl(
+        datasource: datasource,
+        currentUid: () => 'user-1',
+        agreementExpiryCleanup: (outingId) async {
+          cleanupRequests.add(outingId);
+        },
+      );
+
+      await cleanupRepository.requestExpiryCleanup(outingId: 'outing-1');
+
+      expect(cleanupRequests, ['outing-1']);
     });
 
     test('rejects delete requests from non-creators', () async {
@@ -295,13 +343,20 @@ void main() {
     });
 
     test('lets a crew member accept an active outing', () async {
+      when(
+        () => datasource.respondToOuting(
+          outingId: any(named: 'outingId'),
+          userId: any(named: 'userId'),
+          attendanceStatus: any(named: 'attendanceStatus'),
+        ),
+      ).thenAnswer((_) async {});
       await repository.acceptOuting(outingId: 'outing-1');
 
       verify(
-        () => datasource.addParticipant(
+        () => datasource.respondToOuting(
           outingId: 'outing-1',
           userId: 'user-1',
-          addedByUserId: 'user-1',
+          attendanceStatus: AttendanceStatus.accepted,
         ),
       ).called(1);
     });
@@ -309,13 +364,13 @@ void main() {
     test('delegates valid lifecycle transition', () async {
       await repository.changeLifecycleStatus(
         outingId: 'outing-1',
-        nextStatus: OutingStatus.planning,
+        nextStatus: OutingStatus.cancelled,
       );
 
       verify(
         () => datasource.changeLifecycleStatus(
           outingId: 'outing-1',
-          nextStatus: OutingStatus.planning,
+          nextStatus: OutingStatus.cancelled,
         ),
       ).called(1);
     });

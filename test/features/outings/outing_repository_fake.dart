@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:chillgo/features/outings/domain/entities/outing.dart';
 import 'package:chillgo/features/outings/domain/entities/outing_participant.dart';
 import 'package:chillgo/features/outings/domain/entities/outing_status.dart';
+import 'package:chillgo/features/outings/domain/entities/attendance_status.dart';
 import 'package:chillgo/features/outings/domain/repositories/outing_repository.dart';
 
 class FakeOutingRepository implements OutingRepository {
   final String createdOutingId;
   final List<Outing> outings;
+  final Stream<List<Outing>>? crewOutingsStream;
   final OutingDetail? detail;
   final Object? error;
   OutingStatus? changedStatus;
@@ -20,6 +22,7 @@ class FakeOutingRepository implements OutingRepository {
   String? cancelledOutingId;
   String? cancelledReason;
   String? deletedOutingId;
+  final List<String> expiryCleanupOutingIds = [];
   String? changedStatusOutingId;
   String? createdCrewId;
   String? createdTitle;
@@ -32,10 +35,12 @@ class FakeOutingRepository implements OutingRepository {
   DateTime? updatedScheduledAt;
   String? updatedLocationText;
   String? acceptedOutingId;
+  AttendanceStatus? attendanceStatus;
 
   FakeOutingRepository({
     this.createdOutingId = 'outing-id',
     this.outings = const [],
+    this.crewOutingsStream,
     this.detail,
     this.error,
   });
@@ -59,17 +64,22 @@ class FakeOutingRepository implements OutingRepository {
     );
   }
 
-  static OutingParticipant sampleParticipant() {
+  static OutingParticipant sampleParticipant({
+    String userId = 'user-1',
+    bool isCreatorParticipant = true,
+    AttendanceStatus? attendanceStatus,
+  }) {
     return OutingParticipant(
-      id: 'outing-1_user-1',
+      id: 'outing-1_$userId',
       outingId: 'outing-1',
       crewId: 'crew-1',
-      userId: 'user-1',
+      userId: userId,
       username: 'bob',
       displayName: 'Bob',
       addedByUserId: 'user-1',
       addedAt: DateTime.utc(2026, 1, 1),
-      isCreatorParticipant: true,
+      isCreatorParticipant: isCreatorParticipant,
+      attendanceStatus: attendanceStatus,
     );
   }
 
@@ -97,6 +107,16 @@ class FakeOutingRepository implements OutingRepository {
   }
 
   @override
+  Future<void> respondToOuting({
+    required String outingId,
+    required AttendanceStatus attendanceStatus,
+  }) async {
+    _throwIfNeeded();
+    acceptedOutingId = outingId;
+    this.attendanceStatus = attendanceStatus;
+  }
+
+  @override
   Future<void> cancelOuting({
     required String outingId,
     required String cancelledReason,
@@ -110,6 +130,12 @@ class FakeOutingRepository implements OutingRepository {
   Future<void> deleteOuting({required String outingId}) async {
     _throwIfNeeded();
     deletedOutingId = outingId;
+  }
+
+  @override
+  Future<void> requestExpiryCleanup({required String outingId}) async {
+    _throwIfNeeded();
+    expiryCleanupOutingIds.add(outingId);
   }
 
   @override
@@ -154,6 +180,7 @@ class FakeOutingRepository implements OutingRepository {
     streamedCrewId = crewId;
     final value = error;
     if (value != null) return Stream<List<Outing>>.error(value);
+    if (crewOutingsStream != null) return crewOutingsStream!;
     return Stream.value(outings);
   }
 
