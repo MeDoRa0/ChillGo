@@ -10,10 +10,7 @@ class GlobalErrorHandler {
     // Intercept Flutter framework errors
     FlutterError.onError = (FlutterErrorDetails details) {
       FlutterError.presentError(details);
-      diagnosticsRepository.logException(
-        details.exception,
-        details.stack,
-      );
+      diagnosticsRepository.logException(details.exception, details.stack);
     };
 
     // Intercept uncaught platform/async errors

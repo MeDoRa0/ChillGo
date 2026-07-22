@@ -3,6 +3,7 @@ import 'dart:async';
 import '../../domain/entities/outing.dart';
 import '../../domain/entities/outing_participant.dart';
 import '../../domain/entities/outing_status.dart';
+import '../../domain/entities/attendance_status.dart';
 import '../../domain/repositories/outing_repository.dart';
 import '../../domain/services/outing_lifecycle_policy.dart';
 import '../datasources/firestore_outings_datasource.dart';
@@ -11,11 +12,17 @@ class OutingRepositoryImpl implements OutingRepository {
   final FirestoreOutingsDatasource datasource;
   final String Function() currentUid;
   final OutingLifecyclePolicy lifecyclePolicy;
+  final Future<void> Function(String outingId, String reason)? agreementCancel;
+  final Future<void> Function(String outingId)? agreementDelete;
+  final Future<void> Function(String outingId)? agreementExpiryCleanup;
 
   OutingRepositoryImpl({
     required this.datasource,
     required this.currentUid,
     OutingLifecyclePolicy? lifecyclePolicy,
+    this.agreementCancel,
+    this.agreementDelete,
+    this.agreementExpiryCleanup,
   }) : lifecyclePolicy = lifecyclePolicy ?? OutingLifecyclePolicy();
 
   @override
@@ -74,6 +81,11 @@ class OutingRepositoryImpl implements OutingRepository {
     if (!outing.status.isEditable) {
       throw Exception('outing-not-editable');
     }
+    if (outing.status != OutingStatus.draft &&
+        (scheduledAt.toUtc() != outing.scheduledAt.toUtc() ||
+            locationText.trim() != outing.locationText)) {
+      throw Exception('agreement-controlled-details');
+    }
     await datasource.updateOutingDetails(
       outingId: outingId,
       title: title,
@@ -100,6 +112,10 @@ class OutingRepositoryImpl implements OutingRepository {
     if (!outing.status.isCancellable) {
       throw Exception('outing-not-cancellable');
     }
+    if (outing.status != OutingStatus.draft && agreementCancel != null) {
+      await agreementCancel!(outingId, reason);
+      return;
+    }
     await datasource.cancelOuting(
       outingId: outingId,
       cancelledReason: cancelledReason,
@@ -113,7 +129,17 @@ class OutingRepositoryImpl implements OutingRepository {
     if (outing.createdByUserId != uid) {
       throw Exception('outing-creator-required');
     }
-    await datasource.deleteOuting(outingId);
+    final deleteCommand = agreementDelete;
+    if (deleteCommand == null) throw Exception('outing-delete-unavailable');
+    await deleteCommand(outingId);
+  }
+
+  @override
+  Future<void> requestExpiryCleanup({required String outingId}) async {
+    _requireCurrentUid();
+    final cleanupCommand = agreementExpiryCleanup;
+    if (cleanupCommand == null) throw Exception('outing-cleanup-unavailable');
+    await cleanupCommand(outingId);
   }
 
   @override
@@ -134,13 +160,29 @@ class OutingRepositoryImpl implements OutingRepository {
 
   @override
   Future<void> acceptOuting({required String outingId}) async {
+    await respondToOuting(
+      outingId: outingId,
+      attendanceStatus: AttendanceStatus.accepted,
+    );
+  }
+
+  @override
+  Future<void> respondToOuting({
+    required String outingId,
+    required AttendanceStatus attendanceStatus,
+  }) async {
+    if (attendanceStatus == AttendanceStatus.invited) {
+      throw Exception('attendance-response-invalid');
+    }
     final uid = _requireCurrentUid();
     final outing = await _requireOuting(outingId);
-    if (!outing.status.isEditable) throw Exception('outing-not-open');
-    await datasource.addParticipant(
+    if (outing.status == OutingStatus.meeting || outing.status.isHistorical) {
+      throw Exception('attendance-response-closed');
+    }
+    await datasource.respondToOuting(
       outingId: outingId,
       userId: uid,
-      addedByUserId: uid,
+      attendanceStatus: attendanceStatus,
     );
   }
 

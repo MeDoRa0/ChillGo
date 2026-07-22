@@ -54,21 +54,18 @@ class _OutingFormScreenState extends State<OutingFormScreen> {
       child: BlocConsumer<OutingFormCubit, OutingFormState>(
         listener: (context, state) {
           if (state is OutingFormSuccess) {
-            context.go(
-              _isEditMode
-                  ? '/outings/${state.outingId}'
-                  : '/crews/${widget.crewId}',
-            );
+            context.go('/crews/${widget.crewId}/outings');
           } else if (state is OutingFormFailure) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.message)),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(state.message)));
           }
         },
         builder: (context, state) {
           final isSubmitting = state is OutingFormSubmitting;
           final outing = _outing;
-          final isEditable = !_isEditMode || (outing?.status.isEditable ?? false);
+          final isEditable =
+              !_isEditMode || (outing?.status.isEditable ?? false);
           return Scaffold(
             backgroundColor: const Color(0xFF0F0F1A),
             appBar: AppBar(
@@ -96,7 +93,9 @@ class _OutingFormScreenState extends State<OutingFormScreen> {
                         style: const TextStyle(color: Colors.redAccent),
                       ),
                     ),
-                  if (_isEditMode && outing != null && !outing.status.isEditable)
+                  if (_isEditMode &&
+                      outing != null &&
+                      !outing.status.isEditable)
                     const Padding(
                       padding: EdgeInsets.only(bottom: 12),
                       child: Text(
@@ -136,7 +135,10 @@ class _OutingFormScreenState extends State<OutingFormScreen> {
                   ),
                   const SizedBox(height: 28),
                   FilledButton(
-                    onPressed: isSubmitting || !isEditable || (_isEditMode && outing == null)
+                    onPressed:
+                        isSubmitting ||
+                            !isEditable ||
+                            (_isEditMode && outing == null)
                         ? null
                         : () => _submit(context),
                     style: FilledButton.styleFrom(
@@ -153,12 +155,18 @@ class _OutingFormScreenState extends State<OutingFormScreen> {
                             height: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : Text(_isEditMode ? 'Save changes' : 'Share with crew'),
+                        : Text(
+                            _isEditMode ? 'Save changes' : 'Share with crew',
+                          ),
                   ),
-                  if (_isEditMode && outing != null && outing.status.isCancellable) ...[
+                  if (_isEditMode &&
+                      outing != null &&
+                      outing.status.isCancellable) ...[
                     const SizedBox(height: 12),
                     OutlinedButton(
-                      onPressed: isSubmitting ? null : () => _showCancelDialog(context),
+                      onPressed: isSubmitting
+                          ? null
+                          : () => _showCancelDialog(context),
                       child: const Text('Cancel outing'),
                     ),
                   ],
@@ -252,7 +260,8 @@ class _OutingFormScreenState extends State<OutingFormScreen> {
               child: const Text('Keep outing'),
             ),
             FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(controller.text.trim()),
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop(controller.text.trim()),
               child: const Text('Cancel outing'),
             ),
           ],
@@ -262,9 +271,9 @@ class _OutingFormScreenState extends State<OutingFormScreen> {
     controller.dispose();
     if (reason == null || reason.isEmpty || !context.mounted) return;
     context.read<OutingFormCubit>().cancelOuting(
-          outingId: widget.outingId!,
-          reason: reason,
-        );
+      outingId: widget.outingId!,
+      reason: reason,
+    );
   }
 }
 
@@ -321,13 +330,19 @@ class _ScheduleTile extends StatelessWidget {
           Expanded(
             child: Text(
               '${_dateLabel(scheduledAt)} • ${_timeLabel(scheduledAt)}',
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           IconButton(
             tooltip: 'Choose date and time',
             onPressed: onChanged == null ? null : () => _pickSchedule(context),
-            icon: const Icon(Icons.edit_calendar_rounded, color: Color(0xFFB8A7FF)),
+            icon: const Icon(
+              Icons.edit_calendar_rounded,
+              color: Color(0xFFB8A7FF),
+            ),
           ),
         ],
       ),
@@ -347,7 +362,9 @@ class _ScheduleTile extends StatelessWidget {
       initialTime: TimeOfDay.fromDateTime(scheduledAt),
     );
     if (time == null) return;
-    onChanged!(DateTime(date.year, date.month, date.day, time.hour, time.minute));
+    onChanged!(
+      DateTime(date.year, date.month, date.day, time.hour, time.minute),
+    );
   }
 
   String _dateLabel(DateTime value) =>
@@ -360,9 +377,19 @@ class _ScheduleTile extends StatelessWidget {
   }
 
   String _monthName(int month) => const [
-        'January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December',
-      ][month - 1];
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ][month - 1];
 }
 
 class _QuestionLabel extends StatelessWidget {
@@ -372,11 +399,11 @@ class _QuestionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Text(
-        text,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 22,
-          fontWeight: FontWeight.w700,
-        ),
-      );
+    text,
+    style: const TextStyle(
+      color: Colors.white,
+      fontSize: 22,
+      fontWeight: FontWeight.w700,
+    ),
+  );
 }

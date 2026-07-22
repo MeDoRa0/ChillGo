@@ -42,6 +42,7 @@ class OutingsListError extends OutingsListState {
 class OutingsListCubit extends Cubit<OutingsListState> {
   final OutingRepository outingRepository;
   StreamSubscription<List<Outing>>? _subscription;
+  final Set<String> _cleanupRequestedOutingIds = {};
 
   OutingsListCubit({required this.outingRepository})
     : super(const OutingsListInitial());
@@ -49,10 +50,36 @@ class OutingsListCubit extends Cubit<OutingsListState> {
   void load(String crewId) {
     emit(const OutingsListLoading());
     _subscription?.cancel();
-    _subscription = outingRepository.streamCrewOutings(crewId).listen(
-      (outings) => emit(OutingsListLoaded(outings)),
-      onError: (Object error) => emit(OutingsListError(error.toString())),
+    _subscription = outingRepository
+        .streamCrewOutings(crewId)
+        .listen(
+          _acceptOutings,
+          onError: (Object error) => emit(OutingsListError(error.toString())),
+        );
+  }
+
+  void _acceptOutings(List<Outing> outings) {
+    final now = DateTime.now();
+    for (final outing in outings.where(
+      (outing) => outing.isCleanupEligibleAt(now),
+    )) {
+      if (_cleanupRequestedOutingIds.add(outing.id)) {
+        unawaited(_requestExpiryCleanup(outing.id));
+      }
+    }
+    emit(
+      OutingsListLoaded(
+        outings.where((outing) => !outing.isOutdatedAt(now)).toList(),
+      ),
     );
+  }
+
+  Future<void> _requestExpiryCleanup(String outingId) async {
+    try {
+      await outingRepository.requestExpiryCleanup(outingId: outingId);
+    } catch (error, stackTrace) {
+      if (!isClosed) addError(error, stackTrace);
+    }
   }
 
   @override

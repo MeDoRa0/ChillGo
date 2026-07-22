@@ -7,6 +7,7 @@ import '../../../../core/data/firestore_timestamp.dart';
 import '../../domain/entities/outing.dart';
 import '../../domain/entities/outing_participant.dart';
 import '../../domain/entities/outing_status.dart';
+import '../../domain/entities/attendance_status.dart';
 import '../../domain/services/outing_lifecycle_policy.dart';
 import '../models/outing_model.dart';
 import '../models/outing_participant_model.dart';
@@ -54,6 +55,7 @@ class FirestoreOutingsDatasource {
       'createdByUserId': creatorUserId,
       'createdAt': writeFirestoreTimestamp(now),
       'updatedAt': writeFirestoreTimestamp(now),
+      'agreementRoundSequence': 0,
     });
 
     batch.set(participants.doc(participantId), {
@@ -64,6 +66,8 @@ class FirestoreOutingsDatasource {
       'addedByUserId': creatorUserId,
       'addedAt': writeFirestoreTimestamp(now),
       'isCreatorParticipant': true,
+      'attendanceStatus': AttendanceStatus.accepted.value,
+      'respondedAt': writeFirestoreTimestamp(now),
     });
 
     await batch.commit();
@@ -127,8 +131,9 @@ class FirestoreOutingsDatasource {
           'description': description.trim()
         else
           'description': FieldValue.delete(),
-        'scheduledAt': writeFirestoreTimestamp(scheduledAt),
-        'locationText': locationText.trim(),
+        if (status == OutingStatus.draft)
+          'scheduledAt': writeFirestoreTimestamp(scheduledAt),
+        if (status == OutingStatus.draft) 'locationText': locationText.trim(),
         'updatedAt': writeFirestoreTimestamp(DateTime.now()),
       });
     });
@@ -186,6 +191,8 @@ class FirestoreOutingsDatasource {
       'addedByUserId': addedByUserId,
       'addedAt': now,
       'isCreatorParticipant': false,
+      'attendanceStatus': AttendanceStatus.invited.value,
+      'respondedAt': null,
     };
     await ref.set(payload);
     return OutingParticipantModel.fromMap(payload, participantId);
@@ -203,6 +210,57 @@ class FirestoreOutingsDatasource {
       if (status.isHistorical) throw Exception('participant-removal-blocked');
       transaction.delete(participantRef);
     });
+  }
+
+  Future<void> respondToOuting({
+    required String outingId,
+    required String userId,
+    required AttendanceStatus attendanceStatus,
+  }) async {
+    if (attendanceStatus == AttendanceStatus.invited) {
+      throw ArgumentError.value(attendanceStatus, 'attendanceStatus');
+    }
+    final outingRef = outings.doc(outingId);
+    final participantRef = participants.doc(_participantId(outingId, userId));
+    final participantExists = await _participantExists(outingId, userId);
+    await firestore.runTransaction((transaction) async {
+      final outingSnap = await transaction.get(outingRef);
+      if (!outingSnap.exists) throw Exception('outing-not-found');
+      final status = OutingStatus.fromValue(outingSnap.data()?['status']);
+      if (status == OutingStatus.meeting || status.isHistorical) {
+        throw Exception('attendance-response-closed');
+      }
+      final responseFields = {
+        'attendanceStatus': attendanceStatus.value,
+        'respondedAt': FieldValue.serverTimestamp(),
+      };
+      if (participantExists) {
+        transaction.update(participantRef, responseFields);
+        return;
+      }
+      final userProfile = _profilePayload(
+        await transaction.get(users.doc(userId)),
+      );
+      transaction.set(participantRef, {
+        'outingId': outingId,
+        'crewId': outingSnap.data()?['crewId'],
+        'userId': userId,
+        ...userProfile,
+        'addedByUserId': userId,
+        'addedAt': FieldValue.serverTimestamp(),
+        'isCreatorParticipant': false,
+        ...responseFields,
+      });
+    });
+  }
+
+  Future<bool> _participantExists(String outingId, String userId) async {
+    final snapshot = await participants
+        .where('outingId', isEqualTo: outingId)
+        .where('userId', isEqualTo: userId)
+        .limit(1)
+        .get();
+    return snapshot.docs.isNotEmpty;
   }
 
   Future<void> changeLifecycleStatus({
@@ -242,7 +300,12 @@ class FirestoreOutingsDatasource {
   }
 
   Future<Map<String, dynamic>> _requireUserProfile(String userId) async {
-    final userDoc = await users.doc(userId).get();
+    return _profilePayload(await users.doc(userId).get());
+  }
+
+  Map<String, dynamic> _profilePayload(
+    DocumentSnapshot<Map<String, dynamic>> userDoc,
+  ) {
     final data = userDoc.data();
     final username = data?['username'] as String?;
     final displayName = data?['displayName'] as String?;

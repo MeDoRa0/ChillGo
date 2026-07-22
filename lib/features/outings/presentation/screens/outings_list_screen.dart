@@ -4,9 +4,12 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/presentation/widgets/app_back_button.dart';
+import '../../../voting/domain/repositories/agreement_repository.dart';
+import '../../../authentication/domain/repositories/auth_repository.dart';
 import '../../domain/entities/outing.dart';
 import '../../domain/repositories/outing_repository.dart';
 import '../cubit/outings_list/outings_list_cubit.dart';
+import '../widgets/interactive_outing_card.dart';
 
 class OutingsListScreen extends StatelessWidget {
   final String crewId;
@@ -48,8 +51,12 @@ class OutingsListScreen extends StatelessWidget {
             if (outings.isEmpty) {
               return const _Message('No outings yet.');
             }
-            final active = outings.where((outing) => !outing.status.isHistorical);
-            final history = outings.where((outing) => outing.status.isHistorical);
+            final active = outings.where(
+              (outing) => !outing.status.isHistorical,
+            );
+            final history = outings.where(
+              (outing) => outing.status.isHistorical,
+            );
             return ListView(
               padding: const EdgeInsets.all(16),
               children: [
@@ -86,31 +93,19 @@ class _Section extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        for (final outing in outings) _OutingTile(outing: outing),
+        for (final outing in outings)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: InteractiveOutingCard(
+              outing: outing,
+              outingRepository: sl<OutingRepository>(),
+              currentUserId: sl<AuthRepository>().currentCredentials?.uid,
+              agreementRepository: sl.isRegistered<AgreementRepository>()
+                  ? sl<AgreementRepository>()
+                  : null,
+            ),
+          ),
       ],
-    );
-  }
-}
-
-class _OutingTile extends StatelessWidget {
-  final Outing outing;
-
-  const _OutingTile({required this.outing});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      color: const Color(0xFF1E1E2F),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      child: ListTile(
-        onTap: () => context.go('/outings/${outing.id}'),
-        title: Text(outing.title, style: const TextStyle(color: Colors.white)),
-        subtitle: Text(
-          '${outing.locationText} • ${outing.status.value}',
-          style: const TextStyle(color: Colors.white70),
-        ),
-        trailing: const Icon(Icons.chevron_right, color: Colors.white70),
-      ),
     );
   }
 }

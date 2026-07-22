@@ -1,3 +1,5 @@
+import 'attendance_status.dart';
+
 class OutingParticipant {
   final String id;
   final String outingId;
@@ -9,6 +11,8 @@ class OutingParticipant {
   final String addedByUserId;
   final DateTime addedAt;
   final bool isCreatorParticipant;
+  final AttendanceStatus attendanceStatus;
+  final DateTime? respondedAt;
 
   const OutingParticipant({
     required this.id,
@@ -21,7 +25,13 @@ class OutingParticipant {
     required this.addedByUserId,
     required this.addedAt,
     required this.isCreatorParticipant,
-  });
+    AttendanceStatus? attendanceStatus,
+    this.respondedAt,
+  }) : attendanceStatus =
+           attendanceStatus ??
+           (isCreatorParticipant
+               ? AttendanceStatus.accepted
+               : AttendanceStatus.invited);
 
   Map<String, dynamic> toMap() {
     return {
@@ -34,6 +44,8 @@ class OutingParticipant {
       'addedByUserId': addedByUserId,
       'addedAt': _writeDate(addedAt),
       'isCreatorParticipant': isCreatorParticipant,
+      'attendanceStatus': attendanceStatus.value,
+      if (respondedAt != null) 'respondedAt': _writeDate(respondedAt!),
     };
   }
 
@@ -49,6 +61,12 @@ class OutingParticipant {
       addedByUserId: _readRequiredString(map, 'addedByUserId'),
       addedAt: _readRequiredDate(map, 'addedAt'),
       isCreatorParticipant: _readRequiredBool(map, 'isCreatorParticipant'),
+      attendanceStatus: map['attendanceStatus'] is String
+          ? AttendanceStatus.fromValue(map['attendanceStatus'] as String)
+          : null,
+      respondedAt: map['respondedAt'] == null
+          ? null
+          : _readRequiredDate(map, 'respondedAt'),
     );
   }
 
@@ -64,6 +82,9 @@ class OutingParticipant {
     String? addedByUserId,
     DateTime? addedAt,
     bool? isCreatorParticipant,
+    AttendanceStatus? attendanceStatus,
+    DateTime? respondedAt,
+    bool clearRespondedAt = false,
   }) {
     return OutingParticipant(
       id: id ?? this.id,
@@ -76,6 +97,8 @@ class OutingParticipant {
       addedByUserId: addedByUserId ?? this.addedByUserId,
       addedAt: addedAt ?? this.addedAt,
       isCreatorParticipant: isCreatorParticipant ?? this.isCreatorParticipant,
+      attendanceStatus: attendanceStatus ?? this.attendanceStatus,
+      respondedAt: clearRespondedAt ? null : respondedAt ?? this.respondedAt,
     );
   }
 

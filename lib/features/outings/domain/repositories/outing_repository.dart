@@ -1,6 +1,7 @@
 import '../entities/outing.dart';
 import '../entities/outing_participant.dart';
 import '../entities/outing_status.dart';
+import '../entities/attendance_status.dart';
 
 class OutingDetail {
   final Outing outing;
@@ -37,6 +38,8 @@ abstract class OutingRepository {
   /// Permanently removes an outing and its participant roster.
   Future<void> deleteOuting({required String outingId});
 
+  Future<void> requestExpiryCleanup({required String outingId});
+
   Future<void> addParticipant({
     required String outingId,
     required String userId,
@@ -44,6 +47,11 @@ abstract class OutingRepository {
 
   /// Adds the signed-in crew member to an outing they want to attend.
   Future<void> acceptOuting({required String outingId});
+
+  Future<void> respondToOuting({
+    required String outingId,
+    required AttendanceStatus attendanceStatus,
+  });
 
   Future<void> removeParticipant({
     required String outingId,

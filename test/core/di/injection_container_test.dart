@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:chillgo/core/di/injection_container.dart' as di;
 import 'package:chillgo/core/domain/repositories/config_repository.dart';
 import 'package:chillgo/core/domain/repositories/diagnostics_repository.dart';
@@ -12,6 +13,7 @@ class MockSharedPreferences extends Mock implements SharedPreferences {}
 class MockFirebaseFirestore extends Mock implements FirebaseFirestore {}
 class MockFirebaseCrashlytics extends Mock implements FirebaseCrashlytics {}
 class MockFirebaseAnalytics extends Mock implements FirebaseAnalytics {}
+class MockGoogleSignIn extends Mock implements GoogleSignIn {}
 
 void main() {
   setUp(() {
@@ -24,6 +26,7 @@ void main() {
     di.sl.registerLazySingleton<FirebaseFirestore>(() => MockFirebaseFirestore());
     di.sl.registerLazySingleton<FirebaseCrashlytics>(() => MockFirebaseCrashlytics());
     di.sl.registerLazySingleton<FirebaseAnalytics>(() => MockFirebaseAnalytics());
+    di.sl.registerLazySingleton<GoogleSignIn>(() => MockGoogleSignIn());
 
     await di.init();
     

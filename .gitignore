@@ -49,3 +49,5 @@ app.*.map.json
 
 # Firestore local emulator tests
 firestore_tests/node_modules/
+functions/node_modules/
+functions/lib/

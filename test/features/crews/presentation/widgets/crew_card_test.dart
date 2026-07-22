@@ -16,6 +16,7 @@ import 'package:mocktail/mocktail.dart';
 class MockAuthRepository extends Mock implements AuthRepository {}
 
 class MockCrewRepository extends Mock implements CrewRepository {}
+
 class MockOutingRepository extends Mock implements OutingRepository {}
 
 void main() {
@@ -130,10 +131,40 @@ void main() {
     ).thenAnswer((_) => Stream.value([activeOuting]));
 
     await tester.pumpWidget(
-      MaterialApp(home: Scaffold(body: CrewCard(crew: crew))),
+      MaterialApp(
+        home: Scaffold(body: CrewCard(crew: crew)),
+      ),
     );
     await tester.pump();
 
     expect(find.bySemanticsLabel('Active outing'), findsOneWidget);
+  });
+
+  testWidgets('does not show an indicator for an outdated active outing', (
+    tester,
+  ) async {
+    final outdatedOuting = Outing(
+      id: 'outing1',
+      crewId: 'crew1',
+      title: 'Old ramen run',
+      scheduledAt: DateTime.now().subtract(const Duration(minutes: 1)),
+      locationText: 'Ramen shop',
+      status: OutingStatus.draft,
+      createdByUserId: 'owner1',
+      createdAt: DateTime.utc(2026, 7, 1),
+      updatedAt: DateTime.utc(2026, 7, 1),
+    );
+    when(
+      () => outingRepository.streamCrewOutings('crew1'),
+    ).thenAnswer((_) => Stream.value([outdatedOuting]));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: CrewCard(crew: crew)),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.bySemanticsLabel('Active outing'), findsNothing);
   });
 }

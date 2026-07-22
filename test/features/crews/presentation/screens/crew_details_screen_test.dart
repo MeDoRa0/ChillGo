@@ -1,9 +1,13 @@
 import 'package:chillgo/core/di/injection_container.dart';
+import 'package:chillgo/features/authentication/domain/repositories/auth_repository.dart';
 import 'package:chillgo/features/crews/domain/entities/crew.dart';
 import 'package:chillgo/features/crews/domain/entities/crew_membership.dart';
 import 'package:chillgo/features/crews/domain/entities/crew_role.dart';
 import 'package:chillgo/features/crews/domain/repositories/crew_repository.dart';
 import 'package:chillgo/features/crews/presentation/screens/crew_details_screen.dart';
+import 'package:chillgo/features/outings/domain/entities/outing.dart';
+import 'package:chillgo/features/outings/domain/entities/outing_status.dart';
+import 'package:chillgo/features/outings/domain/repositories/outing_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -11,8 +15,14 @@ import 'package:mocktail/mocktail.dart';
 
 class MockCrewRepository extends Mock implements CrewRepository {}
 
+class MockAuthRepository extends Mock implements AuthRepository {}
+
+class MockOutingRepository extends Mock implements OutingRepository {}
+
 void main() {
   late MockCrewRepository crewRepository;
+  late MockAuthRepository authRepository;
+  late MockOutingRepository outingRepository;
 
   final crew = Crew(
     id: 'crew1',
@@ -45,6 +55,8 @@ void main() {
   setUp(() async {
     await sl.reset();
     crewRepository = MockCrewRepository();
+    authRepository = MockAuthRepository();
+    outingRepository = MockOutingRepository();
 
     when(
       () => crewRepository.streamCrew('crew1'),
@@ -52,8 +64,16 @@ void main() {
     when(
       () => crewRepository.streamMembers('crew1'),
     ).thenAnswer((_) => Stream.value(members));
+    when(
+      () => authRepository.currentCredentials,
+    ).thenReturn(const UserCredentials(uid: 'owner1', username: 'owner'));
+    when(
+      () => outingRepository.streamCrewOutings('crew1'),
+    ).thenAnswer((_) => Stream.value(const <Outing>[]));
 
     sl.registerSingleton<CrewRepository>(crewRepository);
+    sl.registerSingleton<AuthRepository>(authRepository);
+    sl.registerSingleton<OutingRepository>(outingRepository);
   });
 
   tearDown(() async {
@@ -99,5 +119,30 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Create crew1'), findsOneWidget);
+  });
+
+  testWidgets('does not show outdated outings in crew plans', (tester) async {
+    final outdatedOuting = Outing(
+      id: 'outing1',
+      crewId: 'crew1',
+      title: 'Outdated picnic',
+      scheduledAt: DateTime.now().subtract(const Duration(minutes: 1)),
+      locationText: 'Old park',
+      status: OutingStatus.draft,
+      createdByUserId: 'owner1',
+      createdAt: DateTime.utc(2026, 7, 1),
+      updatedAt: DateTime.utc(2026, 7, 1),
+    );
+    when(
+      () => outingRepository.streamCrewOutings('crew1'),
+    ).thenAnswer((_) => Stream.value([outdatedOuting]));
+
+    await tester.pumpWidget(
+      const MaterialApp(home: CrewDetailsScreen(crewId: 'crew1')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Outdated picnic'), findsNothing);
+    expect(find.text('No plans yet — start the vibe.'), findsOneWidget);
   });
 }
