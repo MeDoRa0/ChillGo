@@ -224,13 +224,7 @@ void main() {
         outings.deleteOuting(outingId: 'android-owner-check'),
         throwsA(anything),
       );
-      await _showOutingCard(
-        tester,
-        outings,
-        agreements,
-        'android-owner-check',
-        canDelete: false,
-      );
+      await _showOutingCard(tester, outings, agreements, 'android-owner-check');
       await tester.tap(
         find.byKey(const ValueKey('outing-card-android-owner-check')),
       );
@@ -251,13 +245,7 @@ void main() {
         'cancelled',
       ]) {
         final outingId = 'android-delete-$status';
-        await _showOutingCard(
-          tester,
-          outings,
-          agreements,
-          outingId,
-          canDelete: true,
-        );
+        await _showOutingCard(tester, outings, agreements, outingId);
         await tester.tap(find.byKey(ValueKey('outing-card-$outingId')));
         await tester.pump(const Duration(milliseconds: 500));
         await tester.tap(find.text('Remove outing'));
@@ -329,9 +317,8 @@ Future<void> _showOutingCard(
   WidgetTester tester,
   OutingRepository outings,
   AgreementRepository agreements,
-  String outingId, {
-  required bool canDelete,
-}) async {
+  String outingId,
+) async {
   final snapshot = await FirebaseFirestore.instance
       .collection('outings')
       .doc(outingId)
@@ -344,7 +331,7 @@ Future<void> _showOutingCard(
           outing: outing,
           outingRepository: outings,
           agreementRepository: agreements,
-          canDelete: canDelete,
+          currentUserId: FirebaseAuth.instance.currentUser?.uid,
         ),
       ),
     ),
