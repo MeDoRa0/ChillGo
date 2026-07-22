@@ -4,10 +4,12 @@ import 'package:chillgo/features/crews/domain/entities/crew.dart';
 import 'package:chillgo/features/crews/domain/entities/crew_membership.dart';
 import 'package:chillgo/features/crews/domain/entities/crew_role.dart';
 import 'package:chillgo/features/crews/domain/repositories/crew_repository.dart';
-import 'package:chillgo/features/authentication/domain/repositories/auth_repository.dart';
 import 'package:chillgo/features/outings/domain/entities/outing.dart';
 import 'package:chillgo/features/outings/domain/entities/outing_participant.dart';
 import 'package:chillgo/features/outings/domain/repositories/outing_repository.dart';
+import 'package:chillgo/features/outings/presentation/widgets/interactive_outing_card.dart';
+import 'package:chillgo/features/voting/domain/repositories/agreement_repository.dart';
+import 'package:chillgo/features/authentication/domain/repositories/auth_repository.dart';
 import 'package:chillgo/core/presentation/widgets/app_back_button.dart';
 import 'package:go_router/go_router.dart';
 
@@ -173,20 +175,27 @@ class _CrewOutings extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!sl.isRegistered<OutingRepository>()) return const SizedBox.shrink();
     final outingRepository = sl<OutingRepository>();
-    final currentUserId = sl.isRegistered<AuthRepository>()
-        ? sl<AuthRepository>().currentCredentials?.uid
-        : null;
     return StreamBuilder<List<Outing>>(
       stream: outingRepository.streamCrewOutings(crewId),
       builder: (context, snapshot) {
-        final outings = snapshot.data ?? const <Outing>[];
+        final now = DateTime.now();
+        final outings = (snapshot.data ?? const <Outing>[])
+            .where((outing) => outing.isCurrentCrewPlanAt(now))
+            .toList();
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 const Expanded(
-                  child: Text('Crew plans', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                  child: Text(
+                    'Crew plans',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
                 TextButton(
                   onPressed: () => context.go('/crews/$crewId/outings'),
@@ -195,17 +204,23 @@ class _CrewOutings extends StatelessWidget {
               ],
             ),
             if (snapshot.hasError)
-              const Text('Couldn’t load plans right now.', style: TextStyle(color: Colors.white70))
+              const Text(
+                'Couldn’t load plans right now.',
+                style: TextStyle(color: Colors.white70),
+              )
             else if (outings.isEmpty)
-              const _InlineMessage(message: 'No plans yet — start the vibe.' )
+              const _InlineMessage(message: 'No plans yet — start the vibe.')
             else
               for (final outing in outings.take(3))
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
-                  child: _OutingCard(
+                  child: InteractiveOutingCard(
                     outing: outing,
-                    repository: outingRepository,
-                    currentUserId: currentUserId,
+                    outingRepository: outingRepository,
+                    currentUserId: sl<AuthRepository>().currentCredentials?.uid,
+                    agreementRepository: sl.isRegistered<AgreementRepository>()
+                        ? sl<AgreementRepository>()
+                        : null,
                   ),
                 ),
           ],
@@ -215,22 +230,30 @@ class _CrewOutings extends StatelessWidget {
   }
 }
 
-class _OutingCard extends StatelessWidget {
+class OutingCard extends StatelessWidget {
   final Outing outing;
   final OutingRepository repository;
   final String? currentUserId;
 
-  const _OutingCard({required this.outing, required this.repository, required this.currentUserId});
+  const OutingCard({
+    super.key,
+    required this.outing,
+    required this.repository,
+    required this.currentUserId,
+  });
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<OutingDetail?>(
       stream: repository.streamOutingDetail(outing.id),
       builder: (context, snapshot) {
-        final participants = snapshot.data?.participants ?? const <OutingParticipant>[];
-        final hasAccepted = currentUserId != null && participants.any((member) => member.userId == currentUserId);
+        final participants =
+            snapshot.data?.participants ?? const <OutingParticipant>[];
+        final hasAccepted =
+            currentUserId != null &&
+            participants.any((member) => member.userId == currentUserId);
         return InkWell(
-          onTap: () => context.go('/outings/${outing.id}'),
+          onTap: null,
           borderRadius: BorderRadius.circular(16),
           child: Container(
             padding: const EdgeInsets.all(16),
@@ -247,31 +270,53 @@ class _OutingCard extends StatelessWidget {
                     Expanded(
                       child: Text(
                         outing.locationText,
-                        style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                     if (outing.createdByUserId == currentUserId)
                       IconButton(
                         tooltip: 'Delete outing',
                         onPressed: () => _confirmDeletion(context),
-                        icon: const Icon(Icons.delete_outline, color: Colors.white70),
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          color: Colors.white70,
+                        ),
                       ),
                   ],
                 ),
                 const SizedBox(height: 6),
-                Text(_scheduleLabel(outing.scheduledAt), style: const TextStyle(color: Color(0xFFB8A7FF), fontWeight: FontWeight.w600)),
+                Text(
+                  _scheduleLabel(outing.scheduledAt),
+                  style: const TextStyle(
+                    color: Color(0xFFB8A7FF),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    Expanded(child: _AcceptedAvatars(participants: participants)),
+                    Expanded(
+                      child: AcceptedAvatars(participants: participants),
+                    ),
                     if (currentUserId != null && !hasAccepted)
                       FilledButton(
-                        onPressed: () => repository.acceptOuting(outingId: outing.id),
-                        style: FilledButton.styleFrom(backgroundColor: const Color(0xFF7C5CFC), foregroundColor: Colors.white),
+                        onPressed: () =>
+                            repository.acceptOuting(outingId: outing.id),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF7C5CFC),
+                          foregroundColor: Colors.white,
+                        ),
                         child: const Text('I’m in'),
                       )
                     else if (hasAccepted)
-                      const Text('You’re in ✨', style: TextStyle(color: Colors.white70)),
+                      const Text(
+                        'You’re in ✨',
+                        style: TextStyle(color: Colors.white70),
+                      ),
                   ],
                 ),
               ],
@@ -287,14 +332,24 @@ class _OutingCard extends StatelessWidget {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Delete outing?'),
-        content: const Text('This permanently removes the outing for every crew member.'),
+        content: const Text(
+          'This permanently removes the outing for every crew member.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('Delete')),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Delete'),
+          ),
         ],
       ),
     );
-    if (shouldDelete == true) await repository.deleteOuting(outingId: outing.id);
+    if (shouldDelete == true) {
+      await repository.deleteOuting(outingId: outing.id);
+    }
   }
 
   String _scheduleLabel(DateTime value) {
@@ -305,14 +360,19 @@ class _OutingCard extends StatelessWidget {
   }
 }
 
-class _AcceptedAvatars extends StatelessWidget {
+class AcceptedAvatars extends StatelessWidget {
   final List<OutingParticipant> participants;
 
-  const _AcceptedAvatars({required this.participants});
+  const AcceptedAvatars({super.key, required this.participants});
 
   @override
   Widget build(BuildContext context) {
-    if (participants.isEmpty) return const Text('Be the first one in', style: TextStyle(color: Colors.white54));
+    if (participants.isEmpty) {
+      return const Text(
+        'Be the first one in',
+        style: TextStyle(color: Colors.white54),
+      );
+    }
     final shown = participants.take(4).toList();
     return SizedBox(
       height: 34,
@@ -324,12 +384,32 @@ class _AcceptedAvatars extends StatelessWidget {
               child: CircleAvatar(
                 radius: 17,
                 backgroundColor: const Color(0xFFB8A7FF),
-                backgroundImage: shown[index].avatarUrl?.isNotEmpty == true ? NetworkImage(shown[index].avatarUrl!) : null,
-                child: shown[index].avatarUrl?.isNotEmpty == true ? null : Text(shown[index].displayName[0].toUpperCase(), style: const TextStyle(color: Color(0xFF161324), fontWeight: FontWeight.bold)),
+                backgroundImage: shown[index].avatarUrl?.isNotEmpty == true
+                    ? NetworkImage(shown[index].avatarUrl!)
+                    : null,
+                child: shown[index].avatarUrl?.isNotEmpty == true
+                    ? null
+                    : Text(
+                        shown[index].displayName[0].toUpperCase(),
+                        style: const TextStyle(
+                          color: Color(0xFF161324),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
               ),
             ),
           if (participants.length > shown.length)
-            Positioned(left: shown.length * 22.0, child: CircleAvatar(radius: 17, backgroundColor: const Color(0xFF3B3560), child: Text('+${participants.length - shown.length}', style: const TextStyle(color: Colors.white, fontSize: 11)))),
+            Positioned(
+              left: shown.length * 22.0,
+              child: CircleAvatar(
+                radius: 17,
+                backgroundColor: const Color(0xFF3B3560),
+                child: Text(
+                  '+${participants.length - shown.length}',
+                  style: const TextStyle(color: Colors.white, fontSize: 11),
+                ),
+              ),
+            ),
         ],
       ),
     );

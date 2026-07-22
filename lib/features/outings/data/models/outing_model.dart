@@ -16,6 +16,9 @@ class OutingModel extends Outing {
     super.cancelledReason,
     super.cancelledAt,
     super.archivedAt,
+    super.agreementRoundSequence,
+    super.activeAgreementRoundId,
+    super.confirmedAgreementRoundId,
   });
 
   factory OutingModel.fromMap(Map<String, dynamic> map, String docId) {
@@ -49,6 +52,9 @@ class OutingModel extends Outing {
       cancelledReason: outing.cancelledReason,
       cancelledAt: outing.cancelledAt,
       archivedAt: outing.archivedAt,
+      agreementRoundSequence: outing.agreementRoundSequence,
+      activeAgreementRoundId: outing.activeAgreementRoundId,
+      confirmedAgreementRoundId: outing.confirmedAgreementRoundId,
     );
   }
 }

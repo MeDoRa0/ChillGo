@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
@@ -32,19 +32,19 @@ class FirebaseAuthDatasource {
   }
 
   Future<UserCredential> signInWithGoogle() async {
-    final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
-    if (googleUser == null) {
-      throw Exception('Google Sign-In cancelled');
+    final UserCredential credentialResult;
+    if (kIsWeb) {
+      credentialResult = await firebaseAuth.signInWithPopup(
+        GoogleAuthProvider(),
+      );
+    } else {
+      final googleUser = await googleSignIn.authenticate();
+      final googleAuth = googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        idToken: googleAuth.idToken,
+      );
+      credentialResult = await firebaseAuth.signInWithCredential(credential);
     }
-    final GoogleSignInAuthentication googleAuth =
-        await googleUser.authentication;
-    final OAuthCredential credential = GoogleAuthProvider.credential(
-      accessToken: googleAuth.accessToken,
-      idToken: googleAuth.idToken,
-    );
-    final credentialResult = await firebaseAuth.signInWithCredential(
-      credential,
-    );
     try {
       await firebaseAuth.currentUser?.reload();
     } catch (e, stack) {
@@ -103,7 +103,9 @@ class FirebaseAuthDatasource {
 
   Future<void> signOut() async {
     try {
-      await googleSignIn.signOut();
+      if (!kIsWeb) {
+        await googleSignIn.signOut();
+      }
     } catch (_) {
       // Google sign-out is best-effort; proceed to Firebase sign-out regardless.
     } finally {

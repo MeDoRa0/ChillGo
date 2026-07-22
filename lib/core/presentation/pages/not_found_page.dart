@@ -32,10 +32,7 @@ class NotFoundScreen extends StatelessWidget {
               Text(
                 'The page you are looking for does not exist or has been moved.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.grey[400],
-                  fontSize: 16,
-                ),
+                style: TextStyle(color: Colors.grey[400], fontSize: 16),
               ),
               const SizedBox(height: 32),
               ElevatedButton.icon(
@@ -45,7 +42,10 @@ class NotFoundScreen extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF6366F1),
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
