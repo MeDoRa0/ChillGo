@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/di/injection_container.dart';
+import '../../../chat/domain/repositories/chat_repository.dart';
+import '../../../chat/presentation/cubit/chat_summary/chat_summary_cubit.dart';
+import '../../../chat/presentation/widgets/chat_unread_badge.dart';
 import '../../../voting/domain/repositories/agreement_repository.dart';
 import '../../domain/entities/attendance_status.dart';
 import '../../domain/entities/outing.dart';
@@ -221,6 +226,10 @@ class _FocusedCardState extends State<_FocusedCard> {
                   ),
                   const SizedBox(height: 22),
                   _AcceptedAvatars(participants: widget.participants),
+                  if (_isParticipant && sl.isRegistered<ChatRepository>()) ...[
+                    const SizedBox(height: 16),
+                    _chatEntry(),
+                  ],
                   const SizedBox(height: 28),
                   IgnorePointer(
                     ignoring: _busy,
@@ -246,6 +255,39 @@ class _FocusedCardState extends State<_FocusedCard> {
   );
 
   bool get _isCreator => widget.currentUserId == widget.outing.createdByUserId;
+
+  bool get _isParticipant => widget.participants.any(
+    (participant) => participant.userId == widget.currentUserId,
+  );
+
+  Widget _chatEntry() => BlocProvider(
+    create: (_) => sl<ChatSummaryCubit>()..watch(widget.outing.id),
+    child: BlocBuilder<ChatSummaryCubit, ChatSummaryState>(
+      builder: (context, state) {
+        final summary = state is ChatSummaryReady ? state.summary : null;
+        return ListTile(
+          key: const Key('outing-chat-entry'),
+          leading: ChatUnreadBadge(count: summary?.unreadCount ?? 0),
+          title: const Text(
+            'Outing chat',
+            style: TextStyle(color: Colors.white),
+          ),
+          subtitle: Text(
+            summary?.isWritable == false
+                ? 'Read-only history'
+                : 'Coordinate with participants',
+            style: const TextStyle(color: Colors.white70),
+          ),
+          trailing: const Icon(Icons.chevron_right, color: Colors.white70),
+          onTap: () {
+            final router = GoRouter.of(context);
+            Navigator.of(context).pop();
+            router.go('/outings/${widget.outing.id}/chat');
+          },
+        );
+      },
+    ),
+  );
 
   AttendanceStatus get _attendanceStatus {
     for (final participant in widget.participants) {

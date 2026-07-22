@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../features/home/presentation/pages/home_screen.dart';
 import '../presentation/pages/not_found_page.dart';
 import '../presentation/pages/loading_page.dart';
@@ -15,6 +16,8 @@ import '../../features/crews/presentation/screens/invitations_screen.dart';
 import '../../features/outings/presentation/screens/outing_form_screen.dart';
 import '../../features/outings/presentation/screens/outings_list_screen.dart';
 import '../../features/voting/presentation/screens/agreement_screen.dart';
+import '../../features/chat/presentation/cubit/outing_chat/outing_chat_cubit.dart';
+import '../../features/chat/presentation/screens/outing_chat_screen.dart';
 import '../di/injection_container.dart';
 
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -147,6 +150,17 @@ final GoRouter appRouter = GoRouter(
       name: 'outing-agreement',
       builder: (context, state) =>
           AgreementScreen(outingId: state.pathParameters['outingId'] ?? ''),
+    ),
+    GoRoute(
+      path: '/outings/:outingId/chat',
+      name: 'outing-chat',
+      builder: (context, state) {
+        final outingId = state.pathParameters['outingId'] ?? '';
+        return BlocProvider(
+          create: (_) => sl<OutingChatCubit>()..watch(outingId),
+          child: OutingChatScreen(outingId: outingId),
+        );
+      },
     ),
     GoRoute(
       path: '/outings/:outingId/edit',

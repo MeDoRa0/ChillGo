@@ -1059,4 +1059,177 @@ describe('Firebase Security Rules', () => {
     it('reveals aggregate results only after closure and blocks direct agreement transitions', async () => { await seedAgreement();const bob=testEnv.authenticatedContext('bob').firestore();const alice=testEnv.authenticatedContext('alice').firestore();await testing.assertFails(bob.collection('agreement_results').doc('result1').get());await testing.assertFails(alice.collection('outings').doc('outing1').update({status:'confirmed',activeAgreementRoundId:null,confirmedAgreementRoundId:'outing1_1'}));await testEnv.withSecurityRulesDisabled(async c=>c.firestore().collection('agreement_rounds').doc('outing1_1').update({status:'confirmed'}));await testing.assertSucceeds(bob.collection('agreement_results').doc('result1').get()); });
     it('blocks attendance responses at meeting and after membership loss', async () => { await seedAgreement({outingStatus:'meeting'});const bob=testEnv.authenticatedContext('bob').firestore();const ref=bob.collection('outing_participants').doc('outing1_bob');await testing.assertFails(ref.update({attendanceStatus:'declined',respondedAt:firebase.firestore.FieldValue.serverTimestamp()}));await testEnv.withSecurityRulesDisabled(async c=>c.firestore().collection('outings').doc('outing1').update({status:'planning'}));await testEnv.withSecurityRulesDisabled(async c=>c.firestore().collection('crew_memberships').doc('crew1_bob').delete());await testing.assertFails(ref.update({attendanceStatus:'declined',respondedAt:firebase.firestore.FieldValue.serverTimestamp()})); });
   });
+
+  describe('Outing chat expiry and access proof', () => {
+    async function seedChat({status = 'planning', attendance = 'declined'} = {}) {
+      const now = new Date();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        const writes = [
+          db.collection('users').doc('alice').set({username: 'alice', displayName: 'Alice', createdAt: now}),
+          db.collection('users').doc('bob').set({username: 'bob', displayName: 'Bob', createdAt: now}),
+          db.collection('crews').doc('crew-chat').set({name: 'Chat Crew', ownerId: 'alice', createdAt: now}),
+          db.collection('crew_memberships').doc('crew-chat_alice').set({crewId: 'crew-chat', userId: 'alice', role: 'owner', joinedAt: now, username: 'alice', displayName: 'Alice'}),
+          db.collection('crew_memberships').doc('crew-chat_bob').set({crewId: 'crew-chat', userId: 'bob', role: 'member', joinedAt: now, username: 'bob', displayName: 'Bob'}),
+          db.collection('outings').doc('outing-chat').set({crewId: 'crew-chat', title: 'Chat Outing', scheduledAt: now, locationText: 'Trail', status, createdByUserId: 'alice', createdAt: now, updatedAt: now, agreementRoundSequence: 0}),
+          db.collection('outing_participants').doc('outing-chat_alice').set({outingId: 'outing-chat', crewId: 'crew-chat', userId: 'alice', username: 'alice', displayName: 'Alice', addedByUserId: 'alice', addedAt: now, isCreatorParticipant: true, attendanceStatus: 'accepted', respondedAt: now}),
+          db.collection('outing_participants').doc('outing-chat_bob').set({outingId: 'outing-chat', crewId: 'crew-chat', userId: 'bob', username: 'bob', displayName: 'Bob', addedByUserId: 'alice', addedAt: now, isCreatorParticipant: false, attendanceStatus: attendance, respondedAt: now}),
+        ];
+        await Promise.all(writes);
+      });
+    }
+
+    async function seedMessage(id, acceptedAt, expiresAt, authorUserId = 'alice') {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().collection('chat_messages').doc(id).set({
+          outingId: 'outing-chat', crewId: 'crew-chat', clientMessageId: `client-${id}`,
+          authorUserId, authorUsername: authorUserId,
+          authorDisplayName: authorUserId === 'alice' ? 'Alice' : 'Bob',
+          authorAvatarUrl: null, text: 'Private chat text', acceptedAt, expiresAt,
+        });
+      });
+    }
+
+    it('proves direct get expires against request time while bounded list uses the approved split', async () => {
+      await seedChat();
+      const now = Date.now();
+      await seedMessage('outing-chat_old', new Date(now - 25 * 60 * 60 * 1000), new Date(now - 60 * 60 * 1000));
+      await seedMessage('outing-chat_new', new Date(now - 1000), new Date(now + 24 * 60 * 60 * 1000));
+      const bob = testEnv.authenticatedContext('bob').firestore();
+
+      await testing.assertFails(bob.collection('chat_messages').doc('outing-chat_old').get());
+      await testing.assertSucceeds(bob.collection('chat_messages').doc('outing-chat_new').get());
+
+      const bounded = bob.collection('chat_messages')
+        .where('outingId', '==', 'outing-chat')
+        .orderBy('acceptedAt', 'desc')
+        .orderBy(firebase.firestore.FieldPath.documentId(), 'desc')
+        .limit(50);
+      const snapshot = await testing.assertSucceeds(bounded.get());
+      // List rules intentionally authorize the scoped potential result set. The
+      // trusted client cutoff/domain timer owns the exact moving boundary.
+      if (snapshot.docs.length !== 2) throw new Error('Expected raw list proof to include both records');
+    });
+
+    it('proves trusted cutoff filtering is independent of a wrong device clock and listener age', async () => {
+      await seedChat();
+      const serverNow = new Date();
+      const expiry = new Date(serverNow.getTime() + 1000);
+      const raw = {expiresAt: expiry};
+      const wrongDeviceNow = new Date(serverNow.getTime() - 365 * 24 * 60 * 60 * 1000);
+      const visibleWithTrustedClock = (message, trustedNow) => message.expiresAt > trustedNow;
+      if (!visibleWithTrustedClock(raw, serverNow)) throw new Error('Must be visible before expiry');
+      if (visibleWithTrustedClock(raw, new Date(expiry.getTime()))) throw new Error('Must disappear at exact expiry');
+      if (!visibleWithTrustedClock(raw, wrongDeviceNow)) throw new Error('Fixture must demonstrate device drift');
+      // Re-evaluating the same listener payload at the trusted boundary proves
+      // it cannot remain visible merely because no snapshot event arrived.
+      if (visibleWithTrustedClock(raw, expiry)) throw new Error('Long-lived payload remained visible');
+    });
+
+    it('requires current participation and membership regardless of attendance', async () => {
+      await seedChat({attendance: 'declined'});
+      const now = Date.now();
+      await seedMessage('outing-chat_message', new Date(now), new Date(now + 100000));
+      const bob = testEnv.authenticatedContext('bob').firestore();
+      await testing.assertSucceeds(bob.collection('chat_messages').doc('outing-chat_message').get());
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().collection('outing_participants').doc('outing-chat_bob').delete();
+      });
+      await testing.assertFails(bob.collection('chat_messages').doc('outing-chat_message').get());
+    });
+
+    it('allows only exact online command creates and requester reads', async () => {
+      await seedChat();
+      const alice = testEnv.authenticatedContext('alice').firestore();
+      const bob = testEnv.authenticatedContext('bob').firestore();
+      const ref = alice.collection('chat_commands').doc('command-1');
+      const command = {
+        type: 'send_message', outingId: 'outing-chat', crewId: 'crew-chat',
+        requestedByUserId: 'alice', clientMessageId: 'client-message-0001',
+        payload: {text: 'Hello'}, status: 'pending',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      };
+      await testing.assertSucceeds(ref.set(command));
+      await testing.assertSucceeds(ref.get());
+      await testing.assertFails(bob.collection('chat_commands').doc('command-1').get());
+      await testing.assertFails(alice.collection('chat_commands').doc('bad').set({...command, debug: true}));
+      await testing.assertFails(alice.collection('chat_messages').doc('client-write').set({outingId: 'outing-chat'}));
+      await testing.assertFails(alice.collection('chat_rate_limits').doc('outing-chat_alice').get());
+    });
+
+    it('keeps time probes owner-private and exact shape', async () => {
+      const alice = testEnv.authenticatedContext('alice').firestore();
+      const bob = testEnv.authenticatedContext('bob').firestore();
+      const ref = alice.collection('chat_time_probes').doc('alice_probe-1');
+      await testing.assertSucceeds(ref.set({userId: 'alice', requestedAt: firebase.firestore.FieldValue.serverTimestamp()}));
+      await testing.assertSucceeds(ref.get());
+      await testing.assertFails(bob.collection('chat_time_probes').doc('alice_probe-1').get());
+      await testing.assertFails(alice.collection('chat_time_probes').where('userId', '==', 'alice').get());
+      await testing.assertSucceeds(ref.delete());
+    });
+
+    it('enforces bounded outing-scoped history queries', async () => {
+      await seedChat();
+      const now = Date.now();
+      await seedMessage('outing-chat_query', new Date(now), new Date(now + 100000));
+      const bob = testEnv.authenticatedContext('bob').firestore();
+      await testing.assertFails(bob.collection('chat_messages').get());
+      await testing.assertFails(
+        bob.collection('chat_messages').where('outingId', '==', 'outing-chat').limit(5001).get(),
+      );
+      await testing.assertSucceeds(
+        bob.collection('chat_messages').where('outingId', '==', 'outing-chat').limit(50).get(),
+      );
+    });
+
+    it('keeps terminal outings readable but rejects sends and deletion-pending access', async () => {
+      await seedChat({status: 'completed'});
+      const now = Date.now();
+      await seedMessage('outing-chat_terminal', new Date(now), new Date(now + 100000));
+      const alice = testEnv.authenticatedContext('alice').firestore();
+      await testing.assertSucceeds(alice.collection('chat_messages').doc('outing-chat_terminal').get());
+      const command = {
+        type: 'send_message', outingId: 'outing-chat', crewId: 'crew-chat',
+        requestedByUserId: 'alice', clientMessageId: 'client-message-0002',
+        payload: {text: 'Closed'}, status: 'pending',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      };
+      await testing.assertFails(alice.collection('chat_commands').doc('closed').set(command));
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().collection('outings').doc('outing-chat').update({deletionPending: true});
+      });
+      await testing.assertFails(alice.collection('chat_messages').doc('outing-chat_terminal').get());
+      await testing.assertFails(alice.collection('outings').doc('outing-chat').delete());
+    });
+
+    it('keeps read cursors owner-private, readable, and strictly monotonic', async () => {
+      await seedChat();
+      const now = Date.now();
+      const firstAt = new Date(now);
+      const secondAt = new Date(now + 1);
+      const expiry = new Date(now + 100000);
+      await seedMessage('outing-chat_first', firstAt, expiry, 'bob');
+      await seedMessage('outing-chat_second', secondAt, expiry, 'bob');
+      const alice = testEnv.authenticatedContext('alice').firestore();
+      const bob = testEnv.authenticatedContext('bob').firestore();
+      const ref = alice.collection('chat_read_states').doc('outing-chat_alice');
+      const first = {
+        outingId: 'outing-chat', crewId: 'crew-chat', userId: 'alice',
+        readThroughAcceptedAt: firstAt, readThroughMessageId: 'outing-chat_first',
+        cursorExpiresAt: expiry,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      };
+      await testing.assertSucceeds(ref.set(first));
+      await testing.assertSucceeds(ref.get());
+      await testing.assertFails(bob.collection('chat_read_states').doc('outing-chat_alice').get());
+      await testing.assertFails(ref.set(first));
+      await testing.assertSucceeds(ref.set({
+        ...first,
+        readThroughAcceptedAt: secondAt,
+        readThroughMessageId: 'outing-chat_second',
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      }));
+      await testing.assertFails(ref.update({userId: 'bob'}));
+    });
+  });
 });

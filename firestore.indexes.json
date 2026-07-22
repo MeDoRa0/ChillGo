@@ -1,0 +1,91 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "chat_messages",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "outingId", "order": "ASCENDING"},
+        {"fieldPath": "expiresAt", "order": "ASCENDING"},
+        {"fieldPath": "acceptedAt", "order": "DESCENDING"},
+        {"fieldPath": "__name__", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "chat_messages",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "outingId", "order": "ASCENDING"},
+        {"fieldPath": "expiresAt", "order": "ASCENDING"},
+        {"fieldPath": "acceptedAt", "order": "ASCENDING"},
+        {"fieldPath": "__name__", "order": "ASCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "chat_messages",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "outingId", "order": "ASCENDING"},
+        {"fieldPath": "authorUserId", "order": "ASCENDING"},
+        {"fieldPath": "expiresAt", "order": "ASCENDING"},
+        {"fieldPath": "acceptedAt", "order": "ASCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "chat_messages",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "outingId", "order": "ASCENDING"},
+        {"fieldPath": "authorUserId", "order": "ASCENDING"},
+        {"fieldPath": "expiresAt", "order": "ASCENDING"},
+        {"fieldPath": "acceptedAt", "order": "ASCENDING"},
+        {"fieldPath": "__name__", "order": "ASCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "chat_commands",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "status", "order": "ASCENDING"},
+        {"fieldPath": "createdAt", "order": "ASCENDING"}
+      ]
+    }
+  ],
+  "fieldOverrides": [
+    {
+      "collectionGroup": "chat_messages",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": [
+        {"order": "ASCENDING", "queryScope": "COLLECTION"},
+        {"order": "DESCENDING", "queryScope": "COLLECTION"}
+      ]
+    },
+    {
+      "collectionGroup": "chat_commands",
+      "fieldPath": "deleteAt",
+      "ttl": true,
+      "indexes": [
+        {"order": "ASCENDING", "queryScope": "COLLECTION"},
+        {"order": "DESCENDING", "queryScope": "COLLECTION"}
+      ]
+    },
+    {
+      "collectionGroup": "chat_read_states",
+      "fieldPath": "cursorExpiresAt",
+      "ttl": true,
+      "indexes": [
+        {"order": "ASCENDING", "queryScope": "COLLECTION"},
+        {"order": "DESCENDING", "queryScope": "COLLECTION"}
+      ]
+    },
+    {
+      "collectionGroup": "chat_rate_limits",
+      "fieldPath": "purgeAfter",
+      "ttl": true,
+      "indexes": [
+        {"order": "ASCENDING", "queryScope": "COLLECTION"},
+        {"order": "DESCENDING", "queryScope": "COLLECTION"}
+      ]
+    }
+  ]
+}

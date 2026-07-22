@@ -7,6 +7,8 @@
     "build": "tsc",
     "test": "npm run build && mocha \"lib/test/**/*.test.js\"",
     "test:agreement": "npm run build && mocha \"lib/test/agreement/**/*.test.js\"",
+    "test:chat": "npm run build && mocha \"lib/test/chat/**/*.test.js\" --ignore \"lib/test/chat/chat_integration.test.js\"",
+    "test:chat:integration": "npm run build && firebase emulators:exec --project chillgo-61439 --config ../firebase.json --only auth,firestore,functions \"mocha lib/test/chat/chat_integration.test.js\"",
     "test:integration": "npm run build && firebase emulators:exec --project chillgo-61439 --config ../firebase.json --only auth,firestore,functions \"mocha lib/test/agreement/agreement_integration.test.js\"",
     "emulators": "npm run build && firebase emulators:start --only auth,firestore,functions",
     "emulators:test": "npm run build && firebase emulators:exec --only auth,firestore,functions \"npm run test:agreement\""
