@@ -41,10 +41,11 @@ class _LoginScreenState extends State<LoginScreen>
 
     try {
       await sl<AuthRepository>().signInWithGoogle();
-    } catch (e) {
+    } catch (error, stackTrace) {
+      debugPrint('[ChillGo] Google sign-in failed: $error\n$stackTrace');
       if (mounted) {
         setState(() {
-          _errorMessage = e.toString().contains('cancelled')
+          _errorMessage = error.toString().contains('cancelled')
               ? 'Sign in cancelled'
               : 'Failed to sign in with Google';
         });

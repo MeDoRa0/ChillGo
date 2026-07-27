@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/di/injection_container.dart';
+import '../../../chat/domain/repositories/chat_repository.dart';
+import '../../../chat/presentation/cubit/chat_summary/chat_summary_cubit.dart';
+import '../../../chat/presentation/widgets/chat_unread_badge.dart';
 import '../../../voting/domain/repositories/agreement_repository.dart';
 import '../../domain/entities/attendance_status.dart';
 import '../../domain/entities/outing.dart';
@@ -26,26 +31,63 @@ class InteractiveOutingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => StreamBuilder<OutingDetail?>(
     stream: outingRepository.streamOutingDetail(outing.id),
-    builder: (context, snapshot) {
-      final detail = snapshot.data;
-      final participants = detail?.participants ?? const <OutingParticipant>[];
-      return Hero(
-        tag: 'outing-card-${outing.id}',
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            key: ValueKey('outing-card-${outing.id}'),
-            onTap: detail == null ? null : () => _open(context, participants),
-            borderRadius: BorderRadius.circular(20),
-            child: _CardSurface(
-              outing: outing,
-              participants: participants,
-              trailing: trailing,
-            ),
-          ),
+    builder: _buildCard,
+  );
+
+  Widget _buildCard(
+    BuildContext context,
+    AsyncSnapshot<OutingDetail?> snapshot,
+  ) {
+    final detail = snapshot.data;
+    final participants = detail?.participants ?? const <OutingParticipant>[];
+    final canOpenChat =
+        participants.any(
+          (participant) => participant.userId == currentUserId,
+        ) &&
+        sl.isRegistered<ChatRepository>();
+    return Stack(
+      children: [
+        _outingHero(
+          context,
+          detail,
+          participants,
+          canOpenChat ? const SizedBox(width: 48) : null,
         ),
-      );
-    },
+        if (canOpenChat) _chatButton(context),
+      ],
+    );
+  }
+
+  Widget _outingHero(
+    BuildContext context,
+    OutingDetail? detail,
+    List<OutingParticipant> participants,
+    Widget? chatButtonSpace,
+  ) => Hero(
+    tag: 'outing-card-${outing.id}',
+    child: Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: ValueKey('outing-card-${outing.id}'),
+        onTap: detail == null ? null : () => _open(context, participants),
+        borderRadius: BorderRadius.circular(20),
+        child: _CardSurface(
+          outing: outing,
+          participants: participants,
+          chatButtonSpace: chatButtonSpace,
+          trailing: trailing,
+        ),
+      ),
+    ),
+  );
+
+  Widget _chatButton(BuildContext context) => Positioned(
+    top: 6,
+    right: 42,
+    child: _CardChatButton(
+      outingId: outing.id,
+      onPressed: () => GoRouter.of(context).push('/outings/${outing.id}/chat'),
+    ),
   );
 
   Future<void> _open(
@@ -84,10 +126,12 @@ class _CardSurface extends StatelessWidget {
   const _CardSurface({
     required this.outing,
     required this.participants,
+    required this.chatButtonSpace,
     this.trailing,
   });
   final Outing outing;
   final List<OutingParticipant> participants;
+  final Widget? chatButtonSpace;
   final Widget? trailing;
 
   @override
@@ -128,6 +172,7 @@ class _CardSurface extends StatelessWidget {
               ),
             ),
             ?trailing,
+            ?chatButtonSpace,
             const Icon(Icons.open_in_full_rounded, color: Color(0xFFB8A7FF)),
           ],
         ),
@@ -139,6 +184,30 @@ class _CardSurface extends StatelessWidget {
         const SizedBox(height: 14),
         _AcceptedAvatars(participants: participants),
       ],
+    ),
+  );
+}
+
+class _CardChatButton extends StatelessWidget {
+  const _CardChatButton({required this.outingId, required this.onPressed});
+
+  final String outingId;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => BlocProvider(
+    create: (_) => sl<ChatSummaryCubit>()..watch(outingId),
+    child: BlocBuilder<ChatSummaryCubit, ChatSummaryState>(
+      builder: (context, state) {
+        final summary = state is ChatSummaryReady ? state.summary : null;
+        return IconButton(
+          key: const Key('outing-chat-entry'),
+          tooltip: 'Outing chat',
+          onPressed: onPressed,
+          icon: ChatUnreadBadge(count: summary?.unreadCount ?? 0),
+          color: const Color(0xFFB8A7FF),
+        );
+      },
     ),
   );
 }

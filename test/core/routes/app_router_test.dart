@@ -50,6 +50,14 @@ void main() {
     expect(paths, contains('/crews/:crewId'));
   });
 
+  test('AppRouter exposes the scoped outing chat route', () {
+    final paths = appRouter.configuration.routes.whereType<GoRoute>().map(
+      (route) => route.path,
+    );
+
+    expect(paths, contains('/outings/:outingId/chat'));
+  });
+
   group('AppRouter Redirect Logic', () {
     late MockBuildContext mockContext;
     late MockGoRouterState mockState;

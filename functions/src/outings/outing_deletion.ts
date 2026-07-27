@@ -1,13 +1,17 @@
 import {Firestore,FieldValue,Timestamp} from "firebase-admin/firestore";
 import {CommandError} from "../agreement/command_schema";
 
-const OWNED_COLLECTIONS=[
+export const OUTING_OWNED_COLLECTIONS=[
  "outing_participants",
  "agreement_rounds",
  "agreement_proposals",
  "agreement_votes",
  "agreement_results",
+ "chat_messages",
+ "chat_read_states",
+ "chat_rate_limits",
 ];
+export const OUTING_DELETION_SWEEP_PASSES=2;
 const CLEANUP_DELAY_MILLIS=12*60*60*1000;
 
 export class OutingDeletionService {
@@ -43,13 +47,15 @@ export class OutingDeletionService {
 
  private async deleteOutingRecords(outingId:string,commandId?:string):Promise<void>{
   await this.terminateAgreementCommands(outingId,commandId);
+  await this.terminateChatCommands(outingId);
   await this.deleteOwnedRecords(outingId);
   await this.db.collection("outings").doc(outingId).delete();
+  await this.terminateChatCommands(outingId);
   await this.deleteOwnedRecords(outingId);
  }
 
  private async deleteOwnedRecords(outingId:string):Promise<void>{
-  const snapshots=await Promise.all(OWNED_COLLECTIONS.map(name=>this.db.collection(name).where("outingId","==",outingId).get()));
+  const snapshots=await Promise.all(OUTING_OWNED_COLLECTIONS.map(name=>this.db.collection(name).where("outingId","==",outingId).get()));
   const writer=this.db.bulkWriter();
   for(const snapshot of snapshots)for(const doc of snapshot.docs)writer.delete(doc.ref);
   await writer.close();
@@ -61,6 +67,16 @@ export class OutingDeletionService {
   for(const doc of snapshot.docs){
    if(doc.id===commandId||(commandId&&doc.data().type==="delete_outing"))continue;
    if(["pending","processing"].includes(doc.data().status))writer.update(doc.ref,{status:"failed",errorCode:"not_found",errorMessage:"Outing was removed.",processedAt:FieldValue.serverTimestamp()});
+   else writer.delete(doc.ref);
+  }
+  await writer.close();
+ }
+
+ private async terminateChatCommands(outingId:string):Promise<void>{
+  const snapshot=await this.db.collection("chat_commands").where("outingId","==",outingId).get();
+  const writer=this.db.bulkWriter();
+  for(const doc of snapshot.docs){
+   if(["pending","processing"].includes(doc.data().status))writer.update(doc.ref,{status:"failed",errorCode:"not_found",errorMessage:"Chat is unavailable.",payload:FieldValue.delete(),processedAt:FieldValue.serverTimestamp(),deleteAt:Timestamp.now()});
    else writer.delete(doc.ref);
   }
   await writer.close();

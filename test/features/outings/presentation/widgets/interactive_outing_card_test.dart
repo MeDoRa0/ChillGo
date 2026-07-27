@@ -6,12 +6,94 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:chillgo/core/di/injection_container.dart';
+import 'package:chillgo/features/chat/domain/repositories/chat_repository.dart';
+import 'package:chillgo/features/chat/presentation/cubit/chat_summary/chat_summary_cubit.dart';
+import 'package:chillgo/features/chat/domain/entities/chat_read_state.dart';
 
 import '../../outing_repository_fake.dart';
+import '../../../chat/chat_test_helpers.dart';
 
 class MockAgreementRepository extends Mock implements AgreementRepository {}
 
 void main() {
+  testWidgets('every current participant sees chat independent of attendance', (
+    tester,
+  ) async {
+    final chatRepository = FakeChatRepository();
+    if (sl.isRegistered<ChatSummaryCubit>()) {
+      await sl.unregister<ChatSummaryCubit>();
+    }
+    if (sl.isRegistered<ChatRepository>()) {
+      await sl.unregister<ChatRepository>();
+    }
+    sl.registerSingleton<ChatRepository>(chatRepository);
+    sl.registerFactory(() => ChatSummaryCubit(repository: sl()));
+    addTearDown(() async {
+      if (sl.isRegistered<ChatSummaryCubit>()) {
+        await sl.unregister<ChatSummaryCubit>();
+      }
+      if (sl.isRegistered<ChatRepository>()) {
+        await sl.unregister<ChatRepository>();
+      }
+    });
+    final outing = FakeOutingRepository.sampleOuting();
+    final participant = FakeOutingRepository.sampleParticipant(
+      userId: 'user-2',
+      isCreatorParticipant: false,
+      attendanceStatus: AttendanceStatus.declined,
+    );
+    final router = GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (_, _) => Scaffold(
+            body: InteractiveOutingCard(
+              outing: outing,
+              outingRepository: FakeOutingRepository(
+                detail: OutingDetail(
+                  outing: outing,
+                  participants: [participant],
+                ),
+              ),
+              currentUserId: 'user-2',
+            ),
+          ),
+        ),
+        GoRoute(
+          path: '/outings/:outingId/chat',
+          builder: (_, _) => Scaffold(
+            appBar: AppBar(leading: const BackButton()),
+            body: const Text('Chat route'),
+          ),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('outing-chat-entry')), findsOneWidget);
+    expect(find.byTooltip('Outing chat'), findsOneWidget);
+    expect(
+      find.ancestor(
+        of: find.byKey(const Key('outing-chat-entry')),
+        matching: find.byType(Hero),
+      ),
+      findsNothing,
+    );
+    chatRepository.summaries.add(
+      const ChatSummary(unreadCount: 3, isWritable: false),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('3'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('outing-chat-entry')));
+    await tester.pumpAndSettle();
+    expect(find.text('Chat route'), findsOneWidget);
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(find.byKey(ValueKey('outing-card-${outing.id}')), findsOneWidget);
+  });
+
   testWidgets('creator sees only cancel and change actions', (tester) async {
     final outing = FakeOutingRepository.sampleOuting();
     await tester.pumpWidget(

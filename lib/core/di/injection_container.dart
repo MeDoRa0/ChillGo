@@ -39,6 +39,13 @@ import '../../features/voting/data/repositories/agreement_repository_impl.dart';
 import '../../features/voting/domain/repositories/agreement_repository.dart';
 import '../../features/voting/presentation/cubit/agreement_detail/agreement_detail_cubit.dart';
 import '../../features/voting/presentation/cubit/agreement_command/agreement_command_cubit.dart';
+import '../../features/chat/data/datasources/firestore_chat_datasource.dart';
+import '../../features/chat/data/repositories/chat_repository_impl.dart';
+import '../../features/chat/data/services/firestore_chat_clock.dart';
+import '../../features/chat/domain/repositories/chat_repository.dart';
+import '../../features/chat/domain/services/chat_clock.dart';
+import '../../features/chat/presentation/cubit/chat_summary/chat_summary_cubit.dart';
+import '../../features/chat/presentation/cubit/outing_chat/outing_chat_cubit.dart';
 
 final sl = GetIt.instance;
 
@@ -168,6 +175,29 @@ Future<void> init() async {
       ),
     );
   }
+  if (!sl.isRegistered<ChatClock>()) {
+    sl.registerLazySingleton<ChatClock>(
+      () => FirestoreChatClock(
+        firestore: sl(),
+        currentUid: () => sl<AuthRepository>().currentCredentials?.uid ?? '',
+      ),
+      dispose: (clock) => clock.dispose(),
+    );
+  }
+  if (!sl.isRegistered<FirestoreChatDatasource>()) {
+    sl.registerLazySingleton<FirestoreChatDatasource>(
+      () => FirestoreChatDatasource(
+        firestore: sl(),
+        currentUid: () => sl<AuthRepository>().currentCredentials?.uid ?? '',
+        clock: sl(),
+      ),
+    );
+  }
+  if (!sl.isRegistered<ChatRepository>()) {
+    sl.registerLazySingleton<ChatRepository>(
+      () => ChatRepositoryImpl(datasource: sl(), clock: sl()),
+    );
+  }
 
   // Blocs & Cubits
   if (!sl.isRegistered<AuthBloc>()) {
@@ -201,6 +231,12 @@ Future<void> init() async {
   }
   if (!sl.isRegistered<AgreementCommandCubit>()) {
     sl.registerFactory(() => AgreementCommandCubit(repository: sl()));
+  }
+  if (!sl.isRegistered<OutingChatCubit>()) {
+    sl.registerFactory(() => OutingChatCubit(repository: sl()));
+  }
+  if (!sl.isRegistered<ChatSummaryCubit>()) {
+    sl.registerFactory(() => ChatSummaryCubit(repository: sl()));
   }
 
   // Global Error Handler

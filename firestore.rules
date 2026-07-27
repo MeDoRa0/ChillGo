@@ -127,6 +127,90 @@ service cloud.firestore {
       return /databases/$(database)/documents/outing_participants/$(participantId);
     }
 
+    function chatMessagePath(messageId) {
+      return /databases/$(database)/documents/chat_messages/$(messageId);
+    }
+
+    function isChatEligible(outingId) {
+      return signedIn() &&
+        exists(outingPath(outingId)) &&
+        get(outingPath(outingId)).data.get('deletionPending', false) == false &&
+        exists(membershipPath(get(outingPath(outingId)).data.crewId + '_' + request.auth.uid)) &&
+        exists(participantPath(outingId + '_' + request.auth.uid));
+    }
+
+    function isChatWritable(outingId) {
+      return isChatEligible(outingId) &&
+        get(outingPath(outingId)).data.status in ['draft', 'planning', 'confirmed', 'meeting'];
+    }
+
+    function isValidChatCommand() {
+      let outing = get(outingPath(request.resource.data.outingId)).data;
+      return request.resource.data.keys().hasOnly([
+          'type', 'outingId', 'crewId', 'requestedByUserId',
+          'clientMessageId', 'payload', 'status', 'createdAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'type', 'outingId', 'crewId', 'requestedByUserId',
+          'clientMessageId', 'payload', 'status', 'createdAt'
+        ]) &&
+        request.resource.data.type == 'send_message' &&
+        request.resource.data.outingId is string &&
+        request.resource.data.crewId == outing.crewId &&
+        request.resource.data.requestedByUserId == request.auth.uid &&
+        request.resource.data.clientMessageId is string &&
+        request.resource.data.clientMessageId.size() >= 16 &&
+        request.resource.data.clientMessageId.size() <= 200 &&
+        request.resource.data.payload is map &&
+        request.resource.data.payload.keys().hasOnly(['text']) &&
+        request.resource.data.payload.keys().hasAll(['text']) &&
+        request.resource.data.payload.text is string &&
+        request.resource.data.payload.text.size() >= 1 &&
+        request.resource.data.payload.text.size() <= 4000 &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.createdAt == request.time &&
+        isChatWritable(request.resource.data.outingId);
+    }
+
+    function isValidReadState(readStateId) {
+      let message = get(chatMessagePath(request.resource.data.readThroughMessageId)).data;
+      return request.resource.data.keys().hasOnly([
+          'outingId', 'crewId', 'userId', 'readThroughAcceptedAt',
+          'readThroughMessageId', 'cursorExpiresAt', 'updatedAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'outingId', 'crewId', 'userId', 'readThroughAcceptedAt',
+          'readThroughMessageId', 'cursorExpiresAt', 'updatedAt'
+        ]) &&
+        readStateId == request.resource.data.outingId + '_' + request.auth.uid &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.crewId == get(outingPath(request.resource.data.outingId)).data.crewId &&
+        request.resource.data.readThroughAcceptedAt is timestamp &&
+        request.resource.data.readThroughMessageId is string &&
+        request.resource.data.cursorExpiresAt is timestamp &&
+        request.resource.data.updatedAt == request.time &&
+        isChatEligible(request.resource.data.outingId) &&
+        exists(chatMessagePath(request.resource.data.readThroughMessageId)) &&
+        message.outingId == request.resource.data.outingId &&
+        message.crewId == request.resource.data.crewId &&
+        message.acceptedAt == request.resource.data.readThroughAcceptedAt &&
+        message.expiresAt == request.resource.data.cursorExpiresAt &&
+        message.expiresAt > request.time;
+    }
+
+    function advancesReadState() {
+      return request.resource.data.outingId == resource.data.outingId &&
+        request.resource.data.crewId == resource.data.crewId &&
+        request.resource.data.userId == resource.data.userId &&
+        (
+          request.resource.data.readThroughAcceptedAt > resource.data.readThroughAcceptedAt ||
+          (
+            request.resource.data.readThroughAcceptedAt == resource.data.readThroughAcceptedAt &&
+            request.resource.data.readThroughMessageId > resource.data.readThroughMessageId
+          )
+        );
+    }
+
     function isValidOutingString(value, min, max) {
       return value is string && value.size() >= min && value.size() <= max;
     }
@@ -678,6 +762,49 @@ service cloud.firestore {
         validCommandPayload(request.resource.data.type, request.resource.data.payload);
       allow get, list: if signedIn() && resource.data.requestedByUserId == request.auth.uid;
       allow update, delete: if false;
+    }
+
+    match /chat_messages/{messageId} {
+      allow get: if isChatEligible(resource.data.outingId) &&
+        resource.data.expiresAt > request.time;
+      allow list: if isChatEligible(resource.data.outingId) &&
+        request.query.limit != null &&
+        request.query.limit <= 5000;
+      allow create, update, delete: if false;
+    }
+
+    match /chat_commands/{commandId} {
+      allow create: if signedIn() && isValidChatCommand();
+      allow get, list: if signedIn() &&
+        resource.data.requestedByUserId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    match /chat_read_states/{readStateId} {
+      allow get, list: if signedIn() &&
+        resource.data.userId == request.auth.uid &&
+        isChatEligible(resource.data.outingId);
+      allow create: if signedIn() && isValidReadState(readStateId);
+      allow update: if signedIn() &&
+        isValidReadState(readStateId) &&
+        advancesReadState();
+      allow delete: if false;
+    }
+
+    match /chat_rate_limits/{bucketId} {
+      allow read, write: if false;
+    }
+
+    match /chat_time_probes/{probeId} {
+      allow create: if signedIn() &&
+        probeId.matches('^' + request.auth.uid + '_.+$') &&
+        request.resource.data.keys().hasOnly(['userId', 'requestedAt']) &&
+        request.resource.data.keys().hasAll(['userId', 'requestedAt']) &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.requestedAt == request.time;
+      allow get, delete: if signedIn() &&
+        resource.data.userId == request.auth.uid;
+      allow list, update: if false;
     }
   }
 }
