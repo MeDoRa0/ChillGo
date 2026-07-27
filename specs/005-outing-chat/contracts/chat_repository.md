@@ -7,6 +7,7 @@ Presentation Cubits depend on this provider-neutral contract. Firestore queries,
 ```text
 ChatMessageCursor(acceptedAt, messageId)
 ChatPage(messages, oldestCursor, newestCursor, hasMore)
+ChatAccess(inaccessible, readOnly, writable)
 ChatSummary(unreadCount, hasUnread, isWritable)
 ChatSendAttempt(clientMessageId, commandId?, status, failure?)
 ```
@@ -45,12 +46,14 @@ The command stream exposes pending, processing, success, `rate_limited` with ret
 watchMyReadState(outingId) -> Stream<ChatReadState?>
 markReadThrough(outingId, cursor) -> Future<void>
 getUnreadCount(outingId) -> Future<int>
+watchChatAccess(outingId) -> Stream<ChatAccess>
 watchChatSummary(outingId) -> Stream<ChatSummary>
 ```
 
 - `markReadThrough` only advances the signed-in user's private cursor and never creates cross-user receipts.
 - `getUnreadCount` counts currently available messages after the effective cursor and subtracts the current user's own count.
 - Count queries are bounded to the feature maximum of 5,000 available messages; ordinary history pages remain capped at 50.
+- `watchChatAccess` drives conversation writability directly from outing lifecycle, current crew membership, and current participation; it does not wait for unread-count aggregation.
 - `watchChatSummary` refreshes the count when newest-message, personal cursor, access, or reconnect signals change; it does not promise push-notification behavior.
 - If the cursor expires or disappears, the effective lower bound becomes the current 24-hour retention cutoff.
 

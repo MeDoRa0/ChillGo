@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../authentication/domain/repositories/auth_repository.dart';
 import '../../../../core/di/injection_container.dart';
+import '../../../../core/presentation/widgets/app_back_button.dart';
+import '../../domain/entities/chat_command.dart';
 import '../cubit/outing_chat/outing_chat_cubit.dart';
 import '../widgets/chat_composer.dart';
 import '../widgets/chat_history_list.dart';
@@ -11,7 +13,10 @@ class OutingChatScreen extends StatelessWidget {
   final String outingId;
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Outing chat')),
+    appBar: AppBar(
+      leading: const AppBackButton(),
+      title: const Text('Outing chat'),
+    ),
     body: BlocBuilder<OutingChatCubit, OutingChatState>(
       builder: (context, state) {
         if (state.status == OutingChatStatus.initial ||
@@ -22,7 +27,21 @@ class OutingChatScreen extends StatelessWidget {
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(24),
-              child: Text(state.failure?.message ?? 'Chat is unavailable.'),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(state.failure?.message ?? 'Chat is unavailable.'),
+                  if (state.failure is ChatNetworkFailure ||
+                      state.failure is ChatServiceFailure) ...[
+                    const SizedBox(height: 16),
+                    FilledButton.tonal(
+                      onPressed: () =>
+                          context.read<OutingChatCubit>().watch(outingId),
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ],
+              ),
             ),
           );
         }

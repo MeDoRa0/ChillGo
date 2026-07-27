@@ -6,6 +6,7 @@ import 'package:chillgo/features/chat/domain/entities/chat_message_cursor.dart';
 import 'package:chillgo/features/chat/domain/entities/chat_page.dart';
 import 'package:chillgo/features/chat/domain/entities/chat_read_state.dart';
 import 'package:chillgo/features/chat/domain/repositories/chat_repository.dart';
+import 'package:chillgo/features/chat/domain/services/chat_access_policy.dart';
 import 'package:chillgo/features/chat/domain/services/chat_clock.dart';
 
 final chatTestNow = DateTime.utc(2026, 7, 22, 12);
@@ -40,6 +41,7 @@ class FakeChatRepository implements ChatRepository {
   final latest = StreamController<ChatPage>.broadcast();
   final commands = <String, StreamController<ChatCommand?>>{};
   final readStates = StreamController<ChatReadState?>.broadcast();
+  final access = StreamController<ChatAccess>.broadcast();
   final summaries = StreamController<ChatSummary>.broadcast();
   final sent = <({String outingId, String clientMessageId, String text})>[];
   final marked = <({String outingId, ChatMessageCursor cursor})>[];
@@ -86,6 +88,8 @@ class FakeChatRepository implements ChatRepository {
   @override
   Stream<ChatPage> watchLatestMessages(String outingId, {int limit = 50}) =>
       latest.stream;
+  @override
+  Stream<ChatAccess> watchChatAccess(String outingId) => access.stream;
   @override
   Stream<ChatSummary> watchChatSummary(String outingId) => summaries.stream;
   @override

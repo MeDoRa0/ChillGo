@@ -5,7 +5,6 @@
       "queryScope": "COLLECTION",
       "fields": [
         {"fieldPath": "outingId", "order": "ASCENDING"},
-        {"fieldPath": "expiresAt", "order": "ASCENDING"},
         {"fieldPath": "acceptedAt", "order": "DESCENDING"},
         {"fieldPath": "__name__", "order": "DESCENDING"}
       ]
@@ -15,7 +14,6 @@
       "queryScope": "COLLECTION",
       "fields": [
         {"fieldPath": "outingId", "order": "ASCENDING"},
-        {"fieldPath": "expiresAt", "order": "ASCENDING"},
         {"fieldPath": "acceptedAt", "order": "ASCENDING"},
         {"fieldPath": "__name__", "order": "ASCENDING"}
       ]
@@ -26,17 +24,6 @@
       "fields": [
         {"fieldPath": "outingId", "order": "ASCENDING"},
         {"fieldPath": "authorUserId", "order": "ASCENDING"},
-        {"fieldPath": "expiresAt", "order": "ASCENDING"},
-        {"fieldPath": "acceptedAt", "order": "ASCENDING"}
-      ]
-    },
-    {
-      "collectionGroup": "chat_messages",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {"fieldPath": "outingId", "order": "ASCENDING"},
-        {"fieldPath": "authorUserId", "order": "ASCENDING"},
-        {"fieldPath": "expiresAt", "order": "ASCENDING"},
         {"fieldPath": "acceptedAt", "order": "ASCENDING"},
         {"fieldPath": "__name__", "order": "ASCENDING"}
       ]

@@ -8,6 +8,7 @@ import '../../../domain/entities/chat_message.dart';
 import '../../../domain/entities/chat_message_cursor.dart';
 import '../../../domain/entities/chat_page.dart';
 import '../../../domain/repositories/chat_repository.dart';
+import '../../../domain/services/chat_access_policy.dart';
 
 enum OutingChatStatus { initial, loading, ready, unavailable }
 
@@ -78,7 +79,7 @@ class OutingChatCubit extends Cubit<OutingChatState> {
   final ChatRepository repository;
   String? _outingId;
   StreamSubscription<ChatPage>? _messagesSubscription;
-  StreamSubscription? _summarySubscription;
+  StreamSubscription<ChatAccess>? _accessSubscription;
   StreamSubscription? _readStateSubscription;
   ChatMessageCursor? _readCursor;
   bool _accessRevoked = false;
@@ -90,27 +91,30 @@ class OutingChatCubit extends Cubit<OutingChatState> {
     _accessRevoked = false;
     emit(state.copyWith(status: OutingChatStatus.loading, clearFailure: true));
     await _messagesSubscription?.cancel();
-    await _summarySubscription?.cancel();
+    await _accessSubscription?.cancel();
     await _readStateSubscription?.cancel();
     _messagesSubscription = repository
         .watchLatestMessages(outingId)
         .listen(_mergeLatest, onError: _protect);
-    _summarySubscription = repository
-        .watchChatSummary(outingId)
-        .listen(
-          (summary) {
-            if (!_accessRevoked) {
-              emit(state.copyWith(isWritable: summary.isWritable));
-            }
-          },
-          onError: _protect,
+    _accessSubscription = repository.watchChatAccess(outingId).listen((access) {
+      if (!_accessRevoked) {
+        emit(
+          state.copyWith(
+            isWritable: access == ChatAccess.writable,
+            clearFailure: state.status == OutingChatStatus.ready,
+          ),
         );
+      }
+    }, onError: _protect);
     _readStateSubscription = repository.watchMyReadState(outingId).listen((
       readState,
     ) {
       if (_accessRevoked) return;
       _readCursor = readState?.cursor;
       _updateUnreadBoundary();
+      if (state.status == OutingChatStatus.ready && state.failure != null) {
+        emit(state.copyWith(clearFailure: true));
+      }
     }, onError: _protect);
   }
 
@@ -267,14 +271,40 @@ class OutingChatCubit extends Cubit<OutingChatState> {
   Future<void> markThroughNewest() async {
     final outingId = _outingId;
     if (outingId == null || state.messages.isEmpty) return;
-    await repository.markReadThrough(outingId, state.messages.last.cursor);
+    final newest = state.messages.last.cursor;
+    final current = _readCursor;
+    if (current != null && !newest.isAfter(current)) {
+      emit(state.copyWith(showNewMessages: false, clearFirstUnread: true));
+      return;
+    }
+    await repository.markReadThrough(outingId, newest);
+    _readCursor = newest;
     emit(state.copyWith(showNewMessages: false, clearFirstUnread: true));
   }
 
   void _protect(Object error) {
+    final failure = error is ChatFailure ? error : const ChatServiceFailure();
+    if (failure is! ChatAccessDenied && failure is! ChatAuthenticationFailure) {
+      _showRecoverableFailure(failure);
+      return;
+    }
+    _revokeAccess(failure);
+  }
+
+  void _showRecoverableFailure(ChatFailure failure) {
+    emit(
+      state.copyWith(
+        status: state.status == OutingChatStatus.ready
+            ? OutingChatStatus.ready
+            : OutingChatStatus.unavailable,
+        failure: failure,
+      ),
+    );
+  }
+
+  void _revokeAccess(ChatFailure failure) {
     _accessRevoked = true;
     _readCursor = null;
-    final failure = error is ChatFailure ? error : const ChatServiceFailure();
     emit(
       OutingChatState(
         status: OutingChatStatus.unavailable,
@@ -287,7 +317,7 @@ class OutingChatCubit extends Cubit<OutingChatState> {
   @override
   Future<void> close() async {
     await _messagesSubscription?.cancel();
-    await _summarySubscription?.cancel();
+    await _accessSubscription?.cancel();
     await _readStateSubscription?.cancel();
     for (final subscription in _commandSubscriptions.values) {
       await subscription.cancel();

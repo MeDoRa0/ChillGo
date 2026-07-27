@@ -39,6 +39,7 @@ class _ChatHistoryListState extends State<ChatHistoryList> {
   final _firstUnreadKey = GlobalKey();
   bool _positionedInitialView = false;
   bool _initialPositionScheduled = false;
+  bool _followNewestScheduled = false;
   String? _reportedNewestMessageId;
 
   @override
@@ -50,10 +51,32 @@ class _ChatHistoryListState extends State<ChatHistoryList> {
   @override
   void didUpdateWidget(covariant ChatHistoryList oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.messages.lastOrNull?.id != widget.messages.lastOrNull?.id) {
+    final newestChanged =
+        oldWidget.messages.lastOrNull?.id != widget.messages.lastOrNull?.id;
+    final wasFollowingNewest =
+        _positionedInitialView &&
+        _scrollController.hasClients &&
+        _scrollController.position.extentAfter <= 24;
+    if (newestChanged) {
       _reportedNewestMessageId = null;
     }
     _scheduleInitialPosition();
+    if (_startedSending(oldWidget) || (newestChanged && wasFollowingNewest)) {
+      _scheduleFollowNewest();
+    }
+  }
+
+  bool _startedSending(ChatHistoryList oldWidget) {
+    final previousStatuses = {
+      for (final attempt in oldWidget.attempts)
+        attempt.clientMessageId: attempt.status,
+    };
+    return widget.attempts.any(
+      (attempt) =>
+          attempt.status == ChatSendAttemptStatus.sending &&
+          previousStatuses[attempt.clientMessageId] !=
+              ChatSendAttemptStatus.sending,
+    );
   }
 
   @override
@@ -132,6 +155,17 @@ class _ChatHistoryListState extends State<ChatHistoryList> {
     _reportNewestWhenVisible();
   }
 
+  void _scheduleFollowNewest() {
+    if (_followNewestScheduled) return;
+    _followNewestScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _followNewestScheduled = false;
+      if (!mounted || !_scrollController.hasClients) return;
+      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      _reportNewestWhenVisible();
+    });
+  }
+
   void _reportNewestWhenVisible() {
     if (!_scrollController.hasClients || widget.messages.isEmpty) return;
     if (_scrollController.position.extentAfter > 24) return;
@@ -151,12 +185,15 @@ class _ChatHistoryListState extends State<ChatHistoryList> {
     await widget.onLoadOlder();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scrollController.hasClients) return;
-      final addedExtent = _scrollController.position.maxScrollExtent - oldMaximum;
+      final addedExtent =
+          _scrollController.position.maxScrollExtent - oldMaximum;
       _scrollController.jumpTo(
-        (oldPixels + addedExtent).clamp(
-          _scrollController.position.minScrollExtent,
-          _scrollController.position.maxScrollExtent,
-        ).toDouble(),
+        (oldPixels + addedExtent)
+            .clamp(
+              _scrollController.position.minScrollExtent,
+              _scrollController.position.maxScrollExtent,
+            )
+            .toDouble(),
       );
     });
   }
@@ -179,7 +216,9 @@ class _ChatHistoryListState extends State<ChatHistoryList> {
       children: [
         if (widget.hasMore)
           TextButton(
-            onPressed: widget.loadingOlder ? null : _loadOlderPreservingViewport,
+            onPressed: widget.loadingOlder
+                ? null
+                : _loadOlderPreservingViewport,
             child: Text(
               widget.loadingOlder
                   ? 'Loading older messages…'

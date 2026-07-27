@@ -183,33 +183,48 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   @override
+  Stream<ChatAccess> watchChatAccess(String outingId) => datasource
+      .watchAccess(outingId)
+      .map(_requireChatAccess)
+      .transform(
+        StreamTransformer.fromHandlers(
+          handleError: (error, stack, sink) {
+            sink.addError(_mapError(error), stack);
+          },
+        ),
+      );
+
+  ChatAccess _requireChatAccess(ChatAccessSnapshot snapshot) {
+    final access = accessPolicy.evaluate(
+      status: snapshot.status,
+      isCrewMember: snapshot.isCrewMember,
+      isParticipant: snapshot.isParticipant,
+      deletionPending: snapshot.deletionPending,
+    );
+    if (access == ChatAccess.inaccessible) {
+      _knownMessages.clear();
+      throw const ChatAccessDenied();
+    }
+    return access;
+  }
+
+  @override
   Stream<ChatSummary> watchChatSummary(String outingId) {
     late StreamController<ChatSummary> controller;
     StreamSubscription? accessSubscription;
     StreamSubscription? messageSubscription;
     StreamSubscription? readStateSubscription;
-    ChatAccessSnapshot? access;
+    ChatAccess? access;
 
     Future<void> refresh() async {
-      final current = access;
-      if (current == null) return;
-      final decision = accessPolicy.evaluate(
-        status: current.status,
-        isCrewMember: current.isCrewMember,
-        isParticipant: current.isParticipant,
-        deletionPending: current.deletionPending,
-      );
-      if (decision == ChatAccess.inaccessible) {
-        _knownMessages.clear();
-        controller.addError(const ChatAccessDenied());
-        return;
-      }
+      final currentAccess = access;
+      if (currentAccess == null) return;
       try {
         final count = await getUnreadCount(outingId);
         controller.add(
           ChatSummary(
             unreadCount: count,
-            isWritable: decision == ChatAccess.writable,
+            isWritable: currentAccess == ChatAccess.writable,
           ),
         );
       } on ChatFailure catch (failure, stack) {
@@ -219,8 +234,8 @@ class ChatRepositoryImpl implements ChatRepository {
 
     controller = StreamController<ChatSummary>(
       onListen: () {
-        accessSubscription = datasource.watchAccess(outingId).listen((value) {
-          access = value;
+        accessSubscription = watchChatAccess(outingId).listen((currentAccess) {
+          access = currentAccess;
           unawaited(refresh());
         }, onError: controller.addError);
         messageSubscription = watchLatestMessages(

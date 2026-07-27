@@ -43,6 +43,7 @@ class _ChatComposerState extends State<ChatComposer> {
             ),
           ),
           IconButton.filled(
+            key: const Key('chat-composer-send'),
             tooltip: 'Send message',
             onPressed: _valid
                 ? () {

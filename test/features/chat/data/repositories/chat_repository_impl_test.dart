@@ -4,7 +4,9 @@ import 'package:chillgo/features/chat/data/models/chat_read_state_model.dart';
 import 'package:chillgo/features/chat/data/repositories/chat_repository_impl.dart';
 import 'package:chillgo/features/chat/domain/entities/chat_command.dart';
 import 'package:chillgo/features/chat/domain/entities/chat_message_cursor.dart';
+import 'package:chillgo/features/chat/domain/services/chat_access_policy.dart';
 import 'package:chillgo/features/chat/domain/services/chat_clock.dart';
+import 'package:chillgo/features/outings/domain/entities/outing_status.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -199,6 +201,28 @@ void main() {
         () => datasource.unreadCount(outingId: 'outing-1', after: cursor),
       ).thenAnswer((_) async => 2);
       expect(await repository.getUnreadCount('outing-1'), 2);
+    },
+  );
+
+  test(
+    'chat access enables active eligible group messaging directly',
+    () async {
+      when(() => datasource.watchAccess('outing-1')).thenAnswer(
+        (_) => Stream.value(
+          const ChatAccessSnapshot(
+            crewId: 'crew-1',
+            status: OutingStatus.draft,
+            isCrewMember: true,
+            isParticipant: true,
+            deletionPending: false,
+          ),
+        ),
+      );
+
+      expect(
+        await repository.watchChatAccess('outing-1').first,
+        ChatAccess.writable,
+      );
     },
   );
 }

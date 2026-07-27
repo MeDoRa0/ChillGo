@@ -195,8 +195,8 @@ Cursor --cursor expiry/outing removal--> Deleted
 
 ## Query and Index Shapes
 
-- Newest/older history: `outingId == X`, `expiresAt > cutoff`, ordered by `acceptedAt desc`, document ID `desc`, limited to 50.
-- Unread all-authors count: same outing/expiry constraints, starting after the private read cursor.
+- Newest/older history: `outingId == X`, `acceptedAt > trustedNow - 24 hours`, ordered by `acceptedAt desc`, document ID `desc`, limited to 50. Since every trusted message has `expiresAt = acceptedAt + 24 hours`, this is equivalent to `expiresAt > trustedNow` while satisfying Firestore's inequality-ordering constraint.
+- Unread all-authors count: same outing/retention constraints, starting after the private read cursor.
 - Unread own-author count: same query plus `authorUserId == currentUserId`; subtract from all-authors count.
 - Cleanup: `expiresAt <= now` for messages, terminal `deleteAt <= now` or abandoned `createdAt <= now - 24 hours` for commands, `cursorExpiresAt <= now` for read state, `purgeAfter <= now` for rate buckets, and `requestedAt <= now - 10 minutes` for time probes.
 - Outing removal: indexed `outingId == X` ownership queries across all four chat collections.

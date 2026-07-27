@@ -39,12 +39,18 @@ class FirestoreChatDatasource {
 
   String newDocumentId() => firestore.collection('chat_commands').doc().id;
 
+  DateTime get _retentionCutoff =>
+      clock.now.subtract(const Duration(hours: 24));
+
   Query<Map<String, dynamic>> _historyQuery(String outingId, int limit) {
     if (limit < 1 || limit > 50) throw RangeError.range(limit, 1, 50, 'limit');
     return firestore
         .collection('chat_messages')
         .where('outingId', isEqualTo: outingId)
-        .where('expiresAt', isGreaterThan: writeFirestoreTimestamp(clock.now))
+        .where(
+          'acceptedAt',
+          isGreaterThan: writeFirestoreTimestamp(_retentionCutoff),
+        )
         .orderBy('acceptedAt', descending: true)
         .orderBy(FieldPath.documentId, descending: true)
         .limit(limit);
@@ -116,16 +122,19 @@ class FirestoreChatDatasource {
   Stream<ChatReadStateModel?> watchMyReadState(String outingId) {
     final uid = currentUid();
     if (uid.isEmpty) return Stream.error(const ChatAuthenticationFailure());
-    return firestore
-        .collection('chat_read_states')
-        .doc('${outingId}_$uid')
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.exists
-              ? ChatReadStateModel.fromMap(snapshot.data()!)
-              : null,
-        );
+    return _myReadStateQuery(outingId, uid).snapshots().map(
+      (snapshot) => snapshot.docs.isNotEmpty
+          ? ChatReadStateModel.fromMap(snapshot.docs.single.data())
+          : null,
+    );
   }
+
+  Query<Map<String, dynamic>> _myReadStateQuery(String outingId, String uid) =>
+      firestore
+          .collection('chat_read_states')
+          .where('outingId', isEqualTo: outingId)
+          .where('userId', isEqualTo: uid)
+          .limit(1);
 
   Future<void> markReadThrough({
     required String outingId,
@@ -137,22 +146,44 @@ class FirestoreChatDatasource {
     final ref = firestore
         .collection('chat_read_states')
         .doc('${outingId}_$uid');
-    await firestore.runTransaction((transaction) async {
-      final existing = await transaction.get(ref);
-      if (existing.exists) {
-        final current = ChatReadStateModel.fromMap(existing.data()!);
-        if (!message.cursor.isAfter(current.cursor)) return;
-      }
-      transaction.set(ref, {
-        'outingId': outingId,
-        'crewId': crewId,
-        'userId': uid,
-        'readThroughAcceptedAt': writeFirestoreTimestamp(message.acceptedAt),
-        'readThroughMessageId': message.id,
-        'cursorExpiresAt': writeFirestoreTimestamp(message.expiresAt),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-    });
+    try {
+      // A direct set lets Rules atomically distinguish the initial create from
+      // a monotonic update without first reading a document that may not exist.
+      await ref.set(_readStatePayload(outingId, crewId, uid, message));
+    } on FirebaseException catch (error) {
+      if (error.code != 'permission-denied') rethrow;
+      if (!await _isReadAlreadyAdvanced(outingId, uid, message.cursor)) rethrow;
+      // Another session already advanced this private cursor as far or farther.
+    }
+  }
+
+  Map<String, dynamic> _readStatePayload(
+    String outingId,
+    String crewId,
+    String uid,
+    ChatMessageModel message,
+  ) => {
+    'outingId': outingId,
+    'crewId': crewId,
+    'userId': uid,
+    'readThroughAcceptedAt': writeFirestoreTimestamp(message.acceptedAt),
+    'readThroughMessageId': message.id,
+    'cursorExpiresAt': writeFirestoreTimestamp(message.expiresAt),
+    'updatedAt': FieldValue.serverTimestamp(),
+  };
+
+  Future<bool> _isReadAlreadyAdvanced(
+    String outingId,
+    String uid,
+    ChatMessageCursor requestedCursor,
+  ) async {
+    final snapshot = await _myReadStateQuery(
+      outingId,
+      uid,
+    ).get(const GetOptions(source: Source.server));
+    if (snapshot.docs.isEmpty) return false;
+    final storedState = ChatReadStateModel.fromMap(snapshot.docs.single.data());
+    return !requestedCursor.isAfter(storedState.cursor);
   }
 
   Future<int> unreadCount({
@@ -161,14 +192,18 @@ class FirestoreChatDatasource {
   }) async {
     final uid = currentUid();
     if (uid.isEmpty) throw const ChatAuthenticationFailure();
-    Query<Map<String, dynamic>> base = firestore
+    final cutoff = _retentionCutoff;
+    final effectiveAfter = after != null && after.acceptedAt.isAfter(cutoff)
+        ? after
+        : null;
+    final base = firestore
         .collection('chat_messages')
-        .where('outingId', isEqualTo: outingId)
-        .where('expiresAt', isGreaterThan: writeFirestoreTimestamp(clock.now));
-    final all = await _countAfter(base, after);
+        .where('outingId', isEqualTo: outingId);
+    final all = await _countAfter(base, effectiveAfter, cutoff);
     final own = await _countAfter(
       base.where('authorUserId', isEqualTo: uid),
-      after,
+      effectiveAfter,
+      cutoff,
     );
     return (all - own).clamp(0, 5000);
   }
@@ -176,8 +211,28 @@ class FirestoreChatDatasource {
   Future<int> _countAfter(
     Query<Map<String, dynamic>> base,
     ChatMessageCursor? after,
+    DateTime cutoff,
   ) async {
-    if (after == null) return (await base.limit(5000).count().get()).count ?? 0;
+    if (after == null) return _countSince(base, cutoff);
+    return _countAfterCursor(base, after);
+  }
+
+  Future<int> _countSince(
+    Query<Map<String, dynamic>> base,
+    DateTime cutoff,
+  ) async {
+    final available = await base
+        .where('acceptedAt', isGreaterThan: writeFirestoreTimestamp(cutoff))
+        .limit(5000)
+        .count()
+        .get();
+    return available.count ?? 0;
+  }
+
+  Future<int> _countAfterCursor(
+    Query<Map<String, dynamic>> base,
+    ChatMessageCursor after,
+  ) async {
     final timestamp = writeFirestoreTimestamp(after.acceptedAt);
     final later = await base
         .where('acceptedAt', isGreaterThan: timestamp)

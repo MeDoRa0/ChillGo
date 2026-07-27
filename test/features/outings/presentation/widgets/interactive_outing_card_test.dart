@@ -43,30 +43,55 @@ void main() {
       isCreatorParticipant: false,
       attendanceStatus: AttendanceStatus.declined,
     );
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: InteractiveOutingCard(
-            outing: outing,
-            outingRepository: FakeOutingRepository(
-              detail: OutingDetail(outing: outing, participants: [participant]),
+    final router = GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (_, _) => Scaffold(
+            body: InteractiveOutingCard(
+              outing: outing,
+              outingRepository: FakeOutingRepository(
+                detail: OutingDetail(
+                  outing: outing,
+                  participants: [participant],
+                ),
+              ),
+              currentUserId: 'user-2',
             ),
-            currentUserId: 'user-2',
           ),
         ),
-      ),
+        GoRoute(
+          path: '/outings/:outingId/chat',
+          builder: (_, _) => Scaffold(
+            appBar: AppBar(leading: const BackButton()),
+            body: const Text('Chat route'),
+          ),
+        ),
+      ],
     );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(ValueKey('outing-card-${outing.id}')));
+    addTearDown(router.dispose);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('outing-chat-entry')), findsOneWidget);
-    expect(find.text('Outing chat'), findsOneWidget);
+    expect(find.byTooltip('Outing chat'), findsOneWidget);
+    expect(
+      find.ancestor(
+        of: find.byKey(const Key('outing-chat-entry')),
+        matching: find.byType(Hero),
+      ),
+      findsNothing,
+    );
     chatRepository.summaries.add(
       const ChatSummary(unreadCount: 3, isWritable: false),
     );
     await tester.pumpAndSettle();
     expect(find.text('3'), findsOneWidget);
-    expect(find.text('Read-only history'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('outing-chat-entry')));
+    await tester.pumpAndSettle();
+    expect(find.text('Chat route'), findsOneWidget);
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(find.byKey(ValueKey('outing-card-${outing.id}')), findsOneWidget);
   });
 
   testWidgets('creator sees only cancel and change actions', (tester) async {

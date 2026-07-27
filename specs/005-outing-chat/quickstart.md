@@ -158,4 +158,14 @@ Usability execution also requires explicit user permission. Recruit at least 20 
 - Run focused/full Flutter, Functions, Rules, and integrated emulator suites before deployment.
 - Monitor cleanup failures, command terminal latency, rate-limit rejection rate, and permission denials without logging message text.
 
-**Deployment status (2026-07-22): not started.** Emulator validation is complete, but no production project, Rules, Functions, scheduler, index, or TTL state was changed by this implementation run.
+**Deployment status (2026-07-26): core chat backend deployed to
+`chillgo-61439`.** Firestore Security Rules, the four required composite indexes,
+all four chat TTL field policies, `chatCommandCreated`, and
+`chatCleanupScheduled` are deployed and verified. The unrelated
+`agreementCommandCreated` trigger was not included in the final chat-only retry,
+so the updated chat-aware outing-deletion cascade still requires a separate
+authorized deployment. A signed-in production-device send/receive smoke test
+remains a manual gate. A signed-in Android production smoke check confirmed
+that the chat opens, shows the empty-conversation state, accepts text, and
+enables the send action after the corrected query indexes reached `READY`;
+no group-visible message was sent during validation.

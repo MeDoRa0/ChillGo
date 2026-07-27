@@ -1102,6 +1102,7 @@ describe('Firebase Security Rules', () => {
 
       const bounded = bob.collection('chat_messages')
         .where('outingId', '==', 'outing-chat')
+        .where('acceptedAt', '>', new Date(now - 24 * 60 * 60 * 1000))
         .orderBy('acceptedAt', 'desc')
         .orderBy(firebase.firestore.FieldPath.documentId(), 'desc')
         .limit(50);
@@ -1230,6 +1231,27 @@ describe('Firebase Security Rules', () => {
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       }));
       await testing.assertFails(ref.update({userId: 'bob'}));
+    });
+
+    it('allows an eligible user to query an initially empty private read cursor', async () => {
+      await seedChat();
+      const alice = testEnv.authenticatedContext('alice').firestore();
+      const bob = testEnv.authenticatedContext('bob').firestore();
+      const scoped = alice.collection('chat_read_states')
+        .where('outingId', '==', 'outing-chat')
+        .where('userId', '==', 'alice')
+        .limit(1);
+
+      const empty = await testing.assertSucceeds(scoped.get());
+      if (!empty.empty) throw new Error('Expected no read cursor on first open');
+      await testing.assertFails(alice.collection('chat_read_states').get());
+      await testing.assertFails(
+        bob.collection('chat_read_states')
+          .where('outingId', '==', 'outing-chat')
+          .where('userId', '==', 'alice')
+          .limit(1)
+          .get(),
+      );
     });
   });
 });

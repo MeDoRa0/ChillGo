@@ -1,6 +1,6 @@
 import 'package:chillgo/features/chat/domain/entities/chat_command.dart';
 import 'package:chillgo/features/chat/domain/entities/chat_page.dart';
-import 'package:chillgo/features/chat/domain/entities/chat_read_state.dart';
+import 'package:chillgo/features/chat/domain/services/chat_access_policy.dart';
 import 'package:chillgo/features/chat/presentation/cubit/outing_chat/outing_chat_cubit.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -20,9 +20,7 @@ void main() {
   test('loads and merges realtime messages in stable order', () async {
     await cubit.watch('outing-1');
     expect(cubit.state.status, OutingChatStatus.loading);
-    repository.summaries.add(
-      const ChatSummary(unreadCount: 0, isWritable: true),
-    );
+    repository.access.add(ChatAccess.writable);
     repository.latest.add(
       ChatPage(
         messages: [
@@ -43,9 +41,7 @@ void main() {
 
   test('exposes sending, failed, and stable manual retry states', () async {
     await cubit.watch('outing-1');
-    repository.summaries.add(
-      const ChatSummary(unreadCount: 0, isWritable: true),
-    );
+    repository.access.add(ChatAccess.writable);
     await Future<void>.delayed(Duration.zero);
     await cubit.send('hello');
     expect(cubit.state.attempts.single.status, ChatSendAttemptStatus.sending);
@@ -68,9 +64,7 @@ void main() {
 
   test('preserves safe rate-limit retry time', () async {
     await cubit.watch('outing-1');
-    repository.summaries.add(
-      const ChatSummary(unreadCount: 0, isWritable: true),
-    );
+    repository.access.add(ChatAccess.writable);
     await Future<void>.delayed(Duration.zero);
     await cubit.send('hello');
     final commandId = cubit.state.attempts.single.commandId!;
@@ -104,22 +98,69 @@ void main() {
     repository.latest.add(
       ChatPage(messages: [buildChatMessage(id: 'stale')], hasMore: false),
     );
-    repository.summaries.add(
-      const ChatSummary(unreadCount: 1, isWritable: true),
-    );
+    repository.access.add(ChatAccess.writable);
     await Future<void>.delayed(Duration.zero);
     expect(cubit.state.status, OutingChatStatus.unavailable);
     expect(cubit.state.messages, isEmpty);
     expect(cubit.state.isWritable, isFalse);
   });
 
+  test(
+    'recovers when a temporary listener error is followed by data',
+    () async {
+      await cubit.watch('outing-1');
+      repository.latest.addError(const ChatNetworkFailure());
+      await Future<void>.delayed(Duration.zero);
+      expect(cubit.state.status, OutingChatStatus.unavailable);
+      expect(cubit.state.failure, isA<ChatNetworkFailure>());
+
+      repository.latest.add(
+        ChatPage(messages: [buildChatMessage()], hasMore: false),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(cubit.state.status, OutingChatStatus.ready);
+      expect(cubit.state.messages.single.id, 'message-1');
+      expect(cubit.state.failure, isNull);
+    },
+  );
+
+  test('keeps a loaded empty chat usable across a temporary error', () async {
+    await cubit.watch('outing-1');
+    repository.latest.add(ChatPage.empty());
+    repository.access.add(ChatAccess.writable);
+    await Future<void>.delayed(Duration.zero);
+    expect(cubit.state.status, OutingChatStatus.ready);
+
+    repository.access.addError(const ChatNetworkFailure());
+    await Future<void>.delayed(Duration.zero);
+    expect(cubit.state.status, OutingChatStatus.ready);
+    expect(cubit.state.failure, isA<ChatNetworkFailure>());
+
+    repository.access.add(ChatAccess.writable);
+    await Future<void>.delayed(Duration.zero);
+    expect(cubit.state.status, OutingChatStatus.ready);
+    expect(cubit.state.failure, isNull);
+  });
+
+  test('enables group messaging without waiting for unread summary', () async {
+    await cubit.watch('outing-1');
+    repository.summaries.addError(const ChatServiceFailure());
+    repository.access.add(ChatAccess.writable);
+    repository.latest.add(ChatPage.empty());
+
+    await Future<void>.delayed(Duration.zero);
+
+    expect(cubit.state.status, OutingChatStatus.ready);
+    expect(cubit.state.isWritable, isTrue);
+    await cubit.send('Group message');
+    expect(repository.sent.single.text, 'Group message');
+  });
+
   test('progressively loads older history and records exhaustion', () async {
     await cubit.watch('outing-1');
     repository.latest.add(
-      ChatPage(
-        messages: [buildChatMessage(id: 'newest')],
-        hasMore: true,
-      ),
+      ChatPage(messages: [buildChatMessage(id: 'newest')], hasMore: true),
     );
     await Future<void>.delayed(Duration.zero);
     repository.older = ChatPage(
@@ -142,32 +183,35 @@ void main() {
     expect(cubit.state.loadingOlder, isFalse);
   });
 
-  test('exposes a new-message affordance without dropping older history', () async {
-    await cubit.watch('outing-1');
-    repository.latest.add(
-      ChatPage(messages: [buildChatMessage(id: 'first')], hasMore: false),
-    );
-    await Future<void>.delayed(Duration.zero);
-    repository.latest.add(
-      ChatPage(
-        messages: [
-          buildChatMessage(id: 'first'),
-          buildChatMessage(
-            id: 'second',
-            acceptedAt: chatTestNow.add(const Duration(seconds: 1)),
-          ),
-        ],
-        hasMore: false,
-      ),
-    );
-    await Future<void>.delayed(Duration.zero);
+  test(
+    'exposes a new-message affordance without dropping older history',
+    () async {
+      await cubit.watch('outing-1');
+      repository.latest.add(
+        ChatPage(messages: [buildChatMessage(id: 'first')], hasMore: false),
+      );
+      await Future<void>.delayed(Duration.zero);
+      repository.latest.add(
+        ChatPage(
+          messages: [
+            buildChatMessage(id: 'first'),
+            buildChatMessage(
+              id: 'second',
+              acceptedAt: chatTestNow.add(const Duration(seconds: 1)),
+            ),
+          ],
+          hasMore: false,
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
 
-    expect(cubit.state.showNewMessages, isTrue);
-    expect(cubit.state.messages.map((message) => message.id), [
-      'first',
-      'second',
-    ]);
-  });
+      expect(cubit.state.showNewMessages, isTrue);
+      expect(cubit.state.messages.map((message) => message.id), [
+        'first',
+        'second',
+      ]);
+    },
+  );
 
   test(
     'identifies first unread and marks only through the newest message',
@@ -191,6 +235,8 @@ void main() {
       await cubit.markThroughNewest();
       expect(repository.marked.single.cursor.messageId, 'newest');
       expect(cubit.state.firstUnreadMessageId, isNull);
+      await cubit.markThroughNewest();
+      expect(repository.marked, hasLength(1));
     },
   );
 }

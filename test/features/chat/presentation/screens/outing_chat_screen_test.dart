@@ -4,12 +4,20 @@ import 'package:chillgo/features/chat/presentation/screens/outing_chat_screen.da
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../chat_test_helpers.dart';
 
 class TestOutingChatCubit extends OutingChatCubit {
   TestOutingChatCubit() : super(repository: FakeChatRepository());
+  String? watchedOutingId;
+
   void setState(OutingChatState next) => emit(next);
+
+  @override
+  Future<void> watch(String outingId) async {
+    watchedOutingId = outingId;
+  }
 }
 
 Future<TestOutingChatCubit> pumpChat(
@@ -51,7 +59,48 @@ void main() {
     );
     await tester.pump();
     expect(find.text('5/2000'), findsOneWidget);
+    expect(
+      tester
+          .widget<IconButton>(find.byKey(const Key('chat-composer-send')))
+          .onPressed,
+      isNotNull,
+    );
     await cubit.close();
+  });
+
+  testWidgets('always shows a back action with a safe route fallback', (
+    tester,
+  ) async {
+    final cubit = TestOutingChatCubit()
+      ..setState(
+        const OutingChatState(status: OutingChatStatus.ready, isWritable: true),
+      );
+    final router = GoRouter(
+      initialLocation: '/chat',
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (_, _) => const Scaffold(body: Text('Home')),
+        ),
+        GoRoute(
+          path: '/chat',
+          builder: (_, _) => BlocProvider<OutingChatCubit>.value(
+            value: cubit,
+            child: const OutingChatScreen(outingId: 'outing-1'),
+          ),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    addTearDown(cubit.close);
+
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Back'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+    expect(find.text('Home'), findsOneWidget);
   });
 
   testWidgets('renders immutable attribution and a failed retry affordance', (
@@ -100,6 +149,29 @@ void main() {
     await tester.pump();
     expect(find.text('Hello'), findsNothing);
     expect(find.text('This chat is unavailable.'), findsOneWidget);
+    expect(find.text('Retry'), findsNothing);
+    await cubit.close();
+  });
+
+  testWidgets('offers an in-place retry for temporary failures', (
+    tester,
+  ) async {
+    final cubit = await pumpChat(
+      tester,
+      const OutingChatState(
+        status: OutingChatStatus.unavailable,
+        failure: ChatNetworkFailure(),
+      ),
+    );
+
+    expect(
+      find.text('Connection failed. Nothing was queued; retry manually.'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Retry'));
+    await tester.pump();
+
+    expect(cubit.watchedOutingId, 'outing-1');
     await cubit.close();
   });
 
@@ -115,7 +187,9 @@ void main() {
     );
     expect(find.text('😀 مرحبا\nhttps://example.com'), findsOneWidget);
     expect(
-      find.text('This outing is finished. Available chat history is read-only.'),
+      find.text(
+        'This outing is finished. Available chat history is read-only.',
+      ),
       findsOneWidget,
     );
     await cubit.close();
@@ -184,10 +258,92 @@ void main() {
       OutingChatState(status: OutingChatStatus.ready, messages: messages),
     );
     await tester.pumpAndSettle();
-    list = tester.widget<ListView>(
+    list = tester.widget<ListView>(find.byKey(const Key('chat-history-list')));
+    expect(list.controller!.position.extentAfter, lessThanOrEqualTo(1));
+    await newestCubit.close();
+  });
+
+  testWidgets('follows realtime messages while the reader is at newest', (
+    tester,
+  ) async {
+    final messages = List.generate(
+      30,
+      (index) => buildChatMessage(
+        id: 'live-$index',
+        acceptedAt: chatTestNow.add(Duration(seconds: index)),
+        text: 'Message $index with enough text to occupy a visible row',
+      ),
+    );
+    final cubit = await pumpChat(
+      tester,
+      OutingChatState(status: OutingChatStatus.ready, messages: messages),
+    );
+    await tester.pumpAndSettle();
+    final list = tester.widget<ListView>(
       find.byKey(const Key('chat-history-list')),
     );
     expect(list.controller!.position.extentAfter, lessThanOrEqualTo(1));
-    await newestCubit.close();
+
+    cubit.setState(
+      OutingChatState(
+        status: OutingChatStatus.ready,
+        messages: [
+          ...messages,
+          buildChatMessage(
+            id: 'live-new',
+            acceptedAt: chatTestNow.add(const Duration(seconds: 30)),
+            text: 'Realtime message',
+          ),
+        ],
+        showNewMessages: true,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(list.controller!.position.extentAfter, lessThanOrEqualTo(1));
+    await cubit.close();
+  });
+
+  testWidgets('follows a newly sent message even after scrolling up', (
+    tester,
+  ) async {
+    final messages = List.generate(
+      30,
+      (index) => buildChatMessage(
+        id: 'sent-$index',
+        acceptedAt: chatTestNow.add(Duration(seconds: index)),
+        text: 'Message $index with enough text to occupy a visible row',
+      ),
+    );
+    final cubit = await pumpChat(
+      tester,
+      OutingChatState(status: OutingChatStatus.ready, messages: messages),
+    );
+    await tester.pumpAndSettle();
+    final list = tester.widget<ListView>(
+      find.byKey(const Key('chat-history-list')),
+    );
+    list.controller!.jumpTo(0);
+    await tester.pump();
+    expect(list.controller!.position.extentAfter, greaterThan(0));
+
+    cubit.setState(
+      OutingChatState(
+        status: OutingChatStatus.ready,
+        messages: messages,
+        attempts: const [
+          ChatSendAttempt(
+            clientMessageId: 'client-new',
+            text: 'My new message',
+            status: ChatSendAttemptStatus.sending,
+          ),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(list.controller!.position.extentAfter, lessThanOrEqualTo(1));
+    expect(find.text('My new message'), findsOneWidget);
+    await cubit.close();
   });
 }
