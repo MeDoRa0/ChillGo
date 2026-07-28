@@ -6,9 +6,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/presentation/widgets/app_back_button.dart';
+import '../../../live_meetup/domain/services/map_provider.dart';
 import '../../domain/entities/outing.dart';
 import '../../domain/repositories/outing_repository.dart';
 import '../cubit/outing_form/outing_form_cubit.dart';
+import '../widgets/outing_location_picker.dart';
 
 class OutingFormScreen extends StatefulWidget {
   final String crewId;
@@ -124,6 +126,12 @@ class _OutingFormScreenState extends State<OutingFormScreen> {
                       return null;
                     },
                   ),
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    onPressed: isEditable ? _chooseLocationOnMap : null,
+                    icon: const Icon(Icons.map_outlined),
+                    label: const Text('Choose on map'),
+                  ),
                   const SizedBox(height: 24),
                   const _QuestionLabel('When do you want to go out?'),
                   const SizedBox(height: 10),
@@ -210,6 +218,15 @@ class _OutingFormScreenState extends State<OutingFormScreen> {
         locationText: locationText,
       );
     }
+  }
+
+  Future<void> _chooseLocationOnMap() async {
+    final location = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => OutingLocationPicker(mapProvider: sl<MapProvider>()),
+      ),
+    );
+    if (location != null && mounted) _locationController.text = location;
   }
 
   void _loadExistingOuting() {

@@ -10,6 +10,9 @@ import 'core/di/injection_container.dart' as di;
 import 'core/routes/app_router.dart';
 import 'core/error/global_error_handler.dart';
 import 'features/authentication/presentation/blocs/auth/auth_bloc.dart';
+import 'features/authentication/domain/repositories/auth_repository.dart';
+import 'features/live_meetup/data/services/live_location_sharing_coordinator.dart';
+import 'dart:async';
 
 const _useFirebaseEmulators = bool.fromEnvironment('USE_FIREBASE_EMULATORS');
 
@@ -55,8 +58,32 @@ Future<void> _connectFirebaseEmulators() async {
   await FirebaseStorage.instance.useStorageEmulator(host, 9199);
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  StreamSubscription<AuthStatus>? _authSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    final coordinator = di.sl<LiveLocationSharingCoordinator>();
+    _authSubscription = di.sl<AuthRepository>().status.listen((status) {
+      if (status == AuthStatus.unauthenticated) {
+        unawaited(coordinator.clearLocalSessions());
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    unawaited(_authSubscription?.cancel());
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

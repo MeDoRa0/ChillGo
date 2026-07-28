@@ -58,6 +58,13 @@ void main() {
     expect(paths, contains('/outings/:outingId/chat'));
   });
 
+  test('AppRouter exposes the protected Live Meetup route', () {
+    final paths = appRouter.configuration.routes.whereType<GoRoute>().map(
+      (route) => route.path,
+    );
+    expect(paths, contains('/outings/:outingId/live-meetup'));
+  });
+
   group('AppRouter Redirect Logic', () {
     late MockBuildContext mockContext;
     late MockGoRouterState mockState;

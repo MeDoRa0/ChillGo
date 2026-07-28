@@ -1,6 +1,6 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan
-at specs/005-outing-chat/plan.md
+at specs/006-live-meetup/plan.md
 <!-- SPECKIT END -->
 

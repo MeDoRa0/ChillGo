@@ -45,7 +45,7 @@ class Outing {
       !scheduledAt.add(outingCleanupDelay).isAfter(now);
 
   bool isCurrentCrewPlanAt(DateTime now) =>
-      !status.isHistorical && !isOutdatedAt(now);
+      !status.isHistorical && !isCleanupEligibleAt(now);
 
   Map<String, dynamic> toMap() {
     return {

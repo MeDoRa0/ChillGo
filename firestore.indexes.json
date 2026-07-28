@@ -35,6 +35,31 @@
         {"fieldPath": "status", "order": "ASCENDING"},
         {"fieldPath": "createdAt", "order": "ASCENDING"}
       ]
+    },
+    {
+      "collectionGroup": "live_meetup_statuses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "outingId", "order": "ASCENDING"},
+        {"fieldPath": "acceptedAt", "order": "ASCENDING"},
+        {"fieldPath": "__name__", "order": "ASCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "live_locations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "outingId", "order": "ASCENDING"},
+        {"fieldPath": "expiresAt", "order": "ASCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "live_meetup_transitions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "status", "order": "ASCENDING"},
+        {"fieldPath": "leaseExpiresAt", "order": "ASCENDING"}
+      ]
     }
   ],
   "fieldOverrides": [
@@ -68,6 +93,33 @@
     {
       "collectionGroup": "chat_rate_limits",
       "fieldPath": "purgeAfter",
+      "ttl": true,
+      "indexes": [
+        {"order": "ASCENDING", "queryScope": "COLLECTION"},
+        {"order": "DESCENDING", "queryScope": "COLLECTION"}
+      ]
+    },
+    {
+      "collectionGroup": "live_locations",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": [
+        {"order": "ASCENDING", "queryScope": "COLLECTION"},
+        {"order": "DESCENDING", "queryScope": "COLLECTION"}
+      ]
+    },
+    {
+      "collectionGroup": "live_meetup_commands",
+      "fieldPath": "purgeAt",
+      "ttl": true,
+      "indexes": [
+        {"order": "ASCENDING", "queryScope": "COLLECTION"},
+        {"order": "DESCENDING", "queryScope": "COLLECTION"}
+      ]
+    },
+    {
+      "collectionGroup": "live_meetup_transitions",
+      "fieldPath": "purgeAt",
       "ttl": true,
       "indexes": [
         {"order": "ASCENDING", "queryScope": "COLLECTION"},

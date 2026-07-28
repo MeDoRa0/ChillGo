@@ -255,13 +255,28 @@ class FirestoreOutingsDatasource {
   }
 
   Future<bool> _participantExists(String outingId, String userId) async {
-    final snapshot = await participants
-        .where('outingId', isEqualTo: outingId)
-        .where('userId', isEqualTo: userId)
-        .limit(1)
-        .get();
-    return snapshot.docs.isNotEmpty;
+    return (await _participantSnapshots(outingId, userId)).docs.isNotEmpty;
   }
+
+  Future<AttendanceStatus?> participantAttendance(
+    String outingId,
+    String userId,
+  ) async {
+    final snapshots = await _participantSnapshots(outingId, userId);
+    if (snapshots.docs.isEmpty) return null;
+    return AttendanceStatus.fromValue(
+      snapshots.docs.single.data()['attendanceStatus'] as String,
+    );
+  }
+
+  Future<QuerySnapshot<Map<String, dynamic>>> _participantSnapshots(
+    String outingId,
+    String userId,
+  ) => participants
+      .where('outingId', isEqualTo: outingId)
+      .where('userId', isEqualTo: userId)
+      .limit(1)
+      .get();
 
   Future<void> changeLifecycleStatus({
     required String outingId,

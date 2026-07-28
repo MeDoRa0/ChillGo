@@ -6,9 +6,11 @@ import '../../../../core/di/injection_container.dart';
 import '../../../chat/domain/repositories/chat_repository.dart';
 import '../../../chat/presentation/cubit/chat_summary/chat_summary_cubit.dart';
 import '../../../chat/presentation/widgets/chat_unread_badge.dart';
+import '../../../live_meetup/domain/repositories/live_meetup_repository.dart';
 import '../../../voting/domain/repositories/agreement_repository.dart';
 import '../../domain/entities/attendance_status.dart';
 import '../../domain/entities/outing.dart';
+import '../../domain/entities/outing_status.dart';
 import '../../domain/entities/outing_participant.dart';
 import '../../domain/repositories/outing_repository.dart';
 
@@ -45,15 +47,24 @@ class InteractiveOutingCard extends StatelessWidget {
           (participant) => participant.userId == currentUserId,
         ) &&
         sl.isRegistered<ChatRepository>();
+    final canOpenLiveMeetup =
+        outing.status == OutingStatus.meeting &&
+        participants.any(
+          (participant) =>
+              participant.userId == currentUserId &&
+              participant.attendanceStatus == AttendanceStatus.accepted,
+        ) &&
+        sl.isRegistered<LiveMeetupRepository>();
     return Stack(
       children: [
         _outingHero(
           context,
           detail,
           participants,
-          canOpenChat ? const SizedBox(width: 48) : null,
+          canOpenChat || canOpenLiveMeetup ? const SizedBox(width: 96) : null,
         ),
         if (canOpenChat) _chatButton(context),
+        if (canOpenLiveMeetup) _liveMeetupButton(context),
       ],
     );
   }
@@ -87,6 +98,19 @@ class InteractiveOutingCard extends StatelessWidget {
     child: _CardChatButton(
       outingId: outing.id,
       onPressed: () => GoRouter.of(context).push('/outings/${outing.id}/chat'),
+    ),
+  );
+
+  Widget _liveMeetupButton(BuildContext context) => Positioned(
+    top: 6,
+    right: 84,
+    child: IconButton(
+      key: const Key('live-meetup-entry'),
+      tooltip: 'Live Meetup',
+      onPressed: () =>
+          GoRouter.of(context).push('/outings/${outing.id}/live-meetup'),
+      icon: const Icon(Icons.location_on_outlined),
+      color: const Color(0xFF48E0A4),
     ),
   );
 

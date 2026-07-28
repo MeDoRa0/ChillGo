@@ -10,6 +10,10 @@ export const OUTING_OWNED_COLLECTIONS=[
  "chat_messages",
  "chat_read_states",
  "chat_rate_limits",
+ "live_meetup_statuses",
+ "live_meetup_shares",
+ "live_locations",
+ "meetup_points",
 ];
 export const OUTING_DELETION_SWEEP_PASSES=2;
 const CLEANUP_DELAY_MILLIS=12*60*60*1000;
@@ -48,9 +52,11 @@ export class OutingDeletionService {
  private async deleteOutingRecords(outingId:string,commandId?:string):Promise<void>{
   await this.terminateAgreementCommands(outingId,commandId);
   await this.terminateChatCommands(outingId);
+  await this.terminateLiveMeetupWork(outingId);
   await this.deleteOwnedRecords(outingId);
   await this.db.collection("outings").doc(outingId).delete();
   await this.terminateChatCommands(outingId);
+  await this.terminateLiveMeetupWork(outingId);
   await this.deleteOwnedRecords(outingId);
  }
 
@@ -80,5 +86,43 @@ export class OutingDeletionService {
    else writer.delete(doc.ref);
   }
   await writer.close();
+ }
+
+ async deleteAlreadyPending(outingId:string):Promise<void>{
+  const snapshot=await this.db.collection("outings").doc(outingId).get();
+  if(!snapshot.exists)return;
+  await this.db.collection("outings").doc(outingId).set({
+   deletionPending:true,
+   liveMeetupCleanupPending:true,
+   updatedAt:FieldValue.serverTimestamp(),
+  },{merge:true});
+  await this.deleteOutingRecords(outingId);
+ }
+
+ private async terminateLiveMeetupWork(outingId:string):Promise<void>{
+  for(const collection of ["live_meetup_commands","live_meetup_transitions"]){
+   const snapshot=await this.db.collection(collection).where("outingId","==",outingId).get();
+   const writer=this.db.bulkWriter();
+   for(const doc of snapshot.docs){
+    if(["pending","processing"].includes(doc.data().status)){
+     writer.update(doc.ref,{
+      status:"failed",
+      errorCode:"not_found",
+      errorMessage:FieldValue.delete(),
+      payload:FieldValue.delete(),
+      processingEventId:FieldValue.delete(),
+      phase:FieldValue.delete(),
+      cursor:FieldValue.delete(),
+      leaseExpiresAt:FieldValue.delete(),
+      targetUserId:FieldValue.delete(),
+      targetOutingStatus:FieldValue.delete(),
+      targetAttendanceStatus:FieldValue.delete(),
+      processedAt:FieldValue.serverTimestamp(),
+      purgeAt:Timestamp.fromMillis(Date.now()+10*60*1000),
+     });
+    }else writer.delete(doc.ref);
+   }
+   await writer.close();
+  }
  }
 }

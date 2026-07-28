@@ -40,7 +40,7 @@ void main() {
       expect(updated.id, outing.id);
     });
 
-    test('identifies outdated and current crew-plan boundaries', () {
+    test('keeps an outing current through its cleanup boundary', () {
       final now = DateTime.utc(2030, 1, 1, 10);
       final outing = Outing.fromMap({
         'crewId': 'crew-1',
@@ -61,11 +61,17 @@ void main() {
       );
 
       expect(outdatedOuting.isOutdatedAt(now), isTrue);
-      expect(outdatedOuting.isCurrentCrewPlanAt(now), isFalse);
+      expect(outdatedOuting.isCurrentCrewPlanAt(now), isTrue);
       expect(outing.isOutdatedAt(now), isFalse);
       expect(outing.isCurrentCrewPlanAt(now), isTrue);
       expect(futureOuting.isOutdatedAt(now), isFalse);
       expect(futureOuting.isCurrentCrewPlanAt(now), isTrue);
+      expect(
+        outing
+            .copyWith(scheduledAt: now.subtract(outingCleanupDelay))
+            .isCurrentCrewPlanAt(now),
+        isFalse,
+      );
       expect(
         outing
             .copyWith(status: OutingStatus.completed)

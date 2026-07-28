@@ -69,7 +69,7 @@ class OutingsListCubit extends Cubit<OutingsListState> {
     }
     emit(
       OutingsListLoaded(
-        outings.where((outing) => !outing.isOutdatedAt(now)).toList(),
+        outings.where((outing) => outing.isCurrentCrewPlanAt(now)).toList(),
       ),
     );
   }

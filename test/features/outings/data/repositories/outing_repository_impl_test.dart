@@ -8,15 +8,21 @@ import 'package:chillgo/features/outings/data/datasources/firestore_outings_data
 import 'package:chillgo/features/outings/data/repositories/outing_repository_impl.dart';
 import 'package:chillgo/features/outings/domain/entities/outing_status.dart';
 import 'package:chillgo/features/outings/domain/entities/attendance_status.dart';
+import 'package:chillgo/features/live_meetup/domain/services/live_meetup_transition_service.dart';
+import 'package:chillgo/features/live_meetup/domain/repositories/live_meetup_repository.dart';
 
 import '../../outing_repository_fake.dart';
 
 class MockFirestoreOutingsDatasource extends Mock
     implements FirestoreOutingsDatasource {}
 
+class MockTransitionService extends Mock
+    implements LiveMeetupTransitionService {}
+
 void main() {
   late MockFirestoreOutingsDatasource datasource;
   late OutingRepositoryImpl repository;
+  late MockTransitionService transitionService;
 
   setUpAll(() {
     registerFallbackValue(OutingStatus.draft);
@@ -25,9 +31,24 @@ void main() {
 
   setUp(() {
     datasource = MockFirestoreOutingsDatasource();
+    transitionService = MockTransitionService();
+    const result = LiveMeetupTransitionResult(
+      transitionId: 'transition',
+      status: LiveMeetupTransitionStatus.succeeded,
+    );
+    when(
+      () => transitionService.endOuting(any(), any()),
+    ).thenAnswer((_) async => result);
+    when(
+      () => transitionService.declineAttendance(any()),
+    ).thenAnswer((_) async => result);
+    when(
+      () => transitionService.removeParticipant(any(), any()),
+    ).thenAnswer((_) async => result);
     repository = OutingRepositoryImpl(
       datasource: datasource,
       currentUid: () => 'user-1',
+      transitionService: transitionService,
     );
   });
 
@@ -92,6 +113,7 @@ void main() {
       final repo = OutingRepositoryImpl(
         datasource: datasource,
         currentUid: () => '',
+        transitionService: transitionService,
       );
 
       await expectLater(
@@ -149,6 +171,7 @@ void main() {
       final signedOutRepository = OutingRepositoryImpl(
         datasource: datasource,
         currentUid: () => '',
+        transitionService: transitionService,
       );
 
       expect(
@@ -164,6 +187,7 @@ void main() {
     final signedOutRepository = OutingRepositoryImpl(
       datasource: datasource,
       currentUid: () => '',
+      transitionService: transitionService,
     );
 
     expect(
@@ -257,6 +281,7 @@ void main() {
       final commandRepository = OutingRepositoryImpl(
         datasource: datasource,
         currentUid: () => 'user-1',
+        transitionService: transitionService,
         agreementDelete: (outingId) async => deleted.add(outingId),
       );
 
@@ -278,6 +303,7 @@ void main() {
         final commandRepository = OutingRepositoryImpl(
           datasource: datasource,
           currentUid: () => 'user-1',
+          transitionService: transitionService,
           agreementDelete: (outingId) async => deleted.add(outingId),
         );
 
@@ -294,6 +320,7 @@ void main() {
       final cleanupRepository = OutingRepositoryImpl(
         datasource: datasource,
         currentUid: () => 'user-1',
+        transitionService: transitionService,
         agreementExpiryCleanup: (outingId) async {
           cleanupRequests.add(outingId);
         },
@@ -308,6 +335,7 @@ void main() {
       final nonCreatorRepository = OutingRepositoryImpl(
         datasource: datasource,
         currentUid: () => 'user-2',
+        transitionService: transitionService,
       );
       when(
         () => datasource.isCrewOwner('crew-1', 'user-2'),
@@ -335,14 +363,14 @@ void main() {
         ),
       ).called(1);
       verify(
-        () => datasource.removeParticipant(
-          outingId: 'outing-1',
-          userId: 'user-2',
-        ),
+        () => transitionService.removeParticipant('outing-1', 'user-2'),
       ).called(1);
     });
 
     test('lets a crew member accept an active outing', () async {
+      when(
+        () => datasource.participantAttendance('outing-1', 'user-1'),
+      ).thenAnswer((_) async => null);
       when(
         () => datasource.respondToOuting(
           outingId: any(named: 'outingId'),
@@ -361,18 +389,84 @@ void main() {
       ).called(1);
     });
 
-    test('delegates valid lifecycle transition', () async {
+    test('routes an accepted-to-declined response through cleanup', () async {
+      when(
+        () => datasource.participantAttendance('outing-1', 'user-1'),
+      ).thenAnswer((_) async => AttendanceStatus.accepted);
+
+      await repository.respondToOuting(
+        outingId: 'outing-1',
+        attendanceStatus: AttendanceStatus.declined,
+      );
+
+      verify(() => transitionService.declineAttendance('outing-1')).called(1);
+      verifyNever(
+        () => datasource.respondToOuting(
+          outingId: any(named: 'outingId'),
+          userId: any(named: 'userId'),
+          attendanceStatus: any(named: 'attendanceStatus'),
+        ),
+      );
+    });
+
+    test('delegates terminal lifecycle transition', () async {
       await repository.changeLifecycleStatus(
         outingId: 'outing-1',
         nextStatus: OutingStatus.cancelled,
       );
 
       verify(
-        () => datasource.changeLifecycleStatus(
+        () => transitionService.endOuting('outing-1', OutingStatus.cancelled),
+      ).called(1);
+    });
+
+    for (final transition in [
+      (from: OutingStatus.meeting, to: OutingStatus.completed),
+      (from: OutingStatus.completed, to: OutingStatus.archived),
+    ]) {
+      test(
+        'routes ${transition.from.value} to ${transition.to.value} through cleanup',
+        () async {
+          when(() => datasource.getOuting('outing-1')).thenAnswer(
+            (_) async => FakeOutingRepository.sampleOuting(
+              id: 'outing-1',
+            ).copyWith(status: transition.from),
+          );
+
+          await repository.changeLifecycleStatus(
+            outingId: 'outing-1',
+            nextStatus: transition.to,
+          );
+
+          verify(
+            () => transitionService.endOuting('outing-1', transition.to),
+          ).called(1);
+          verifyNever(
+            () => datasource.changeLifecycleStatus(
+              outingId: any(named: 'outingId'),
+              nextStatus: any(named: 'nextStatus'),
+            ),
+          );
+        },
+      );
+    }
+
+    test('does not report terminal transition failure as success', () async {
+      when(() => transitionService.endOuting(any(), any())).thenAnswer(
+        (_) async => const LiveMeetupTransitionResult(
+          transitionId: 'failed-transition',
+          status: LiveMeetupTransitionStatus.failed,
+          failure: LiveMeetupAccessDenied(),
+        ),
+      );
+
+      await expectLater(
+        repository.changeLifecycleStatus(
           outingId: 'outing-1',
           nextStatus: OutingStatus.cancelled,
         ),
-      ).called(1);
+        throwsA(isA<LiveMeetupAccessDenied>()),
+      );
     });
 
     test('rejects invalid lifecycle transition', () async {

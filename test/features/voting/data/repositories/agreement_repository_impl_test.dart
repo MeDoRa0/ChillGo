@@ -4,17 +4,29 @@ import 'package:chillgo/features/voting/data/datasources/firestore_agreement_dat
 import 'package:chillgo/features/voting/data/repositories/agreement_repository_impl.dart';
 import 'package:chillgo/features/voting/domain/entities/agreement_category.dart';
 import 'package:chillgo/features/voting/domain/entities/agreement_command.dart';
+import 'package:chillgo/features/live_meetup/domain/services/live_meetup_transition_service.dart';
+import 'package:chillgo/features/outings/domain/entities/attendance_status.dart';
+import 'package:chillgo/features/outings/domain/entities/outing_status.dart';
 
 class MockDatasource extends Mock implements FirestoreAgreementDatasource {}
+
+class MockTransitionService extends Mock
+    implements LiveMeetupTransitionService {}
 
 void main() {
   late MockDatasource ds;
   late AgreementRepositoryImpl repo;
+  late MockTransitionService transitionService;
   setUpAll(() => registerFallbackValue(AgreementCategory.time));
   setUp(
     () => {
       ds = MockDatasource(),
-      repo = AgreementRepositoryImpl(datasource: ds, currentUid: () => 'u'),
+      transitionService = MockTransitionService(),
+      repo = AgreementRepositoryImpl(
+        datasource: ds,
+        currentUid: () => 'u',
+        transitionService: transitionService,
+      ),
     },
   );
   test('commands use allowlisted normalized payloads', () async {
@@ -117,4 +129,52 @@ void main() {
       ),
     ).called(1);
   });
+
+  test('routes accepted-to-declined attendance through cleanup', () async {
+    when(
+      () => ds.participantAttendance('o', 'u'),
+    ).thenAnswer((_) async => 'accepted');
+    when(() => transitionService.declineAttendance('o')).thenAnswer(
+      (_) async => const LiveMeetupTransitionResult(
+        transitionId: 'transition',
+        status: LiveMeetupTransitionStatus.succeeded,
+      ),
+    );
+
+    await repo.respondToOuting('o', AttendanceStatus.declined);
+
+    verify(() => transitionService.declineAttendance('o')).called(1);
+    verifyNever(() => ds.respondToOuting(any(), any(), any()));
+  });
+
+  test(
+    'routes cancellation through cleanup and returns its transition id',
+    () async {
+      when(
+        () => transitionService.endOuting('o', OutingStatus.cancelled),
+      ).thenAnswer(
+        (_) async => const LiveMeetupTransitionResult(
+          transitionId: 'cancel-transition',
+          status: LiveMeetupTransitionStatus.succeeded,
+        ),
+      );
+
+      expect(
+        await repo.cancelOuting('o', 'Weather changed'),
+        'cancel-transition',
+      );
+
+      verify(
+        () => transitionService.endOuting('o', OutingStatus.cancelled),
+      ).called(1);
+      verifyNever(
+        () => ds.createCommand(
+          type: 'cancel_outing',
+          outingId: any(named: 'outingId'),
+          uid: any(named: 'uid'),
+          payload: any(named: 'payload'),
+        ),
+      );
+    },
+  );
 }

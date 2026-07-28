@@ -18,6 +18,10 @@ import '../../features/outings/presentation/screens/outings_list_screen.dart';
 import '../../features/voting/presentation/screens/agreement_screen.dart';
 import '../../features/chat/presentation/cubit/outing_chat/outing_chat_cubit.dart';
 import '../../features/chat/presentation/screens/outing_chat_screen.dart';
+import '../../features/live_meetup/presentation/cubit/live_meetup/live_meetup_cubit.dart';
+import '../../features/live_meetup/presentation/screens/live_meetup_screen.dart';
+import '../../features/live_meetup/presentation/cubit/location_sharing/location_sharing_cubit.dart';
+import '../../features/live_meetup/presentation/cubit/meetup_point_editor/meetup_point_editor_cubit.dart';
 import '../di/injection_container.dart';
 
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -159,6 +163,23 @@ final GoRouter appRouter = GoRouter(
         return BlocProvider(
           create: (_) => sl<OutingChatCubit>()..watch(outingId),
           child: OutingChatScreen(outingId: outingId),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/outings/:outingId/live-meetup',
+      name: 'live-meetup',
+      builder: (context, state) {
+        final outingId = state.pathParameters['outingId'] ?? '';
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider(create: (_) => sl<LiveMeetupCubit>()..watch(outingId)),
+            BlocProvider(create: (_) => sl<LocationSharingCubit>()),
+            BlocProvider(
+              create: (_) => sl<MeetupPointEditorCubit>()..watch(outingId),
+            ),
+          ],
+          child: LiveMeetupScreen(outingId: outingId),
         );
       },
     ),
