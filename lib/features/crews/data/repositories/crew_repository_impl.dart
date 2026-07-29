@@ -3,14 +3,21 @@ import '../../domain/entities/crew_membership.dart';
 import '../../domain/entities/crew_invitation.dart';
 import '../../domain/repositories/crew_repository.dart';
 import '../datasources/firestore_crews_datasource.dart';
+import '../../../live_meetup/domain/repositories/live_meetup_repository.dart';
+import '../../../live_meetup/domain/services/live_meetup_transition_service.dart';
 
 class CrewRepositoryImpl implements CrewRepository {
   final FirestoreCrewsDatasource datasource;
 
   /// The currently authenticated user's uid. Must be set before use.
   final String Function() currentUid;
+  final LiveMeetupTransitionService transitionService;
 
-  CrewRepositoryImpl({required this.datasource, required this.currentUid});
+  CrewRepositoryImpl({
+    required this.datasource,
+    required this.currentUid,
+    required this.transitionService,
+  });
 
   @override
   Future<String> createCrew(String name) async {
@@ -87,20 +94,29 @@ class CrewRepositoryImpl implements CrewRepository {
 
   @override
   Future<void> deleteCrew(String crewId) async {
-    await datasource.deleteCrew(crewId);
+    _requireTransitionSuccess(await transitionService.deleteCrew(crewId));
   }
 
   @override
   Future<void> leaveCrew(String crewId) async {
     final uid = _requireCurrentUid();
     await _ensureUserIsNotCrewOwner(crewId, uid);
-    await datasource.removeMember(crewId, uid);
+    _requireTransitionSuccess(
+      await transitionService.removeMembership(crewId, uid),
+    );
   }
 
   @override
   Future<void> removeMember(String crewId, String userId) async {
     await _ensureUserIsNotCrewOwner(crewId, userId);
-    await datasource.removeMember(crewId, userId);
+    _requireTransitionSuccess(
+      await transitionService.removeMembership(crewId, userId),
+    );
+  }
+
+  void _requireTransitionSuccess(LiveMeetupTransitionResult result) {
+    if (result.status == LiveMeetupTransitionStatus.succeeded) return;
+    throw result.failure ?? const LiveMeetupServiceFailure();
   }
 
   Future<void> _ensureUserIsNotCrewOwner(String crewId, String userId) async {

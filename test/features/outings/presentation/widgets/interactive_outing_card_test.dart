@@ -13,10 +13,48 @@ import 'package:chillgo/features/chat/domain/entities/chat_read_state.dart';
 
 import '../../outing_repository_fake.dart';
 import '../../../chat/chat_test_helpers.dart';
+import '../../../live_meetup/live_meetup_test_helpers.dart';
+import 'package:chillgo/features/live_meetup/domain/repositories/live_meetup_repository.dart';
+import 'package:chillgo/features/outings/domain/entities/outing_status.dart';
 
 class MockAgreementRepository extends Mock implements AgreementRepository {}
 
 void main() {
+  testWidgets('Live Meetup entry is Meeting-only and Accepted-only', (
+    tester,
+  ) async {
+    final liveRepository = FakeLiveMeetupRepository();
+    sl.registerSingleton<LiveMeetupRepository>(liveRepository);
+    addTearDown(() async {
+      await sl.unregister<LiveMeetupRepository>();
+      await liveRepository.close();
+    });
+    final outing = FakeOutingRepository.sampleOuting().copyWith(
+      status: OutingStatus.meeting,
+    );
+    final accepted = FakeOutingRepository.sampleParticipant(
+      userId: 'user-2',
+      isCreatorParticipant: false,
+      attendanceStatus: AttendanceStatus.accepted,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: InteractiveOutingCard(
+            outing: outing,
+            outingRepository: FakeOutingRepository(
+              detail: OutingDetail(outing: outing, participants: [accepted]),
+            ),
+            currentUserId: 'user-2',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('live-meetup-entry')), findsOneWidget);
+    expect(find.byTooltip('Live Meetup'), findsOneWidget);
+  });
+
   testWidgets('every current participant sees chat independent of attendance', (
     tester,
   ) async {

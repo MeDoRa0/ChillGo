@@ -1,16 +1,24 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../outings/domain/entities/attendance_status.dart';
+import '../../../outings/domain/entities/outing_status.dart';
+import '../../../live_meetup/domain/repositories/live_meetup_repository.dart';
 import '../../domain/entities/agreement_category.dart';
 import '../../domain/entities/agreement_command.dart';
 import '../../domain/entities/agreement_vote.dart';
 import '../../domain/repositories/agreement_repository.dart';
 import '../datasources/firestore_agreement_datasource.dart';
+import '../../../live_meetup/domain/services/live_meetup_transition_service.dart';
 
 class AgreementRepositoryImpl implements AgreementRepository {
-  AgreementRepositoryImpl({required this.datasource, required this.currentUid});
+  AgreementRepositoryImpl({
+    required this.datasource,
+    required this.currentUid,
+    required this.transitionService,
+  });
   final FirestoreAgreementDatasource datasource;
   final String Function() currentUid;
+  final LiveMeetupTransitionService transitionService;
   String get _uid {
     final value = currentUid();
     if (value.isEmpty) throw const AgreementAccessDenied('Sign in required.');
@@ -80,12 +88,23 @@ class AgreementRepositoryImpl implements AgreementRepository {
   Stream<AgreementCommand?> streamCommand(String commandId) =>
       datasource.streamCommand(commandId);
   @override
-  Future<void> respondToOuting(String id, AttendanceStatus s) =>
-      s == AttendanceStatus.invited
-      ? Future.error(
-          const AgreementValidationFailure('Choose accepted or declined.'),
-        )
-      : _guard(() => datasource.respondToOuting(id, _uid, s.value));
+  Future<void> respondToOuting(String id, AttendanceStatus s) async {
+    if (s == AttendanceStatus.invited) {
+      throw const AgreementValidationFailure('Choose accepted or declined.');
+    }
+    await _guard(() async {
+      final current = await datasource.participantAttendance(id, _uid);
+      if (s == AttendanceStatus.declined && current == 'accepted') {
+        final result = await transitionService.declineAttendance(id);
+        if (result.status != LiveMeetupTransitionStatus.succeeded) {
+          throw result.failure ?? const LiveMeetupServiceFailure();
+        }
+        return;
+      }
+      await datasource.respondToOuting(id, _uid, s.value);
+    });
+  }
+
   @override
   Future<void> castVote(String r, AgreementCategory c, String p) =>
       p.trim().isEmpty
@@ -166,14 +185,21 @@ class AgreementRepositoryImpl implements AgreementRepository {
   }
 
   @override
-  Future<String> cancelOuting(String id, String reason) {
+  Future<String> cancelOuting(String id, String reason) async {
     final r = reason.trim();
     if (r.length < 3 || r.length > 200) {
       throw const AgreementValidationFailure(
         'Reason must be 3-200 characters.',
       );
     }
-    return _command('cancel_outing', id, {'reason': r});
+    final result = await transitionService.endOuting(
+      id,
+      OutingStatus.cancelled,
+    );
+    if (result.status != LiveMeetupTransitionStatus.succeeded) {
+      throw result.failure ?? const LiveMeetupServiceFailure();
+    }
+    return result.transitionId;
   }
 
   @override

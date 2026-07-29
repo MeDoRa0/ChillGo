@@ -316,7 +316,7 @@ describe('Firebase Security Rules', () => {
       );
     });
 
-    it('requires owner membership cleanup when an owner deletes a crew', async () => {
+    it('requires a trusted privacy transition when an owner deletes a crew', async () => {
       const aliceDb = testEnv.authenticatedContext('alice').firestore();
 
       await testEnv.withSecurityRulesDisabled(async (context) => {
@@ -371,7 +371,17 @@ describe('Firebase Security Rules', () => {
       deleteBatch.delete(aliceDb.collection('crew_invitations').doc('crew1_charlie'));
       deleteBatch.delete(aliceDb.collection('crew_memberships').doc('crew1_alice'));
       deleteBatch.delete(aliceDb.collection('crews').doc('crew1'));
-      await testing.assertSucceeds(deleteBatch.commit());
+      await testing.assertFails(deleteBatch.commit());
+      await testing.assertSucceeds(
+        aliceDb.collection('live_meetup_transitions').doc('delete-crew1').set({
+          type: 'delete_crew',
+          crewId: 'crew1',
+          requestedByUserId: 'alice',
+          status: 'pending',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          purgeAt: new Date(Date.now() + 60 * 60 * 1000),
+        }),
+      );
     });
 
     it('allows owner to send invitations and invited user to accept membership', async () => {
@@ -449,8 +459,21 @@ describe('Firebase Security Rules', () => {
         bobDb.collection('crew_invitations').where('crewId', '==', 'crew1').get(),
       );
 
-      // Bob leaves the crew (deletes membership)
-      await testing.assertSucceeds(bobDb.collection('crew_memberships').doc('crew1_bob').delete());
+      // Bob leaves through a trusted transition so live presence is deleted first.
+      await testing.assertFails(
+        bobDb.collection('crew_memberships').doc('crew1_bob').delete(),
+      );
+      await testing.assertSucceeds(
+        bobDb.collection('live_meetup_transitions').doc('leave-crew1').set({
+          type: 'remove_membership',
+          crewId: 'crew1',
+          targetUserId: 'bob',
+          requestedByUserId: 'bob',
+          status: 'pending',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          purgeAt: new Date(Date.now() + 60 * 60 * 1000),
+        }),
+      );
 
       // Owner cannot leave/delete their own membership directly (unless deleting the crew)
       await testing.assertFails(aliceDb.collection('crew_memberships').doc('crew1_alice').delete());
@@ -1109,7 +1132,10 @@ describe('Firebase Security Rules', () => {
       const snapshot = await testing.assertSucceeds(bounded.get());
       // List rules intentionally authorize the scoped potential result set. The
       // trusted client cutoff/domain timer owns the exact moving boundary.
-      if (snapshot.docs.length !== 2) throw new Error('Expected raw list proof to include both records');
+      if (snapshot.docs.length !== 1 ||
+          snapshot.docs[0].id !== 'outing-chat_new') {
+        throw new Error('Expected the trusted cutoff query to exclude old records');
+      }
     });
 
     it('proves trusted cutoff filtering is independent of a wrong device clock and listener age', async () => {
@@ -1251,6 +1277,201 @@ describe('Firebase Security Rules', () => {
           .where('userId', '==', 'alice')
           .limit(1)
           .get(),
+      );
+    });
+  });
+
+  describe('Live Meetup foundational rules', () => {
+    async function seedLiveMeetup({status = 'meeting', attendance = 'accepted'} = {}) {
+      const now = new Date();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await Promise.all([
+          db.collection('users').doc('alice').set({
+            username: 'alice', displayName: 'Alice', createdAt: now,
+          }),
+          db.collection('users').doc('bob').set({
+            username: 'bob', displayName: 'Bob', createdAt: now,
+          }),
+          db.collection('crews').doc('crew-live').set({
+            name: 'Live Crew', ownerId: 'alice', createdAt: now,
+          }),
+          db.collection('crew_memberships').doc('crew-live_alice').set({
+            crewId: 'crew-live', userId: 'alice', role: 'owner', joinedAt: now,
+            username: 'alice', displayName: 'Alice',
+          }),
+          db.collection('crew_memberships').doc('crew-live_bob').set({
+            crewId: 'crew-live', userId: 'bob', role: 'member', joinedAt: now,
+            username: 'bob', displayName: 'Bob',
+          }),
+          db.collection('outings').doc('outing-live').set({
+            crewId: 'crew-live', title: 'Live Outing', scheduledAt: now,
+            locationText: 'Cafe', status, createdByUserId: 'alice',
+            createdAt: now, updatedAt: now, agreementRoundSequence: 0,
+          }),
+          db.collection('outing_participants').doc('outing-live_alice').set({
+            outingId: 'outing-live', crewId: 'crew-live', userId: 'alice',
+            username: 'alice', displayName: 'Alice', addedByUserId: 'alice',
+            addedAt: now, isCreatorParticipant: true,
+            attendanceStatus: 'accepted', respondedAt: now,
+          }),
+          db.collection('outing_participants').doc('outing-live_bob').set({
+            outingId: 'outing-live', crewId: 'crew-live', userId: 'bob',
+            username: 'bob', displayName: 'Bob', addedByUserId: 'alice',
+            addedAt: now, isCreatorParticipant: false,
+            attendanceStatus: attendance, respondedAt: now,
+          }),
+          db.collection('live_meetup_statuses').doc('outing-live_alice').set({
+            outingId: 'outing-live', crewId: 'crew-live', userId: 'alice',
+            value: 'arrived', acceptedAt: now, acceptedCommandId: 'command',
+          }),
+        ]);
+      });
+    }
+
+    it('requires Meeting, Accepted attendance, current crew, and no cleanup pending', async () => {
+      await seedLiveMeetup();
+      const bob = testEnv.authenticatedContext('bob').firestore();
+      await testing.assertSucceeds(
+        bob.collection('live_meetup_statuses')
+          .where('outingId', '==', 'outing-live').limit(100).get(),
+      );
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().collection('outing_participants')
+          .doc('outing-live_bob').update({liveMeetupCleanupPending: true});
+      });
+      await testing.assertFails(
+        bob.collection('live_meetup_statuses').doc('outing-live_alice').get(),
+      );
+    });
+
+    it('keeps owner-private probes exact and non-listable', async () => {
+      const alice = testEnv.authenticatedContext('alice').firestore();
+      const bob = testEnv.authenticatedContext('bob').firestore();
+      const probe = alice.collection('live_meetup_time_probes').doc('alice_probe');
+      await testing.assertSucceeds(probe.set({
+        userId: 'alice',
+        requestedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      }));
+      await testing.assertSucceeds(probe.get());
+      await testing.assertFails(
+        bob.collection('live_meetup_time_probes').doc('alice_probe').get(),
+      );
+      await testing.assertFails(
+        alice.collection('live_meetup_time_probes').where('userId', '==', 'alice').get(),
+      );
+    });
+
+    it('allows exact requester-private commands and denies lists/client state writes', async () => {
+      await seedLiveMeetup();
+      const alice = testEnv.authenticatedContext('alice').firestore();
+      const bob = testEnv.authenticatedContext('bob').firestore();
+      const command = alice.collection('live_meetup_commands').doc('command-1');
+      await testing.assertSucceeds(command.set({
+        type: 'set_status',
+        outingId: 'outing-live',
+        crewId: 'crew-live',
+        requestedByUserId: 'alice',
+        payload: {value: 'on_my_way'},
+        status: 'pending',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        purgeAt: new Date(Date.now() + 60 * 60 * 1000),
+      }));
+      await testing.assertSucceeds(command.get());
+      await testing.assertFails(
+        bob.collection('live_meetup_commands').doc('command-1').get(),
+      );
+      await testing.assertFails(
+        alice.collection('live_meetup_commands')
+          .where('requestedByUserId', '==', 'alice').get(),
+      );
+      await testing.assertFails(
+        alice.collection('live_meetup_statuses').doc('forged').set({
+          outingId: 'outing-live',
+        }),
+      );
+      await testing.assertFails(
+        alice.collection('live_meetup_shares').doc('outing-live_alice').get(),
+      );
+    });
+
+    it('denies participant data before Meeting while retaining organizer preparation', async () => {
+      await seedLiveMeetup({status: 'confirmed', attendance: 'declined'});
+      const alice = testEnv.authenticatedContext('alice').firestore();
+      await testing.assertFails(
+        alice.collection('live_meetup_statuses').doc('outing-live_alice').get(),
+      );
+      const point = alice.collection('meetup_points').doc('outing-live');
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().collection('meetup_points').doc('outing-live').set({
+          outingId: 'outing-live', crewId: 'crew-live',
+          point: new firebase.firestore.GeoPoint(30, 31),
+          locationTextSnapshot: 'Cafe', setByUserId: 'alice',
+          acceptedAt: new Date(), acceptedCommandId: 'command',
+        });
+      });
+      await testing.assertSucceeds(point.get());
+    });
+
+    it('authorizes exact private transitions and denies forged destructive writes', async () => {
+      await seedLiveMeetup({status: 'confirmed'});
+      const alice = testEnv.authenticatedContext('alice').firestore();
+      const bob = testEnv.authenticatedContext('bob').firestore();
+      const decline = bob.collection('live_meetup_transitions').doc('decline');
+      await testing.assertSucceeds(decline.set({
+        type: 'change_attendance',
+        outingId: 'outing-live',
+        crewId: 'crew-live',
+        targetUserId: 'bob',
+        targetAttendanceStatus: 'declined',
+        requestedByUserId: 'bob',
+        status: 'pending',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        purgeAt: new Date(Date.now() + 60 * 60 * 1000),
+      }));
+      await testing.assertSucceeds(decline.get());
+      await testing.assertFails(
+        alice.collection('live_meetup_transitions').doc('decline').get(),
+      );
+      await testing.assertFails(
+        bob.collection('live_meetup_transitions').doc('forged').set({
+          type: 'change_attendance',
+          outingId: 'outing-live',
+          crewId: 'crew-live',
+          targetUserId: 'alice',
+          targetAttendanceStatus: 'declined',
+          requestedByUserId: 'bob',
+          status: 'pending',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          purgeAt: new Date(Date.now() + 60 * 60 * 1000),
+        }),
+      );
+      await testing.assertSucceeds(
+        alice.collection('live_meetup_transitions').doc('cancel').set({
+          type: 'end_outing',
+          outingId: 'outing-live',
+          crewId: 'crew-live',
+          targetOutingStatus: 'cancelled',
+          requestedByUserId: 'alice',
+          status: 'pending',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          purgeAt: new Date(Date.now() + 60 * 60 * 1000),
+        }),
+      );
+      await testing.assertFails(
+        alice.collection('outings').doc('outing-live').update({
+          status: 'cancelled',
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        }),
+      );
+      await testing.assertFails(
+        bob.collection('outing_participants').doc('outing-live_bob').update({
+          attendanceStatus: 'declined',
+          respondedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        }),
+      );
+      await testing.assertFails(
+        bob.collection('crew_memberships').doc('crew-live_bob').delete(),
       );
     });
   });

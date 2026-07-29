@@ -144,6 +144,180 @@ service cloud.firestore {
         get(outingPath(outingId)).data.status in ['draft', 'planning', 'confirmed', 'meeting'];
     }
 
+    function isLiveMeetupEligible(outingId) {
+      let outing = get(outingPath(outingId)).data;
+      let membership = get(membershipPath(outing.crewId + '_' + request.auth.uid)).data;
+      let participant = get(participantPath(outingId + '_' + request.auth.uid)).data;
+      return signedIn() &&
+        exists(outingPath(outingId)) &&
+        outing.status == 'meeting' &&
+        outing.get('deletionPending', false) == false &&
+        outing.get('liveMeetupCleanupPending', false) == false &&
+        exists(crewPath(outing.crewId)) &&
+        get(crewPath(outing.crewId)).data.get('deletionPending', false) == false &&
+        exists(membershipPath(outing.crewId + '_' + request.auth.uid)) &&
+        membership.get('liveMeetupCleanupPending', false) == false &&
+        exists(participantPath(outingId + '_' + request.auth.uid)) &&
+        participant.attendanceStatus == 'accepted' &&
+        participant.get('liveMeetupCleanupPending', false) == false;
+    }
+
+    function canPrepareMeetupPoint(outingId) {
+      let outing = get(outingPath(outingId)).data;
+      return signedIn() &&
+        exists(outingPath(outingId)) &&
+        outing.status in ['confirmed', 'meeting'] &&
+        outing.get('deletionPending', false) == false &&
+        outing.get('liveMeetupCleanupPending', false) == false &&
+        exists(membershipPath(outing.crewId + '_' + request.auth.uid)) &&
+        get(membershipPath(outing.crewId + '_' + request.auth.uid)).data.get(
+          'liveMeetupCleanupPending', false) == false &&
+        (
+          outing.createdByUserId == request.auth.uid ||
+          get(membershipPath(outing.crewId + '_' + request.auth.uid)).data.role == 'owner'
+        );
+    }
+
+    function validLiveMeetupCommand() {
+      let data = request.resource.data;
+      let locationCommand = data.type == 'publish_location';
+      return data.keys().hasOnly([
+          'type', 'outingId', 'crewId', 'requestedByUserId',
+          'payload', 'status', 'createdAt', 'purgeAt'
+        ]) &&
+        data.keys().hasAll([
+          'type', 'outingId', 'crewId', 'requestedByUserId',
+          'payload', 'status', 'createdAt', 'purgeAt'
+        ]) &&
+        data.type in [
+          'set_status', 'start_sharing', 'publish_location',
+          'stop_sharing', 'set_meetup_point'
+        ] &&
+        data.outingId is string &&
+        data.crewId == get(outingPath(data.outingId)).data.crewId &&
+        data.requestedByUserId == request.auth.uid &&
+        data.payload is map &&
+        data.status == 'pending' &&
+        data.createdAt == request.time &&
+        data.purgeAt >= request.time +
+          (locationCommand ? duration.value(1, 'm') : duration.value(59, 'm')) &&
+        data.purgeAt <= request.time +
+          (locationCommand ? duration.value(3, 'm') : duration.value(61, 'm')) &&
+        (
+          (data.type == 'set_meetup_point' && canPrepareMeetupPoint(data.outingId)) ||
+          (data.type != 'set_meetup_point' && isLiveMeetupEligible(data.outingId))
+        ) &&
+        validLiveMeetupPayload(data.type, data.payload);
+    }
+
+    function validLiveMeetupTransition() {
+      let data = request.resource.data;
+      let common = [
+        'type', 'crewId', 'requestedByUserId',
+        'status', 'createdAt', 'purgeAt'
+      ];
+      let endOuting = data.type == 'end_outing' &&
+        data.keys().hasOnly(common.concat(['outingId', 'targetOutingStatus'])) &&
+        data.keys().hasAll(common.concat(['outingId', 'targetOutingStatus'])) &&
+        data.targetOutingStatus in ['completed', 'cancelled', 'archived'] &&
+        exists(outingPath(data.outingId)) &&
+        get(outingPath(data.outingId)).data.crewId == data.crewId &&
+        isOutingManager(data.outingId) &&
+        (
+          (get(outingPath(data.outingId)).data.status == 'meeting' &&
+            data.targetOutingStatus == 'completed') ||
+          (get(outingPath(data.outingId)).data.status in ['draft', 'planning', 'confirmed'] &&
+            data.targetOutingStatus == 'cancelled') ||
+          (get(outingPath(data.outingId)).data.status == 'completed' &&
+            data.targetOutingStatus == 'archived')
+        );
+      let attendance = data.type == 'change_attendance' &&
+        data.keys().hasOnly(common.concat([
+          'outingId', 'targetUserId', 'targetAttendanceStatus'
+        ])) &&
+        data.keys().hasAll(common.concat([
+          'outingId', 'targetUserId', 'targetAttendanceStatus'
+        ])) &&
+        data.targetUserId == request.auth.uid &&
+        data.targetAttendanceStatus == 'declined' &&
+        exists(outingPath(data.outingId)) &&
+        get(outingPath(data.outingId)).data.crewId == data.crewId &&
+        get(outingPath(data.outingId)).data.status in ['draft', 'planning', 'confirmed'] &&
+        exists(participantPath(data.outingId + '_' + request.auth.uid)) &&
+        get(participantPath(data.outingId + '_' + request.auth.uid)).data.attendanceStatus == 'accepted' &&
+        isCrewMember(data.crewId);
+      let participantRemoval = data.type == 'remove_participant' &&
+        data.keys().hasOnly(common.concat(['outingId', 'targetUserId'])) &&
+        data.keys().hasAll(common.concat(['outingId', 'targetUserId'])) &&
+        exists(outingPath(data.outingId)) &&
+        get(outingPath(data.outingId)).data.crewId == data.crewId &&
+        isOutingManager(data.outingId) &&
+        exists(participantPath(data.outingId + '_' + data.targetUserId)) &&
+        get(participantPath(data.outingId + '_' + data.targetUserId)).data.get(
+          'isCreatorParticipant', false) == false;
+      let membershipRemoval = data.type == 'remove_membership' &&
+        data.keys().hasOnly(common.concat(['targetUserId'])) &&
+        data.keys().hasAll(common.concat(['targetUserId'])) &&
+        exists(membershipPath(data.crewId + '_' + data.targetUserId)) &&
+        get(membershipPath(data.crewId + '_' + data.targetUserId)).data.role == 'member' &&
+        (data.targetUserId == request.auth.uid || isCrewOwner(data.crewId));
+      let crewDeletion = data.type == 'delete_crew' &&
+        data.keys().hasOnly(common) && data.keys().hasAll(common) &&
+        isCrewOwner(data.crewId);
+      return signedIn() &&
+        data.type in [
+          'end_outing', 'change_attendance', 'remove_participant',
+          'remove_membership', 'delete_crew'
+        ] &&
+        data.crewId is string &&
+        data.requestedByUserId == request.auth.uid &&
+        data.status == 'pending' &&
+        data.createdAt == request.time &&
+        data.purgeAt is timestamp &&
+        data.purgeAt >= request.time + duration.value(59, 'm') &&
+        data.purgeAt <= request.time + duration.value(61, 'm') &&
+        (endOuting || attendance || participantRemoval ||
+          membershipRemoval || crewDeletion);
+    }
+
+    function validLiveMeetupPayload(type, payload) {
+      return (
+        type == 'set_status' &&
+        payload.keys().hasOnly(['value']) &&
+        payload.value in ['getting_ready', 'on_my_way', 'arrived']
+      ) || (
+        type == 'start_sharing' &&
+        payload.keys().hasOnly([
+          'sessionId', 'sessionToken', 'deviceSessionId', 'transferExisting'
+        ]) &&
+        payload.sessionId is string && payload.sessionToken is string &&
+        payload.deviceSessionId is string && payload.transferExisting is bool
+      ) || (
+        type == 'publish_location' &&
+        payload.keys().hasOnly([
+          'sessionId', 'sessionToken', 'latitude', 'longitude',
+          'accuracyMeters', 'sampleAgeMillis'
+        ]) &&
+        payload.sessionId is string && payload.sessionToken is string &&
+        payload.latitude is number && payload.latitude >= -90 && payload.latitude <= 90 &&
+        payload.longitude is number && payload.longitude >= -180 && payload.longitude <= 180 &&
+        payload.accuracyMeters is number && payload.accuracyMeters >= 0 &&
+        payload.accuracyMeters <= 5000 &&
+        payload.sampleAgeMillis is int && payload.sampleAgeMillis >= 0 &&
+        payload.sampleAgeMillis <= 30000
+      ) || (
+        type == 'stop_sharing' &&
+        payload.keys().hasOnly(['sessionId', 'sessionToken']) &&
+        payload.sessionId is string && payload.sessionToken is string
+      ) || (
+        type == 'set_meetup_point' &&
+        payload.keys().hasOnly(['latitude', 'longitude', 'locationTextSnapshot']) &&
+        payload.latitude is number && payload.latitude >= -90 && payload.latitude <= 90 &&
+        payload.longitude is number && payload.longitude >= -180 && payload.longitude <= 180 &&
+        payload.locationTextSnapshot is string && payload.locationTextSnapshot.size() > 0
+      );
+    }
+
     function isValidChatCommand() {
       let outing = get(outingPath(request.resource.data.outingId)).data;
       return request.resource.data.keys().hasOnly([
@@ -576,11 +750,6 @@ service cloud.firestore {
         !existsAfter(invitationPath(membershipId));
     }
 
-    function isOwnerMembershipDeletedWithCrew(crewId) {
-      return exists(ownerMembershipPath(crewId, resource.data.ownerId)) &&
-        !existsAfter(ownerMembershipPath(crewId, resource.data.ownerId));
-    }
-    
     // User Profile Rules
     match /users/{uid} {
       allow read: if request.auth != null;
@@ -615,8 +784,7 @@ service cloud.firestore {
       allow update: if isCrewOwner(crewId) &&
         isValidCrewUpdate();
 
-      allow delete: if isCrewOwner(crewId) &&
-        isOwnerMembershipDeletedWithCrew(crewId);
+      allow delete: if false;
     }
 
     match /crew_memberships/{membershipId} {
@@ -643,22 +811,7 @@ service cloud.firestore {
 
       allow update: if signedIn() && isValidMembershipProfileUpdate();
 
-      allow delete: if signedIn() &&
-        (
-          (
-            resource.data.userId == request.auth.uid &&
-            resource.data.role == 'member'
-          ) ||
-          (
-            isCrewOwner(resource.data.crewId) &&
-            resource.data.role == 'member'
-          ) ||
-          (
-            isCrewOwner(resource.data.crewId) &&
-            resource.data.role == 'owner' &&
-            !existsAfter(crewPath(resource.data.crewId))
-          )
-        );
+      allow delete: if false;
     }
 
     match /crew_invitations/{invitationId} {
@@ -689,7 +842,11 @@ service cloud.firestore {
         isValidOutingCreatePayload() &&
         existsAfter(participantPath(outingId + '_' + request.auth.uid));
       allow update: if isOutingManager(outingId) &&
-        isValidOutingUpdatePayload();
+        isValidOutingUpdatePayload() &&
+        !(
+          resource.data.status != request.resource.data.status &&
+          request.resource.data.status in ['completed', 'cancelled', 'archived']
+        );
       allow delete: if false;
     }
 
@@ -709,15 +866,15 @@ service cloud.firestore {
           isOutingSelfResponse()
         );
       allow update: if signedIn() &&
-        (isValidParticipantProfileUpdate() || isValidAttendanceUpdate());
-      allow delete: if signedIn() &&
         (
-          isOutingManager(resource.data.outingId) ||
+          isValidParticipantProfileUpdate() ||
           (
-            resource.data.userId == request.auth.uid &&
-            !existsAfter(membershipPath(resource.data.crewId + '_' + request.auth.uid))
+            isValidAttendanceUpdate() &&
+            !(resource.data.attendanceStatus == 'accepted' &&
+              request.resource.data.attendanceStatus == 'declined')
           )
         );
+      allow delete: if false;
     }
 
     match /agreement_rounds/{roundId} {
@@ -796,6 +953,57 @@ service cloud.firestore {
     }
 
     match /chat_time_probes/{probeId} {
+      allow create: if signedIn() &&
+        probeId.matches('^' + request.auth.uid + '_.+$') &&
+        request.resource.data.keys().hasOnly(['userId', 'requestedAt']) &&
+        request.resource.data.keys().hasAll(['userId', 'requestedAt']) &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.requestedAt == request.time;
+      allow get, delete: if signedIn() &&
+        resource.data.userId == request.auth.uid;
+      allow list, update: if false;
+    }
+
+    match /live_meetup_statuses/{statusId} {
+      allow get: if isLiveMeetupEligible(resource.data.outingId);
+      allow list: if isLiveMeetupEligible(resource.data.outingId) &&
+        request.query.limit != null && request.query.limit <= 100;
+      allow create, update, delete: if false;
+    }
+
+    match /live_locations/{locationId} {
+      allow get: if isLiveMeetupEligible(resource.data.outingId) &&
+        resource.data.expiresAt > request.time;
+      allow list: if isLiveMeetupEligible(resource.data.outingId) &&
+        request.query.limit != null && request.query.limit <= 100;
+      allow create, update, delete: if false;
+    }
+
+    match /live_meetup_shares/{shareId} {
+      allow read, write: if false;
+    }
+
+    match /meetup_points/{outingId} {
+      allow get: if isLiveMeetupEligible(outingId) ||
+        canPrepareMeetupPoint(outingId);
+      allow list, create, update, delete: if false;
+    }
+
+    match /live_meetup_commands/{commandId} {
+      allow create: if signedIn() && validLiveMeetupCommand();
+      allow get: if signedIn() &&
+        resource.data.requestedByUserId == request.auth.uid;
+      allow list, update, delete: if false;
+    }
+
+    match /live_meetup_transitions/{transitionId} {
+      allow create: if validLiveMeetupTransition();
+      allow get: if signedIn() &&
+        resource.data.requestedByUserId == request.auth.uid;
+      allow list, update, delete: if false;
+    }
+
+    match /live_meetup_time_probes/{probeId} {
       allow create: if signedIn() &&
         probeId.matches('^' + request.auth.uid + '_.+$') &&
         request.resource.data.keys().hasOnly(['userId', 'requestedAt']) &&

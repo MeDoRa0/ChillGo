@@ -109,6 +109,15 @@ class FirestoreAgreementDatasource {
             'attendanceStatus': status,
             'respondedAt': FieldValue.serverTimestamp(),
           });
+
+  Future<String?> participantAttendance(String outingId, String uid) async {
+    final snapshot = await firestore
+        .collection('outing_participants')
+        .doc('${outingId}_$uid')
+        .get();
+    return snapshot.data()?['attendanceStatus'] as String?;
+  }
+
   Future<void> castVote({
     required String roundId,
     required AgreementCategory category,

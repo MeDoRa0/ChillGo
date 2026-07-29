@@ -7,6 +7,8 @@ import '../../domain/entities/attendance_status.dart';
 import '../../domain/repositories/outing_repository.dart';
 import '../../domain/services/outing_lifecycle_policy.dart';
 import '../datasources/firestore_outings_datasource.dart';
+import '../../../live_meetup/domain/services/live_meetup_transition_service.dart';
+import '../../../live_meetup/domain/repositories/live_meetup_repository.dart';
 
 class OutingRepositoryImpl implements OutingRepository {
   final FirestoreOutingsDatasource datasource;
@@ -15,6 +17,7 @@ class OutingRepositoryImpl implements OutingRepository {
   final Future<void> Function(String outingId, String reason)? agreementCancel;
   final Future<void> Function(String outingId)? agreementDelete;
   final Future<void> Function(String outingId)? agreementExpiryCleanup;
+  final LiveMeetupTransitionService transitionService;
 
   OutingRepositoryImpl({
     required this.datasource,
@@ -23,6 +26,7 @@ class OutingRepositoryImpl implements OutingRepository {
     this.agreementCancel,
     this.agreementDelete,
     this.agreementExpiryCleanup,
+    required this.transitionService,
   }) : lifecyclePolicy = lifecyclePolicy ?? OutingLifecyclePolicy();
 
   @override
@@ -112,14 +116,11 @@ class OutingRepositoryImpl implements OutingRepository {
     if (!outing.status.isCancellable) {
       throw Exception('outing-not-cancellable');
     }
-    if (outing.status != OutingStatus.draft && agreementCancel != null) {
-      await agreementCancel!(outingId, reason);
-      return;
-    }
-    await datasource.cancelOuting(
-      outingId: outingId,
-      cancelledReason: cancelledReason,
+    final result = await transitionService.endOuting(
+      outingId,
+      OutingStatus.cancelled,
     );
+    _requireTransitionSuccess(result);
   }
 
   @override
@@ -179,6 +180,14 @@ class OutingRepositoryImpl implements OutingRepository {
     if (outing.status == OutingStatus.meeting || outing.status.isHistorical) {
       throw Exception('attendance-response-closed');
     }
+    final current = await datasource.participantAttendance(outingId, uid);
+    if (attendanceStatus == AttendanceStatus.declined &&
+        current == AttendanceStatus.accepted) {
+      _requireTransitionSuccess(
+        await transitionService.declineAttendance(outingId),
+      );
+      return;
+    }
     await datasource.respondToOuting(
       outingId: outingId,
       userId: uid,
@@ -199,7 +208,9 @@ class OutingRepositoryImpl implements OutingRepository {
         outing.status == OutingStatus.archived) {
       throw Exception('participant-removal-blocked');
     }
-    await datasource.removeParticipant(outingId: outingId, userId: userId);
+    _requireTransitionSuccess(
+      await transitionService.removeParticipant(outingId, userId),
+    );
   }
 
   @override
@@ -213,10 +224,23 @@ class OutingRepositoryImpl implements OutingRepository {
     if (!lifecyclePolicy.canTransition(outing.status, nextStatus)) {
       throw Exception('invalid-lifecycle-transition');
     }
+    if (nextStatus == OutingStatus.completed ||
+        nextStatus == OutingStatus.cancelled ||
+        nextStatus == OutingStatus.archived) {
+      _requireTransitionSuccess(
+        await transitionService.endOuting(outingId, nextStatus),
+      );
+      return;
+    }
     await datasource.changeLifecycleStatus(
       outingId: outingId,
       nextStatus: nextStatus,
     );
+  }
+
+  void _requireTransitionSuccess(LiveMeetupTransitionResult result) {
+    if (result.status == LiveMeetupTransitionStatus.succeeded) return;
+    throw result.failure ?? const LiveMeetupServiceFailure();
   }
 
   Future<Outing> _requireOuting(String outingId) async {

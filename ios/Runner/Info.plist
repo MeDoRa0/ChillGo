@@ -24,12 +24,16 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>GOOGLE_MAPS_IOS_SDK_API_KEY</key>
+	<string>$(GOOGLE_MAPS_IOS_SDK_API_KEY)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>ChillGo uses the camera to let you take a profile avatar.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>ChillGo uses your photo library to let you choose a profile avatar.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>ChillGo uses your location only while the app is open and you explicitly share it with accepted meetup participants.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -16,6 +16,7 @@ import 'package:chillgo/features/voting/domain/entities/agreement_category.dart'
 import 'package:chillgo/features/voting/domain/repositories/agreement_repository.dart';
 import 'package:chillgo/features/voting/data/datasources/firestore_agreement_datasource.dart';
 import 'package:chillgo/features/voting/data/repositories/agreement_repository_impl.dart';
+import 'package:chillgo/features/live_meetup/data/services/firestore_live_meetup_transition_service.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -32,13 +33,19 @@ void main() {
 
       final firestore = FirebaseFirestore.instance;
       String currentUid() => FirebaseAuth.instance.currentUser?.uid ?? '';
+      final transitions = FirestoreLiveMeetupTransitionService(
+        firestore: firestore,
+        currentUid: currentUid,
+      );
       final agreements = AgreementRepositoryImpl(
         datasource: FirestoreAgreementDatasource(firestore: firestore),
         currentUid: currentUid,
+        transitionService: transitions,
       );
       final outings = OutingRepositoryImpl(
         datasource: FirestoreOutingsDatasource(firestore: firestore),
         currentUid: currentUid,
+        transitionService: transitions,
         agreementCancel: (outingId, reason) async {
           await agreements.cancelOuting(outingId, reason);
         },

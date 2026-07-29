@@ -5,9 +5,14 @@ import 'package:chillgo/features/crews/domain/entities/crew_membership.dart';
 import 'package:chillgo/features/crews/domain/entities/crew_role.dart';
 import 'package:chillgo/features/crews/data/datasources/firestore_crews_datasource.dart';
 import 'package:chillgo/features/crews/data/repositories/crew_repository_impl.dart';
+import 'package:chillgo/features/live_meetup/domain/services/live_meetup_transition_service.dart';
+import 'package:chillgo/features/live_meetup/domain/repositories/live_meetup_repository.dart';
 
 class MockFirestoreCrewsDatasource extends Mock
     implements FirestoreCrewsDatasource {}
+
+class MockTransitionService extends Mock
+    implements LiveMeetupTransitionService {}
 
 const _uid = 'alice';
 const _username = 'alice_cool';
@@ -16,7 +21,12 @@ const _displayName = 'Alice';
 CrewRepositoryImpl _makeRepo(
   FirestoreCrewsDatasource ds, {
   String uid = _uid,
-}) => CrewRepositoryImpl(datasource: ds, currentUid: () => uid);
+  required LiveMeetupTransitionService transitionService,
+}) => CrewRepositoryImpl(
+  datasource: ds,
+  currentUid: () => uid,
+  transitionService: transitionService,
+);
 
 final _fakeCrew = Crew(
   id: 'crew1',
@@ -38,10 +48,22 @@ final _fakeMembership = CrewMembership(
 void main() {
   late MockFirestoreCrewsDatasource mockDs;
   late CrewRepositoryImpl repo;
+  late MockTransitionService transitionService;
 
   setUp(() {
     mockDs = MockFirestoreCrewsDatasource();
-    repo = _makeRepo(mockDs);
+    transitionService = MockTransitionService();
+    const result = LiveMeetupTransitionResult(
+      transitionId: 'transition',
+      status: LiveMeetupTransitionStatus.succeeded,
+    );
+    when(
+      () => transitionService.deleteCrew(any()),
+    ).thenAnswer((_) async => result);
+    when(
+      () => transitionService.removeMembership(any(), any()),
+    ).thenAnswer((_) async => result);
+    repo = _makeRepo(mockDs, transitionService: transitionService);
   });
 
   // ─── US1: Creating a Crew and Listing Members ─────────────────────────────
@@ -79,7 +101,11 @@ void main() {
     });
 
     test('throws when no authenticated user is available', () async {
-      final unauthenticatedRepo = _makeRepo(mockDs, uid: '');
+      final unauthenticatedRepo = _makeRepo(
+        mockDs,
+        uid: '',
+        transitionService: transitionService,
+      );
 
       expect(
         () => unauthenticatedRepo.createCrew('Weekend Hikers'),
@@ -248,12 +274,25 @@ void main() {
   });
 
   group('US4 - deleteCrew', () {
-    test('delegates to datasource', () async {
-      when(() => mockDs.deleteCrew(any())).thenAnswer((_) async {});
-
+    test('delegates to the privacy transition service', () async {
       await repo.deleteCrew('crew1');
 
-      verify(() => mockDs.deleteCrew('crew1')).called(1);
+      verify(() => transitionService.deleteCrew('crew1')).called(1);
+    });
+
+    test('does not report transition failure as deletion success', () async {
+      when(() => transitionService.deleteCrew('crew1')).thenAnswer(
+        (_) async => const LiveMeetupTransitionResult(
+          transitionId: 'failed-transition',
+          status: LiveMeetupTransitionStatus.failed,
+          failure: LiveMeetupAccessDenied(),
+        ),
+      );
+
+      await expectLater(
+        repo.deleteCrew('crew1'),
+        throwsA(isA<LiveMeetupAccessDenied>()),
+      );
     });
   });
 
@@ -264,11 +303,9 @@ void main() {
       when(() => mockDs.streamCrew('crew2')).thenAnswer(
         (_) => Stream.value(_fakeCrew.copyWith(id: 'crew2', ownerId: 'owner')),
       );
-      when(() => mockDs.removeMember(any(), any())).thenAnswer((_) async {});
-
       await repo.leaveCrew('crew2');
 
-      verify(() => mockDs.removeMember('crew2', _uid)).called(1);
+      verify(() => transitionService.removeMembership('crew2', _uid)).called(1);
     });
 
     test(
@@ -289,11 +326,11 @@ void main() {
       when(
         () => mockDs.streamCrew('crew1'),
       ).thenAnswer((_) => Stream.value(_fakeCrew));
-      when(() => mockDs.removeMember(any(), any())).thenAnswer((_) async {});
-
       await repo.removeMember('crew1', 'bob');
 
-      verify(() => mockDs.removeMember('crew1', 'bob')).called(1);
+      verify(
+        () => transitionService.removeMembership('crew1', 'bob'),
+      ).called(1);
     });
 
     test('throws and does not remove membership when user is owner', () async {

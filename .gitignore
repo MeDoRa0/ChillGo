@@ -5,6 +5,8 @@
 *.swp
 *.tmp
 .env*
+android/maps-secrets.properties
+ios/Flutter/GoogleMapsSecrets.xcconfig
 .DS_Store
 Thumbs.db
 .atom/

@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -46,6 +47,21 @@ import '../../features/chat/domain/repositories/chat_repository.dart';
 import '../../features/chat/domain/services/chat_clock.dart';
 import '../../features/chat/presentation/cubit/chat_summary/chat_summary_cubit.dart';
 import '../../features/chat/presentation/cubit/outing_chat/outing_chat_cubit.dart';
+import '../../features/live_meetup/data/datasources/firestore_live_meetup_datasource.dart';
+import '../../features/live_meetup/data/repositories/live_meetup_repository_impl.dart';
+import '../../features/live_meetup/data/services/firestore_live_meetup_clock.dart';
+import '../../features/live_meetup/domain/repositories/live_meetup_repository.dart';
+import '../../features/live_meetup/domain/services/trusted_clock.dart';
+import '../../features/live_meetup/presentation/cubit/live_meetup/live_meetup_cubit.dart';
+import '../../features/live_meetup/data/services/geolocator_device_location_service.dart';
+import '../../features/live_meetup/data/services/live_location_sharing_coordinator.dart';
+import '../../features/live_meetup/domain/services/device_location_service.dart';
+import '../../features/live_meetup/presentation/cubit/location_sharing/location_sharing_cubit.dart';
+import '../../features/live_meetup/data/services/google_maps_map_provider.dart';
+import '../../features/live_meetup/domain/services/map_provider.dart';
+import '../../features/live_meetup/presentation/cubit/meetup_point_editor/meetup_point_editor_cubit.dart';
+import '../../features/live_meetup/data/services/firestore_live_meetup_transition_service.dart';
+import '../../features/live_meetup/domain/services/live_meetup_transition_service.dart';
 
 final sl = GetIt.instance;
 
@@ -66,6 +82,11 @@ Future<void> init() async {
   }
   if (!sl.isRegistered<FirebaseStorage>()) {
     sl.registerLazySingleton<FirebaseStorage>(() => FirebaseStorage.instance);
+  }
+  if (!sl.isRegistered<FirebaseFunctions>()) {
+    sl.registerLazySingleton<FirebaseFunctions>(
+      () => FirebaseFunctions.instance,
+    );
   }
   if (!sl.isRegistered<GoogleSignIn>()) {
     final googleSignIn = GoogleSignIn.instance;
@@ -137,6 +158,7 @@ Future<void> init() async {
       () => CrewRepositoryImpl(
         datasource: sl<FirestoreCrewsDatasource>(),
         currentUid: () => sl<AuthRepository>().currentCredentials?.uid ?? '',
+        transitionService: sl(),
       ),
     );
   }
@@ -159,6 +181,7 @@ Future<void> init() async {
         agreementExpiryCleanup: (outingId) async {
           await sl<AgreementRepository>().requestOutingExpiry(outingId);
         },
+        transitionService: sl(),
       ),
     );
   }
@@ -172,6 +195,7 @@ Future<void> init() async {
       () => AgreementRepositoryImpl(
         datasource: sl(),
         currentUid: () => sl<AuthRepository>().currentCredentials?.uid ?? '',
+        transitionService: sl(),
       ),
     );
   }
@@ -196,6 +220,57 @@ Future<void> init() async {
   if (!sl.isRegistered<ChatRepository>()) {
     sl.registerLazySingleton<ChatRepository>(
       () => ChatRepositoryImpl(datasource: sl(), clock: sl()),
+    );
+  }
+  if (!sl.isRegistered<TrustedClock>()) {
+    sl.registerLazySingleton<TrustedClock>(
+      () => FirestoreLiveMeetupClock(
+        firestore: sl(),
+        currentUid: () => sl<AuthRepository>().currentCredentials?.uid ?? '',
+      ),
+      dispose: (clock) => clock.dispose(),
+    );
+  }
+  if (!sl.isRegistered<FirestoreLiveMeetupDatasource>()) {
+    sl.registerLazySingleton<FirestoreLiveMeetupDatasource>(
+      () => FirestoreLiveMeetupDatasource(
+        firestore: sl(),
+        currentUid: () => sl<AuthRepository>().currentCredentials?.uid ?? '',
+        clock: sl(),
+      ),
+    );
+  }
+  if (!sl.isRegistered<LiveMeetupRepository>()) {
+    sl.registerLazySingleton<LiveMeetupRepository>(
+      () => LiveMeetupRepositoryImpl(datasource: sl(), clock: sl()),
+    );
+  }
+  if (!sl.isRegistered<LiveMeetupTransitionService>()) {
+    sl.registerLazySingleton<LiveMeetupTransitionService>(
+      () => FirestoreLiveMeetupTransitionService(
+        firestore: sl(),
+        currentUid: () => sl<AuthRepository>().currentCredentials?.uid ?? '',
+      ),
+    );
+  }
+  if (!sl.isRegistered<DeviceLocationService>()) {
+    sl.registerLazySingleton<DeviceLocationService>(
+      GeolocatorDeviceLocationService.new,
+      dispose: (service) => service.stop(),
+    );
+  }
+  if (!sl.isRegistered<LiveLocationSharingCoordinator>()) {
+    sl.registerLazySingleton<LiveLocationSharingCoordinator>(
+      () => LiveLocationSharingCoordinator(
+        repository: sl(),
+        locationService: sl(),
+      ),
+      dispose: (coordinator) => coordinator.dispose(),
+    );
+  }
+  if (!sl.isRegistered<MapProvider>()) {
+    sl.registerLazySingleton<MapProvider>(
+      () => GoogleMapsMapProvider(functions: sl()),
     );
   }
 
@@ -237,6 +312,17 @@ Future<void> init() async {
   }
   if (!sl.isRegistered<ChatSummaryCubit>()) {
     sl.registerFactory(() => ChatSummaryCubit(repository: sl()));
+  }
+  if (!sl.isRegistered<LiveMeetupCubit>()) {
+    sl.registerFactory(() => LiveMeetupCubit(repository: sl()));
+  }
+  if (!sl.isRegistered<LocationSharingCubit>()) {
+    sl.registerFactory(() => LocationSharingCubit(coordinator: sl()));
+  }
+  if (!sl.isRegistered<MeetupPointEditorCubit>()) {
+    sl.registerFactory(
+      () => MeetupPointEditorCubit(repository: sl(), mapProvider: sl()),
+    );
   }
 
   // Global Error Handler
