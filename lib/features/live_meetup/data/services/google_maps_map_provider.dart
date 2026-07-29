@@ -20,14 +20,48 @@ class GoogleMapsMapProvider implements MapProvider {
   bool get isConfigured => true;
 
   @override
-  Future<List<PlaceCandidate>> search(String query) async {
+  Future<List<PlaceCandidate>> search(
+    String query, {
+    required String sessionToken,
+    GeoCoordinate? bias,
+  }) async {
     final trimmedQuery = query.trim();
     if (trimmedQuery.isEmpty) return const [];
-    final response = await _invoke('searchMapPlace', {'query': trimmedQuery});
+    final response = await _invoke('searchMapPlace', {
+      'query': trimmedQuery,
+      'sessionToken': sessionToken,
+      if (bias != null) ...{
+        'biasLatitude': bias.latitude,
+        'biasLongitude': bias.longitude,
+      },
+    });
     final source = _object(response);
     final results = source['results'];
     if (results is! List) throw const LiveMeetupServiceFailure();
     return results.map(_placeCandidate).toList(growable: false);
+  }
+
+  @override
+  Future<PlaceCandidate> resolvePlace(
+    PlaceCandidate candidate, {
+    required String sessionToken,
+  }) async {
+    final response = await _invoke('resolveMapPlace', {
+      'placeId': candidate.id,
+      'sessionToken': sessionToken,
+    });
+    final source = _object(response);
+    final latitude = source['latitude'];
+    final longitude = source['longitude'];
+    if (latitude is! num || longitude is! num) {
+      throw const LiveMeetupServiceFailure();
+    }
+    return candidate.withCoordinate(
+      GeoCoordinate(
+        latitude: latitude.toDouble(),
+        longitude: longitude.toDouble(),
+      ),
+    );
   }
 
   @override
@@ -54,18 +88,9 @@ class GoogleMapsMapProvider implements MapProvider {
 
   PlaceCandidate _placeCandidate(Object? rawResult) {
     final result = _object(rawResult);
-    final latitude = result['latitude'];
-    final longitude = result['longitude'];
-    if (latitude is! num || longitude is! num) {
-      throw const LiveMeetupServiceFailure();
-    }
     return PlaceCandidate(
       id: _requiredString(result, 'id'),
       label: _requiredString(result, 'label'),
-      coordinate: GeoCoordinate(
-        latitude: latitude.toDouble(),
-        longitude: longitude.toDouble(),
-      ),
     );
   }
 

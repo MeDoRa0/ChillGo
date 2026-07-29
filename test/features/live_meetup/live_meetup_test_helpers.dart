@@ -115,12 +115,22 @@ class FakeDeviceLocationService implements DeviceLocationService {
 
 class FakeMapProvider implements MapProvider {
   List<PlaceCandidate> results = const [];
+  GeoCoordinate resolvedCoordinate = GeoCoordinate(latitude: 30, longitude: 31);
   @override
   bool get isConfigured => true;
   @override
   Future<String?> reverseLabel(GeoCoordinate coordinate) async => 'Test point';
   @override
-  Future<List<PlaceCandidate>> search(String query) async => results;
+  Future<List<PlaceCandidate>> search(
+    String query, {
+    required String sessionToken,
+    GeoCoordinate? bias,
+  }) async => results;
+  @override
+  Future<PlaceCandidate> resolvePlace(
+    PlaceCandidate candidate, {
+    required String sessionToken,
+  }) async => candidate.withCoordinate(resolvedCoordinate);
 }
 
 class FakeLiveMeetupTransitionService implements LiveMeetupTransitionService {

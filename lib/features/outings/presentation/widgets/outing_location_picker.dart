@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
@@ -20,12 +23,20 @@ class _OutingLocationPickerState extends State<OutingLocationPicker> {
   final _searchController = TextEditingController();
   final Set<Marker> _markers = {};
   GoogleMapController? _mapController;
+  LatLng _searchCenter = _defaultCenter;
+  Timer? _searchDebounce;
   GeoCoordinate? _selection;
   String? _locationLabel;
+  String? _searchSessionToken;
+  List<PlaceCandidate> _searchResults = const [];
+  int _searchSequence = 0;
+  bool _isSearching = false;
   bool _isResolving = false;
+  static final Random _random = Random.secure();
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     _mapController?.dispose();
     super.dispose();
@@ -51,9 +62,30 @@ class _OutingLocationPickerState extends State<OutingLocationPicker> {
               ),
               border: const OutlineInputBorder(),
             ),
+            onChanged: _onSearchQueryChanged,
             onSubmitted: (_) => _searchForPlace(),
           ),
         ),
+        if (_isSearching)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: LinearProgressIndicator(),
+          ),
+        if (_searchResults.isNotEmpty)
+          SizedBox(
+            height: 200,
+            child: ListView.builder(
+              itemCount: _searchResults.length,
+              itemBuilder: (context, index) {
+                final place = _searchResults[index];
+                return ListTile(
+                  leading: const Icon(Icons.location_on_outlined),
+                  title: Text(place.label),
+                  onTap: _isResolving ? null : () => _selectPlace(place),
+                );
+              },
+            ),
+          ),
         Expanded(
           child: GoogleMap(
             initialCameraPosition: const CameraPosition(
@@ -64,6 +96,7 @@ class _OutingLocationPickerState extends State<OutingLocationPicker> {
             mapToolbarEnabled: false,
             myLocationButtonEnabled: false,
             onMapCreated: (controller) => _mapController = controller,
+            onCameraMove: (position) => _searchCenter = position.target,
             onTap: _selectCoordinate,
           ),
         ),
@@ -87,24 +120,80 @@ class _OutingLocationPickerState extends State<OutingLocationPicker> {
     ),
   );
 
+  void _onSearchQueryChanged(String query) {
+    _searchDebounce?.cancel();
+    _searchSequence++;
+    if (query.trim().length < 3) {
+      _searchSessionToken = null;
+      setState(() {
+        _isSearching = false;
+        _searchResults = const [];
+      });
+      return;
+    }
+    setState(() => _searchResults = const []);
+    _searchDebounce = Timer(
+      const Duration(milliseconds: 350),
+      _searchForPlace,
+    );
+  }
+
   Future<void> _searchForPlace() async {
+    _searchDebounce?.cancel();
     final query = _searchController.text.trim();
-    if (query.isEmpty) return;
+    if (query.length < 3) return;
+    final searchSequence = ++_searchSequence;
+    setState(() => _isSearching = true);
     try {
-      final places = await widget.mapProvider.search(query);
+      final sessionToken = _searchSessionToken ??= _newSessionToken();
+      final places = await widget.mapProvider.search(
+        query,
+        sessionToken: sessionToken,
+        bias: GeoCoordinate(
+          latitude: _searchCenter.latitude,
+          longitude: _searchCenter.longitude,
+        ),
+      );
+      if (!mounted || searchSequence != _searchSequence) return;
+      setState(() {
+        _isSearching = false;
+        _searchResults = places;
+      });
+    } on LiveMeetupServiceFailure {
+      if (!mounted || searchSequence != _searchSequence) return;
+      setState(() => _isSearching = false);
+      _showMessage('Could not search for that place.');
+    }
+  }
+
+  Future<void> _selectPlace(PlaceCandidate place) async {
+    final sessionToken = _searchSessionToken;
+    if (sessionToken == null) return;
+    setState(() => _isResolving = true);
+    try {
+      final resolvedPlace = await widget.mapProvider.resolvePlace(
+        place,
+        sessionToken: sessionToken,
+      );
       if (!mounted) return;
-      if (places.isEmpty) {
-        _showMessage('No matching places found.');
+      final coordinate = resolvedPlace.coordinate;
+      if (coordinate == null) {
+        _showMessage('Could not find that place.');
         return;
       }
-      final place = places.first;
-      _searchController.text = place.label;
+      _searchSessionToken = null;
+      _searchController.text = resolvedPlace.label;
       _selectCoordinate(
-        LatLng(place.coordinate.latitude, place.coordinate.longitude),
+        LatLng(coordinate.latitude, coordinate.longitude),
       );
-      setState(() => _locationLabel = place.label);
+      setState(() {
+        _locationLabel = resolvedPlace.label;
+        _searchResults = const [];
+      });
     } on LiveMeetupServiceFailure {
       if (mounted) _showMessage('Could not search for that place.');
+    } finally {
+      if (mounted) setState(() => _isResolving = false);
     }
   }
 
@@ -148,5 +237,15 @@ class _OutingLocationPickerState extends State<OutingLocationPicker> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  static String _newSessionToken() {
+    final bytes = List<int>.generate(16, (_) => _random.nextInt(256));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    final hex = bytes
+        .map((byte) => byte.toRadixString(16).padLeft(2, '0'))
+        .join();
+    return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
   }
 }

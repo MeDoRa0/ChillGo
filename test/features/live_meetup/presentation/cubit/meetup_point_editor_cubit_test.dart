@@ -12,13 +12,7 @@ void main() {
     () async {
       final repository = FakeLiveMeetupRepository();
       final map = FakeMapProvider()
-        ..results = [
-          PlaceCandidate(
-            id: 'place',
-            label: 'Cafe',
-            coordinate: GeoCoordinate(latitude: 30, longitude: 31),
-          ),
-        ];
+        ..results = [PlaceCandidate(id: 'place', label: 'Cafe')];
       final cubit = MeetupPointEditorCubit(
         repository: repository,
         mapProvider: map,
@@ -31,8 +25,12 @@ void main() {
       // Feed the preparation stream through a purpose-built repository variant.
       expect(cubit.state.status, MeetupPointEditorStatus.loading);
       await cubit.search('Cafe');
-      cubit.select(map.results.single);
+      await cubit.select(map.results.single);
       expect(cubit.state.confirmed, isFalse);
+      expect(
+        cubit.state.selection!.coordinate,
+        GeoCoordinate(latitude: 30, longitude: 31),
+      );
       cubit.confirm(true);
       expect(cubit.state.confirmed, isTrue);
     },
@@ -60,6 +58,14 @@ class _FailingMapProvider implements MapProvider {
   Future<String?> reverseLabel(GeoCoordinate coordinate) =>
       throw const LiveMeetupServiceFailure();
   @override
-  Future<List<PlaceCandidate>> search(String query) =>
-      throw const LiveMeetupServiceFailure();
+  Future<List<PlaceCandidate>> search(
+    String query, {
+    required String sessionToken,
+    GeoCoordinate? bias,
+  }) => throw const LiveMeetupServiceFailure();
+  @override
+  Future<PlaceCandidate> resolvePlace(
+    PlaceCandidate candidate, {
+    required String sessionToken,
+  }) => throw const LiveMeetupServiceFailure();
 }

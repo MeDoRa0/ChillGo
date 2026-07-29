@@ -22,7 +22,7 @@ No device wall-clock timestamp is authoritative.
 
 - provider-opaque result ID
 - display label
-- coordinate
+- coordinate resolved only after the user selects the prediction
 - optional bounding box
 
 ## `DeviceLocationService`
@@ -57,11 +57,11 @@ Operations:
 
 Google Maps adapter:
 
-- uses the official Google Maps Flutter renderer and HTTPS Geocoding API;
-- reads distinct Maps SDK and Geocoding keys for Android/iOS from build
-  configuration, never source control;
-- applies Android package/certificate or iOS bundle restrictions and restricts
-  each key to only its required Maps SDK or Geocoding API;
+- uses the official Google Maps Flutter renderer, Places Autocomplete (New),
+  Place Details (New), and HTTPS Geocoding API;
+- keeps distinct Maps SDK, Places, and Geocoding keys outside source control;
+- applies Android package/certificate or iOS bundle restrictions to Maps SDK
+  keys and restricts each key to only its required API;
 - relies on the native renderer for map attribution and exposes Google legal
   notices through the application license UI;
 - does not send participant live coordinates to geocoding.
@@ -87,9 +87,14 @@ Google Maps adapter:
 - iOS: `NSLocationWhenInUseUsageDescription`, iOS 14 minimum, and geolocator
   configured to bypass Always permission; inject
   `GOOGLE_MAPS_IOS_SDK_API_KEY` through the untracked xcconfig.
+- Places: keep `GOOGLE_MAPS_PLACES_API_KEY` in Firebase Secret Manager. The
+  authenticated `searchMapPlace` callable returns at most five predictions
+  after a short client debounce; `resolveMapPlace` resolves exactly one chosen
+  prediction. Both calls share one per-search UUID session token. The mobile
+  app never receives this key.
 - Geocoding: keep `GOOGLE_MAPS_GEOCODING_API_KEY` in Firebase Secret Manager;
-  authenticated `searchMapPlace` and `reverseGeocode` callable functions own
-  Google Geocoding API requests. The mobile app never receives this key.
+  authenticated `reverseGeocode` owns reverse-Geocoding API requests. The
+  mobile app never receives this key.
 
 ## Test Doubles
 

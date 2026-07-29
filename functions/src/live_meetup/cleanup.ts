@@ -10,7 +10,6 @@ import {
   onDocumentDeleted,
   onDocumentUpdated,
 } from "firebase-functions/v2/firestore";
-import {onSchedule} from "firebase-functions/v2/scheduler";
 import {PrivacyTransitionCoordinator} from "./privacy_transition_coordinator";
 import {
   LiveMeetupTransition,
@@ -83,16 +82,6 @@ export const liveMeetupMembershipRemovalRepair = onDocumentDeleted(
     for (const outing of outings.docs) {
       await deletePresenceForOuting(outing.id, before.userId);
     }
-  },
-);
-
-export const liveMeetupCleanupScheduled = onSchedule(
-  "every 1 minutes",
-  async () => {
-    const db = getFirestore();
-    const now = Timestamp.now();
-    const {deleted, resumed} = await runLiveMeetupRepair(db, now);
-    logger.info("live_meetup_cleanup", {deleted, resumed});
   },
 );
 

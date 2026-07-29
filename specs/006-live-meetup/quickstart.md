@@ -15,8 +15,8 @@ This guide validates the Phase 6 design in [data-model.md](./data-model.md) and 
 ### Platform and provider setup
 
 - Android declares only coarse/fine foreground location permissions. iOS declares only when-in-use access and the Podfile sets `BYPASS_PERMISSION_LOCATION_ALWAYS=1`. Do not add background location or foreground-service capabilities.
-- Enable billing, Maps SDK for Android, Maps SDK for iOS, and Geocoding API in
-  the Google Cloud project.
+- Enable billing, Maps SDK for Android, Maps SDK for iOS, Places API (New),
+  and Geocoding API in the Google Cloud project.
 - Android: set `GOOGLE_MAPS_ANDROID_SDK_API_KEY` in the ignored
   `android/maps-secrets.properties` file. Restrict it to the Android
   package/certificate and Maps SDK for Android.
@@ -24,9 +24,12 @@ This guide validates the Phase 6 design in [data-model.md](./data-model.md) and 
   `ios/Flutter/GoogleMapsSecrets.xcconfig`, set
   `GOOGLE_MAPS_IOS_SDK_API_KEY`, and restrict it to the iOS bundle ID and Maps
   SDK for iOS.
-- Store `GOOGLE_MAPS_GEOCODING_API_KEY` only in Firebase Secret Manager and
-  bind it to `searchMapPlace` and `reverseGeocode`. The Flutter app calls these
-  authenticated callable functions; it never contains a Geocoding API key.
+- Store `GOOGLE_MAPS_PLACES_API_KEY` only in Firebase Secret Manager and bind
+  it to `searchMapPlace` and `resolveMapPlace` with
+  `firebase functions:secrets:set GOOGLE_MAPS_PLACES_API_KEY`. Store
+  `GOOGLE_MAPS_GEOCODING_API_KEY` only in Firebase Secret Manager and bind it
+  to `reverseGeocode`. The Flutter app calls authenticated callable functions;
+  it never contains either server key.
 - Never commit an API key. Set usage quotas and billing alerts for Google Maps
   Platform and Firebase.
 - Start Auth, Firestore, and Functions emulators together for transition scenarios because delete-before-acknowledgment behavior crosses all three services.
