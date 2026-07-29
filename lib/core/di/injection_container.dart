@@ -10,8 +10,10 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import '../domain/repositories/config_repository.dart';
 import '../domain/repositories/diagnostics_repository.dart';
+import '../domain/repositories/release_metadata_repository.dart';
 import '../data/repositories/config_repository_impl.dart';
 import '../data/repositories/diagnostics_repository_impl.dart';
+import '../data/repositories/release_metadata_repository_impl.dart';
 import '../error/global_error_handler.dart';
 
 // Feature Imports
@@ -125,6 +127,11 @@ Future<void> init() async {
     );
   }
   if (!sl.isRegistered<DiagnosticsRepository>()) {
+    if (!sl.isRegistered<ReleaseMetadataRepository>()) {
+      sl.registerLazySingleton<ReleaseMetadataRepository>(
+        ReleaseMetadataRepositoryImpl.new,
+      );
+    }
     sl.registerLazySingleton<DiagnosticsRepository>(
       () => DiagnosticsRepositoryImpl(
         crashlytics: isCrashlyticsSupportedPlatform
@@ -133,6 +140,7 @@ Future<void> init() async {
         analytics: isAnalyticsSupportedPlatform
             ? sl<FirebaseAnalytics>()
             : null,
+        releaseMetadata: sl(),
       ),
     );
   }
@@ -328,7 +336,10 @@ Future<void> init() async {
   // Global Error Handler
   if (!sl.isRegistered<GlobalErrorHandler>()) {
     sl.registerLazySingleton<GlobalErrorHandler>(
-      () => GlobalErrorHandler(diagnosticsRepository: sl()),
+      () => GlobalErrorHandler(
+        diagnosticsRepository: sl(),
+        releaseMetadataRepository: sl(),
+      ),
     );
   }
 }

@@ -2,34 +2,57 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import '../../domain/entities/diagnostics_log.dart';
+import '../../domain/entities/diagnostics_context.dart';
+import '../../domain/entities/release_telemetry_event.dart';
 import '../../domain/repositories/diagnostics_repository.dart';
+import '../../domain/repositories/release_metadata_repository.dart';
 import '../models/diagnostics_log_model.dart';
 
 class DiagnosticsRepositoryImpl implements DiagnosticsRepository {
   final FirebaseCrashlytics? crashlytics;
   final FirebaseAnalytics? analytics;
+  final ReleaseMetadataRepository? releaseMetadata;
   final List<DiagnosticsLog> _localBuffer = [];
 
-  DiagnosticsRepositoryImpl({this.crashlytics, this.analytics});
+  DiagnosticsRepositoryImpl({
+    this.crashlytics,
+    this.analytics,
+    this.releaseMetadata,
+  });
 
   @override
-  Future<void> logException(dynamic exception, StackTrace? stackTrace) async {
+  Future<void> logException(
+    Object exception,
+    StackTrace? stackTrace, {
+    DiagnosticsContext? context,
+  }) async {
+    final safeContext =
+        context ??
+        releaseMetadata?.diagnosticsContext('unexpected_failure') ??
+        const DiagnosticsContext(
+          releaseVersion: 'unknown',
+          clientType: 'unsupported',
+          failureCategory: 'unexpected_failure',
+        );
     final logEntry = DiagnosticsLogModel(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
-      errorMessage: exception.toString(),
-      stackTrace: stackTrace?.toString(),
+      errorMessage: safeContext.failureCategory,
+      stackTrace: null,
       severity: 'error',
       timestamp: DateTime.now(),
-      deviceMetadata: const {
-        'osVersion': 'unknown',
-        'deviceModel': 'unknown',
-        'screenSize': 'unknown',
-      },
+      deviceMetadata: safeContext.toSafeMap(),
     );
     _localBuffer.add(logEntry);
 
     try {
-      await crashlytics?.recordError(exception, stackTrace);
+      for (final entry in safeContext.toSafeMap().entries) {
+        await crashlytics?.setCustomKey(entry.key, entry.value);
+      }
+      await crashlytics?.recordError(
+        StateError('diagnostics.${safeContext.failureCategory}'),
+        null,
+        reason: safeContext.failureCategory,
+      );
     } catch (_) {
       // Remote diagnostics are best-effort only.
     }
@@ -38,7 +61,23 @@ class DiagnosticsRepositoryImpl implements DiagnosticsRepository {
   @override
   Future<void> logEvent(String name, Map<String, Object>? parameters) async {
     try {
-      await analytics?.logEvent(name: name, parameters: parameters);
+      final context =
+          releaseMetadata?.diagnosticsContext('journey_completed') ??
+          const DiagnosticsContext(
+            releaseVersion: 'unknown',
+            clientType: 'unsupported',
+            failureCategory: 'journey_completed',
+          );
+      final outcome = parameters?['outcome_category'];
+      final event = ReleaseTelemetryEvent.create(
+        name: name,
+        context: context,
+        outcome: outcome is String ? outcome : 'completed',
+      );
+      await analytics?.logEvent(
+        name: event.name,
+        parameters: event.toParameters(),
+      );
     } catch (_) {
       // Remote analytics are best-effort only.
     }
