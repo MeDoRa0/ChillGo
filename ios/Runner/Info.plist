@@ -34,6 +34,10 @@
 	<string>ChillGo uses your photo library to let you choose a profile avatar.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>ChillGo uses your location only while the app is open and you explicitly share it with accepted meetup participants.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

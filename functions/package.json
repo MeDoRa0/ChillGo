@@ -11,6 +11,9 @@
     "test:chat:integration": "npm run build && firebase emulators:exec --project chillgo-61439 --config ../firebase.json --only auth,firestore,functions \"mocha lib/test/chat/chat_integration.test.js\"",
     "test:live-meetup": "npm run build && mocha \"lib/test/live_meetup/**/*.test.js\" --ignore \"lib/test/live_meetup/live_meetup_integration.test.js\"",
     "test:live-meetup:integration": "npm run build && firebase emulators:exec --project chillgo-61439 --config ../firebase.json --only auth,firestore,functions \"mocha lib/test/live_meetup/live_meetup_integration.test.js\"",
+    "test:notifications": "npm run build && mocha \"lib/test/notifications/**/*.test.js\" --ignore \"lib/test/notifications/*_integration.test.js\"",
+    "test:notifications:integration": "npm run build && firebase emulators:exec --project chillgo-61439 --config ../firebase.json --only auth,firestore,functions \"mocha lib/test/notifications/*_integration.test.js\"",
+    "test:notifications:rules": "mocha ../firestore_tests/rules.test.js --grep notification",
     "test:integration": "npm run build && firebase emulators:exec --project chillgo-61439 --config ../firebase.json --only auth,firestore,functions \"mocha lib/test/agreement/agreement_integration.test.js\"",
     "emulators": "npm run build && firebase emulators:start --only auth,firestore,functions",
     "emulators:test": "npm run build && firebase emulators:exec --only auth,firestore,functions \"npm run test:agreement\""
