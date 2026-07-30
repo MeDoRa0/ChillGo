@@ -126,7 +126,9 @@ void main() {
       id: 'outing1',
       crewId: 'crew1',
       title: 'Outdated picnic',
-      scheduledAt: DateTime.now().subtract(const Duration(minutes: 1)),
+      scheduledAt: DateTime.now().subtract(
+        outingCleanupDelay + const Duration(minutes: 1),
+      ),
       locationText: 'Old park',
       status: OutingStatus.draft,
       createdByUserId: 'owner1',
