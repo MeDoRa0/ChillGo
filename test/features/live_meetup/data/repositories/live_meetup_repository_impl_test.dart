@@ -19,14 +19,12 @@ void main() {
     () async {
       final datasource = _Datasource();
       final access = StreamController<LiveMeetupAccessSnapshot>();
-      final outings = StreamController<Map<String, dynamic>>();
       final rosters = StreamController<List<Map<String, dynamic>>>();
       final statuses = StreamController<List<LiveMeetupStatusModel>>();
       final locations = StreamController<List<LiveLocation>>();
       final points = StreamController<MeetupPoint?>();
       addTearDown(() async {
         await access.close();
-        await outings.close();
         await rosters.close();
         await statuses.close();
         await locations.close();
@@ -35,9 +33,6 @@ void main() {
       when(
         () => datasource.watchAccess('outing'),
       ).thenAnswer((_) => access.stream);
-      when(
-        () => datasource.watchOuting('outing'),
-      ).thenAnswer((_) => outings.stream);
       when(
         () => datasource.watchAcceptedRoster('outing'),
       ).thenAnswer((_) => rosters.stream);
@@ -67,7 +62,6 @@ void main() {
           isCrewMember: true,
         ),
       );
-      outings.add(outing);
       rosters.add([
         {
           'outingId': 'outing',
@@ -99,6 +93,7 @@ void main() {
       final snapshot = await first;
       expect(snapshot.attendees.first.status, LiveMeetupStatus.arrived);
       expect(snapshot.attendees.last.status, isNull);
+      verifyNever(() => datasource.watchOuting('outing'));
     },
   );
 }

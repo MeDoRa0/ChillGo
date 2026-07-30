@@ -9,12 +9,15 @@ import '../models/agreement_round_model.dart';
 import '../models/agreement_vote_model.dart';
 
 class FirestoreAgreementDatasource {
+  static const int _mvpListLimit = 100;
+
   FirestoreAgreementDatasource({required this.firestore});
   final FirebaseFirestore firestore;
 
   Stream<List<AgreementRoundModel>> streamRounds(String outingId) => firestore
       .collection('agreement_rounds')
       .where('outingId', isEqualTo: outingId)
+      .limit(_mvpListLimit)
       .snapshots()
       .map(
         (s) =>
@@ -27,6 +30,7 @@ class FirestoreAgreementDatasource {
       firestore
           .collection('agreement_proposals')
           .where('outingId', isEqualTo: outingId)
+          .limit(_mvpListLimit)
           .snapshots()
           .map(
             (s) => s.docs
@@ -36,6 +40,7 @@ class FirestoreAgreementDatasource {
   Stream<List<AgreementResult>> streamResults(String outingId) => firestore
       .collection('agreement_results')
       .where('outingId', isEqualTo: outingId)
+      .limit(_mvpListLimit)
       .snapshots()
       .map((snapshot) {
         final values = <AgreementResult>[];

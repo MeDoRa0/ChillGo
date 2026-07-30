@@ -114,6 +114,36 @@ void main() {
     expect(didTap, isTrue);
   });
 
+  testWidgets('does not recreate Firestore streams on a same-crew rebuild', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: CrewCard(crew: crew)),
+      ),
+    );
+    await tester.pump();
+
+    final renamedCrew = Crew(
+      id: crew.id,
+      name: 'Renamed hikers',
+      ownerId: crew.ownerId,
+      createdAt: crew.createdAt,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: CrewCard(crew: renamedCrew)),
+      ),
+    );
+    await tester.pump();
+
+    verify(() => crewRepository.streamMembers('crew1')).called(1);
+    verify(
+      () => crewRepository.streamPendingInvitationsForCrew('crew1'),
+    ).called(1);
+    verify(() => outingRepository.streamCrewOutings('crew1')).called(1);
+  });
+
   testWidgets('shows an indicator only for active outings', (tester) async {
     final activeOuting = Outing(
       id: 'outing1',

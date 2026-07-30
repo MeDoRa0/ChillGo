@@ -25,6 +25,7 @@ jobs:
           distribution: temurin
           java-version: '21'
       - run: flutter pub get
+      - run: cp lib/firebase_options.example.dart lib/firebase_options.dart
       - run: flutter analyze
       - run: flutter test
       - run: npm ci && npm test
@@ -46,6 +47,8 @@ jobs:
           distribution: temurin
           java-version: '21'
       - run: flutter pub get
+      - run: cp lib/firebase_options.example.dart lib/firebase_options.dart
+      - run: cp android/app/google-services.example.json android/app/google-services.json
       - run: flutter build appbundle --release
   ios-metadata:
     runs-on: macos-latest
@@ -56,4 +59,5 @@ jobs:
         with:
           flutter-version: 3.44.8
       - run: flutter pub get
+      - run: cp lib/firebase_options.example.dart lib/firebase_options.dart
       - run: flutter build ipa --release --no-codesign

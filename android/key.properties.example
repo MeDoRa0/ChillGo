@@ -1,0 +1,5 @@
+# Copy to android/key.properties and keep the real file private.
+storeFile=C:/secure/chillgo-upload-keystore.jks
+storePassword=replace-with-secret
+keyAlias=chillgo-upload
+keyPassword=replace-with-secret

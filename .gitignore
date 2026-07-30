@@ -7,6 +7,19 @@
 .env*
 android/maps-secrets.properties
 ios/Flutter/GoogleMapsSecrets.xcconfig
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+lib/firebase_options.dart
+.firebaserc
+service-account*.json
+*firebase-adminsdk*.json
+google_application_credentials.json
+**/key.properties
+*.p8
+*.p12
+*.pem
+*.key
+*.mobileprovision
 .DS_Store
 Thumbs.db
 .atom/
@@ -36,6 +49,7 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
+/android/build/
 /coverage/
 
 # Symbolication related

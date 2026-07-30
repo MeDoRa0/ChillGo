@@ -21,8 +21,50 @@ val googleMapsAndroidApiKey = mapsSecrets.getProperty(
     "",
 )
 
+val signingProperties = Properties().apply {
+    val propertiesFile = rootProject.file("key.properties")
+    if (propertiesFile.isFile) {
+        propertiesFile.inputStream().use(::load)
+    }
+}
+fun signingValue(propertyName: String, environmentName: String): String? =
+    signingProperties.getProperty(propertyName)
+        ?: System.getenv(environmentName)
+
+val releaseStoreFile = signingValue(
+    "storeFile",
+    "CHILLGO_UPLOAD_KEYSTORE",
+)
+val releaseStorePassword = signingValue(
+    "storePassword",
+    "CHILLGO_UPLOAD_STORE_PASSWORD",
+)
+val releaseKeyAlias = signingValue(
+    "keyAlias",
+    "CHILLGO_UPLOAD_KEY_ALIAS",
+)
+val releaseKeyPassword = signingValue(
+    "keyPassword",
+    "CHILLGO_UPLOAD_KEY_PASSWORD",
+)
+val hasReleaseSigning = listOf(
+    releaseStoreFile,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword,
+).all { !it.isNullOrBlank() }
+val requiresReleaseSigning = gradle.startParameter.taskNames.any {
+    it.contains("release", ignoreCase = true)
+}
+if (requiresReleaseSigning && !hasReleaseSigning) {
+    throw GradleException(
+        "Release signing is required. Configure android/key.properties " +
+            "or the CHILLGO_UPLOAD_* environment variables.",
+    )
+}
+
 android {
-    namespace = "com.example.chillgo"
+    namespace = "com.chillgo.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -32,8 +74,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.chillgo"
+        applicationId = "com.chillgo.app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -44,11 +85,22 @@ android {
             googleMapsAndroidApiKey
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(releaseStoreFile!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 }

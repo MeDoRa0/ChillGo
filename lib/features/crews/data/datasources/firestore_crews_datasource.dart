@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/data/firestore_timestamp.dart';
 import '../../domain/entities/crew.dart';
@@ -6,6 +8,7 @@ import '../../domain/entities/crew_invitation.dart';
 
 class FirestoreCrewsDatasource {
   static const int _firestoreBatchWriteLimit = 500;
+  static const int _mvpListLimit = 100;
   static const int _deleteCrewBatchMaxAttempts = 3;
 
   final FirebaseFirestore firestore;
@@ -60,27 +63,30 @@ class FirestoreCrewsDatasource {
   }
 
   Stream<List<Crew>> streamCrewsForUser(String userId) {
-    return _memberships.where('userId', isEqualTo: userId).snapshots().asyncMap(
-      (membSnap) async {
-        final crewIds = membSnap.docs
-            .map((doc) => _readString(doc.data(), 'crewId'))
-            .whereType<String>()
-            .toSet()
-            .toList();
-        if (crewIds.isEmpty) return <Crew>[];
+    return _memberships
+        .where('userId', isEqualTo: userId)
+        .limit(_mvpListLimit)
+        .snapshots()
+        .asyncMap((membSnap) async {
+          final crewIds = membSnap.docs
+              .map((doc) => _readString(doc.data(), 'crewId'))
+              .whereType<String>()
+              .toSet()
+              .toList();
+          if (crewIds.isEmpty) return <Crew>[];
 
-        final crewDocs = await Future.wait([
-          for (final crewId in crewIds) _crews.doc(crewId).get(),
-        ]);
+          final crewDocs = await Future.wait([
+            for (final crewId in crewIds) _crews.doc(crewId).get(),
+          ]);
 
-        return crewDocs
-            .where((doc) => doc.exists)
-            .map(
-              (doc) => Crew.fromMap(_withDate(doc.data(), 'createdAt'), doc.id),
-            )
-            .toList();
-      },
-    );
+          return crewDocs
+              .where((doc) => doc.exists)
+              .map(
+                (doc) =>
+                    Crew.fromMap(_withDate(doc.data(), 'createdAt'), doc.id),
+              )
+              .toList();
+        });
   }
 
   String? _readString(Map<String, dynamic>? data, String field) {
@@ -99,6 +105,7 @@ class FirestoreCrewsDatasource {
   Stream<List<CrewMembership>> streamMembers(String crewId) {
     return _memberships
         .where('crewId', isEqualTo: crewId)
+        .limit(_mvpListLimit)
         .snapshots()
         .map(
           (snap) => snap.docs
@@ -115,6 +122,7 @@ class FirestoreCrewsDatasource {
   Stream<List<CrewInvitation>> streamPendingInvitationsForCrew(String crewId) {
     return _invitations
         .where('crewId', isEqualTo: crewId)
+        .limit(_mvpListLimit)
         .snapshots()
         .map(
           (snap) => snap.docs
@@ -131,6 +139,7 @@ class FirestoreCrewsDatasource {
   Stream<List<CrewInvitation>> streamReceivedInvitations(String userId) {
     return _invitations
         .where('invitedUserId', isEqualTo: userId)
+        .limit(_mvpListLimit)
         .snapshots()
         .map(
           (snap) => snap.docs
@@ -178,8 +187,10 @@ class FirestoreCrewsDatasource {
     required String targetUsername,
   }) async {
     final normalized = targetUsername.toLowerCase().trim();
-    final targetUid = await resolveUsername(normalized);
-    final inviterProfile = await _requireUserProfile(inviterUid);
+    final (targetUid, inviterProfile) = await (
+      resolveUsername(normalized),
+      _requireUserProfile(inviterUid),
+    ).wait;
 
     final invitationId = '${crewId}_$targetUid';
     // Capture the *normalized* username so the pending-invitations UI can
@@ -252,16 +263,12 @@ class FirestoreCrewsDatasource {
     final ownerId = crew.data()?['ownerId'] as String?;
     if (ownerId == null || ownerId.isEmpty) throw Exception('crew-not-found');
 
-    final memberships = await _memberships
-        .where('crewId', isEqualTo: crewId)
-        .get();
-    final invitations = await _invitations
-        .where('crewId', isEqualTo: crewId)
-        .get();
-    final outings = await _outings.where('crewId', isEqualTo: crewId).get();
-    final participants = await _participants
-        .where('crewId', isEqualTo: crewId)
-        .get();
+    final (memberships, invitations, outings, participants) = await (
+      _memberships.where('crewId', isEqualTo: crewId).get(),
+      _invitations.where('crewId', isEqualTo: crewId).get(),
+      _outings.where('crewId', isEqualTo: crewId).get(),
+      _participants.where('crewId', isEqualTo: crewId).get(),
+    ).wait;
     final ownerMembership = _memberships.doc('${crewId}_$ownerId');
 
     final dependentDocuments = <DocumentReference>[
@@ -296,13 +303,13 @@ class FirestoreCrewsDatasource {
 
   Future<void> removeMember(String crewId, String userId) async {
     final participantSnapshots = await _participants
+        .where('crewId', isEqualTo: crewId)
         .where('userId', isEqualTo: userId)
+        .limit(_mvpListLimit)
         .get();
     final batch = firestore.batch();
     for (final participant in participantSnapshots.docs) {
-      if (participant.data()['crewId'] == crewId) {
-        batch.delete(participant.reference);
-      }
+      batch.delete(participant.reference);
     }
     batch.delete(_memberships.doc('${crewId}_$userId'));
     await batch.commit();

@@ -9,17 +9,52 @@ import 'package:chillgo/features/crews/domain/repositories/crew_repository.dart'
 import 'package:chillgo/features/outings/domain/entities/outing.dart';
 import 'package:chillgo/features/outings/domain/repositories/outing_repository.dart';
 
-class CrewCard extends StatelessWidget {
+class CrewCard extends StatefulWidget {
   final Crew crew;
   final VoidCallback? onTap;
 
   const CrewCard({super.key, required this.crew, this.onTap});
 
   @override
-  Widget build(BuildContext context) {
+  State<CrewCard> createState() => _CrewCardState();
+}
+
+class _CrewCardState extends State<CrewCard> {
+  late Stream<List<CrewMembership>> _memberStream;
+  Stream<List<CrewInvitation>>? _invitationStream;
+  Stream<List<Outing>>? _outingStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _bindStreams();
+  }
+
+  @override
+  void didUpdateWidget(CrewCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.crew.id != widget.crew.id ||
+        oldWidget.crew.ownerId != widget.crew.ownerId) {
+      _bindStreams();
+    }
+  }
+
+  void _bindStreams() {
+    final crew = widget.crew;
+    final crewRepository = sl<CrewRepository>();
     final currentUid = sl<AuthRepository>().currentCredentials?.uid;
-    final canViewPendingInvites =
-        currentUid != null && crew.ownerId == currentUid;
+    _memberStream = crewRepository.streamMembers(crew.id);
+    _invitationStream = currentUid != null && crew.ownerId == currentUid
+        ? crewRepository.streamPendingInvitationsForCrew(crew.id)
+        : null;
+    _outingStream = sl.isRegistered<OutingRepository>()
+        ? sl<OutingRepository>().streamCrewOutings(crew.id)
+        : null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final crew = widget.crew;
 
     return Stack(
       clipBehavior: Clip.none,
@@ -27,7 +62,7 @@ class CrewCard extends StatelessWidget {
         Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: onTap,
+            onTap: widget.onTap,
             borderRadius: BorderRadius.circular(16),
             child: Container(
               padding: const EdgeInsets.all(16),
@@ -71,30 +106,30 @@ class CrewCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   _CrewMembersSummary(
-                    crewId: crew.id,
-                    showPendingInvites: canViewPendingInvites,
+                    memberStream: _memberStream,
+                    invitationStream: _invitationStream,
                   ),
                 ],
               ),
             ),
           ),
         ),
-        _OutingIndicator(crewId: crew.id),
+        _OutingIndicator(stream: _outingStream),
       ],
     );
   }
 }
 
 class _OutingIndicator extends StatelessWidget {
-  final String crewId;
+  final Stream<List<Outing>>? stream;
 
-  const _OutingIndicator({required this.crewId});
+  const _OutingIndicator({required this.stream});
 
   @override
   Widget build(BuildContext context) {
-    if (!sl.isRegistered<OutingRepository>()) return const SizedBox.shrink();
+    if (stream == null) return const SizedBox.shrink();
     return StreamBuilder<List<Outing>>(
-      stream: sl<OutingRepository>().streamCrewOutings(crewId),
+      stream: stream,
       builder: (context, snapshot) {
         final now = DateTime.now();
         final hasActiveOuting = (snapshot.data ?? const <Outing>[]).any(
@@ -131,22 +166,21 @@ class _OutingIndicator extends StatelessWidget {
 }
 
 class _CrewMembersSummary extends StatelessWidget {
-  final String crewId;
-  final bool showPendingInvites;
+  final Stream<List<CrewMembership>> memberStream;
+  final Stream<List<CrewInvitation>>? invitationStream;
 
   const _CrewMembersSummary({
-    required this.crewId,
-    required this.showPendingInvites,
+    required this.memberStream,
+    required this.invitationStream,
   });
 
   @override
   Widget build(BuildContext context) {
-    final repository = sl<CrewRepository>();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         StreamBuilder<List<CrewMembership>>(
-          stream: repository.streamMembers(crewId),
+          stream: memberStream,
           initialData: const <CrewMembership>[],
           builder: (context, snapshot) {
             final members = snapshot.data ?? const <CrewMembership>[];
@@ -168,26 +202,22 @@ class _CrewMembersSummary extends StatelessWidget {
             );
           },
         ),
-        if (showPendingInvites)
-          _PendingInvitesSummary(repository: repository, crewId: crewId),
+        if (invitationStream != null)
+          _PendingInvitesSummary(stream: invitationStream!),
       ],
     );
   }
 }
 
 class _PendingInvitesSummary extends StatelessWidget {
-  final CrewRepository repository;
-  final String crewId;
+  final Stream<List<CrewInvitation>> stream;
 
-  const _PendingInvitesSummary({
-    required this.repository,
-    required this.crewId,
-  });
+  const _PendingInvitesSummary({required this.stream});
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<CrewInvitation>>(
-      stream: repository.streamPendingInvitationsForCrew(crewId),
+      stream: stream,
       builder: (context, snapshot) {
         final invitations = snapshot.data ?? const <CrewInvitation>[];
         if (invitations.isEmpty) return const SizedBox.shrink();

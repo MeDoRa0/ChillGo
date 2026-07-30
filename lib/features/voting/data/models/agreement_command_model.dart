@@ -36,7 +36,9 @@ class AgreementCommandModel extends AgreementCommand {
         outingId: m['outingId'] as String,
         crewId: m['crewId'] as String,
         requestedByUserId: m['requestedByUserId'] as String,
-        payload: Map<String, Object?>.from(m['payload'] as Map),
+        payload: m['payload'] is Map
+            ? Map<String, Object?>.from(m['payload'] as Map)
+            : const <String, Object?>{},
         createdAt: readFirestoreTimestamp(m['createdAt'])!,
         result: m['result'] == null
             ? null

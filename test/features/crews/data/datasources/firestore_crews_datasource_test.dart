@@ -161,6 +161,7 @@ void main() {
   group('streamCrewsForUser', () {
     test('ignores malformed membership records while loading crews', () async {
       final membershipsQuery = MockQuery();
+      final limitedMembershipsQuery = MockQuery();
       final membershipsSnap = MockQuerySnapshot();
       final invalidMembershipDoc = MockQueryDocumentSnapshot();
       final membershipDoc = MockQueryDocumentSnapshot();
@@ -171,7 +172,10 @@ void main() {
         () => memberships.where('userId', isEqualTo: 'alice'),
       ).thenReturn(membershipsQuery);
       when(
-        () => membershipsQuery.snapshots(),
+        () => membershipsQuery.limit(100),
+      ).thenReturn(limitedMembershipsQuery);
+      when(
+        () => limitedMembershipsQuery.snapshots(),
       ).thenAnswer((_) => Stream.value(membershipsSnap));
       when(
         () => membershipsSnap.docs,
@@ -200,6 +204,7 @@ void main() {
 
     test('loads crew documents directly without serial waits', () async {
       final membershipsQuery = MockQuery();
+      final limitedMembershipsQuery = MockQuery();
       final membershipsSnap = MockQuerySnapshot();
       final firstMembershipDoc = MockQueryDocumentSnapshot();
       final secondMembershipDoc = MockQueryDocumentSnapshot();
@@ -214,7 +219,10 @@ void main() {
         () => memberships.where('userId', isEqualTo: 'alice'),
       ).thenReturn(membershipsQuery);
       when(
-        () => membershipsQuery.snapshots(),
+        () => membershipsQuery.limit(100),
+      ).thenReturn(limitedMembershipsQuery);
+      when(
+        () => limitedMembershipsQuery.snapshots(),
       ).thenAnswer((_) => Stream.value(membershipsSnap));
       when(
         () => membershipsSnap.docs,
@@ -377,43 +385,44 @@ void main() {
     });
   });
 
-  test('removeMember deletes that user participant records in the crew', () async {
-    final participantQuery = MockQuery();
-    final participantSnapshot = MockQuerySnapshot();
-    final crewParticipant = MockQueryDocumentSnapshot();
-    final otherCrewParticipant = MockQueryDocumentSnapshot();
-    final crewParticipantRef = MockDocumentReference();
-    final otherCrewParticipantRef = MockDocumentReference();
-    final membershipRef = MockDocumentReference();
-    final batch = MockWriteBatch();
+  test(
+    'removeMember deletes that user participant records in the crew',
+    () async {
+      final crewParticipantQuery = MockQuery();
+      final userParticipantQuery = MockQuery();
+      final limitedParticipantQuery = MockQuery();
+      final participantSnapshot = MockQuerySnapshot();
+      final crewParticipant = MockQueryDocumentSnapshot();
+      final crewParticipantRef = MockDocumentReference();
+      final membershipRef = MockDocumentReference();
+      final batch = MockWriteBatch();
 
-    when(
-      () => participants.where('userId', isEqualTo: 'bob'),
-    ).thenReturn(participantQuery);
-    when(
-      () => participantQuery.get(),
-    ).thenAnswer((_) async => participantSnapshot);
-    when(
-      () => participantSnapshot.docs,
-    ).thenReturn([crewParticipant, otherCrewParticipant]);
-    when(() => crewParticipant.data()).thenReturn({'crewId': 'crew1'});
-    when(() => otherCrewParticipant.data()).thenReturn({'crewId': 'crew2'});
-    when(() => crewParticipant.reference).thenReturn(crewParticipantRef);
-    when(
-      () => otherCrewParticipant.reference,
-    ).thenReturn(otherCrewParticipantRef);
-    when(() => memberships.doc('crew1_bob')).thenReturn(membershipRef);
-    when(() => firestore.batch()).thenReturn(batch);
-    when(() => batch.delete(any())).thenReturn(null);
-    when(() => batch.commit()).thenAnswer((_) async {});
+      when(
+        () => participants.where('crewId', isEqualTo: 'crew1'),
+      ).thenReturn(crewParticipantQuery);
+      when(
+        () => crewParticipantQuery.where('userId', isEqualTo: 'bob'),
+      ).thenReturn(userParticipantQuery);
+      when(
+        () => userParticipantQuery.limit(100),
+      ).thenReturn(limitedParticipantQuery);
+      when(
+        () => limitedParticipantQuery.get(),
+      ).thenAnswer((_) async => participantSnapshot);
+      when(() => participantSnapshot.docs).thenReturn([crewParticipant]);
+      when(() => crewParticipant.reference).thenReturn(crewParticipantRef);
+      when(() => memberships.doc('crew1_bob')).thenReturn(membershipRef);
+      when(() => firestore.batch()).thenReturn(batch);
+      when(() => batch.delete(any())).thenReturn(null);
+      when(() => batch.commit()).thenAnswer((_) async {});
 
-    await datasource.removeMember('crew1', 'bob');
+      await datasource.removeMember('crew1', 'bob');
 
-    verify(() => batch.delete(crewParticipantRef)).called(1);
-    verifyNever(() => batch.delete(otherCrewParticipantRef));
-    verify(() => batch.delete(membershipRef)).called(1);
-    verify(() => batch.commit()).called(1);
-  });
+      verify(() => batch.delete(crewParticipantRef)).called(1);
+      verify(() => batch.delete(membershipRef)).called(1);
+      verify(() => batch.commit()).called(1);
+    },
+  );
 
   group('deleteCrew', () {
     test('splits deletes across batches at Firestore write limit', () async {

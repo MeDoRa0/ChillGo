@@ -1,9 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:chillgo/features/voting/data/datasources/firestore_agreement_datasource.dart';
+import 'package:chillgo/features/voting/data/models/agreement_proposal_model.dart';
+import 'package:chillgo/features/voting/data/models/agreement_round_model.dart';
+import 'package:chillgo/features/voting/data/models/agreement_vote_model.dart';
 import 'package:chillgo/features/voting/data/repositories/agreement_repository_impl.dart';
 import 'package:chillgo/features/voting/domain/entities/agreement_category.dart';
 import 'package:chillgo/features/voting/domain/entities/agreement_command.dart';
+import 'package:chillgo/features/voting/domain/entities/agreement_result.dart';
+import 'package:chillgo/features/voting/domain/entities/agreement_round.dart';
 import 'package:chillgo/features/live_meetup/domain/services/live_meetup_transition_service.dart';
 import 'package:chillgo/features/outings/domain/entities/attendance_status.dart';
 import 'package:chillgo/features/outings/domain/entities/outing_status.dart';
@@ -87,6 +94,46 @@ void main() {
     ).called(1);
     verify(() => ds.withdrawVote('r', AgreementCategory.time, 'u')).called(1);
   });
+
+  test(
+    'shares the rounds stream with the active-round vote listener',
+    () async {
+      final rounds = StreamController<List<AgreementRoundModel>>();
+      final votes = StreamController<List<AgreementVoteModel>>();
+      addTearDown(() async {
+        await rounds.close();
+        await votes.close();
+      });
+      when(() => ds.streamRounds('outing')).thenAnswer((_) => rounds.stream);
+      when(
+        () => ds.streamProposals('outing'),
+      ).thenAnswer((_) => Stream.value(const <AgreementProposalModel>[]));
+      when(
+        () => ds.streamResults('outing'),
+      ).thenAnswer((_) => Stream.value(const <AgreementResult>[]));
+      when(
+        () => ds.streamMyVotes('round', 'u'),
+      ).thenAnswer((_) => votes.stream);
+
+      final subscription = repo.streamAgreement('outing').listen((_) {});
+      addTearDown(subscription.cancel);
+      rounds.add([
+        AgreementRoundModel(
+          id: 'round',
+          outingId: 'outing',
+          crewId: 'crew',
+          sequence: 1,
+          status: AgreementRoundStatus.open,
+          createdByUserId: 'u',
+          createdAt: DateTime.utc(2026, 7, 30),
+        ),
+      ]);
+      await pumpEventQueue();
+
+      verify(() => ds.streamRounds('outing')).called(1);
+      verify(() => ds.streamMyVotes('round', 'u')).called(1);
+    },
+  );
 
   test('dispatches creator removal through delete_outing', () async {
     when(

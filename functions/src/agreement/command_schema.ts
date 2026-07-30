@@ -1,4 +1,4 @@
-import {Timestamp} from "firebase-admin/firestore";
+import {FieldValue, Timestamp} from "firebase-admin/firestore";
 
 export const commandTypes = ["open_round","create_proposal","preview_confirmation","confirm_round","reopen_round","cancel_outing","delete_outing","expire_outing"] as const;
 export type CommandType = typeof commandTypes[number];
@@ -25,5 +25,22 @@ export function parseCommand(raw:unknown):Command {
   if((type==="reopen_round"||type==="cancel_outing")&&(typeof p.reason!=="string"||p.reason.trim().length<3||p.reason.trim().length>200))throw new CommandError("invalid_command","Invalid reason.");
   if(type==="confirm_round"&&Object.values(p).some(v=>typeof v!=="string"||!v))throw new CommandError("invalid_command","Invalid tie selection.");
   return value as unknown as Command;
+}
+const TERMINAL_RETENTION_MS=24*60*60*1000;
+export function terminalAgreementCommandFields(
+  status:"succeeded"|"failed",
+  result?:Record<string,unknown>,
+  error?:CommandError,
+):Record<string,unknown> {
+  const processedAt=Timestamp.now();
+  return {
+    status,
+    ...(result?{result}:{}),
+    ...(error?{errorCode:error.code,errorMessage:error.message}:{}),
+    processedAt,
+    purgeAt:Timestamp.fromMillis(processedAt.toMillis()+TERMINAL_RETENTION_MS),
+    payload:FieldValue.delete(),
+    processingEventId:FieldValue.delete(),
+  };
 }
 export class CommandError extends Error {constructor(public readonly code:ErrorCode,message:string){super(message);}}

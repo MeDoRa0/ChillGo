@@ -1,5 +1,5 @@
 import {Firestore,FieldValue,Timestamp} from "firebase-admin/firestore";
-import {Command,CommandError} from "./command_schema";
+import {Command,CommandError,terminalAgreementCommandFields} from "./command_schema";
 import {Proposal,Vote,tally} from "./agreement_tally";
 import {OutingDeletionService} from "../outings/outing_deletion";
 import {PrivacyTransitionCoordinator} from "../live_meetup/privacy_transition_coordinator";
@@ -14,7 +14,7 @@ export class AgreementTransactions {
   const claimed=await this.db.runTransaction(async tx=>{const s=await tx.get(ref);const d=s.data();if(!d||["succeeded","failed"].includes(d.status))return false;
     if(d.status==="processing"&&d.processingEventId!==eventId)return false;tx.update(ref,{status:"processing",processingEventId:eventId});return true;});
   if(!claimed)throw new CommandError("already_processed","Command already processed.");
-  const result=await this.execute(command,id);await ref.update({status:"succeeded",result,processedAt:FieldValue.serverTimestamp()});return result;
+  const result=await this.execute(command,id);await ref.update(terminalAgreementCommandFields("succeeded",result));return result;
  }
  private async execute(c:Command,commandId:string):Promise<Record<string,unknown>>{
   const outingRef=this.db.collection("outings").doc(c.outingId);const outingSnap=await outingRef.get();if(!outingSnap.exists){if(c.type==="delete_outing"||c.type==="expire_outing")return {outingId:c.outingId,alreadyAbsent:true};throw new CommandError("not_found","Outing not found.");}

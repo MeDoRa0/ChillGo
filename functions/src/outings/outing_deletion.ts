@@ -1,5 +1,8 @@
 import {Firestore,FieldValue,Timestamp} from "firebase-admin/firestore";
-import {CommandError} from "../agreement/command_schema";
+import {
+ CommandError,
+ terminalAgreementCommandFields,
+} from "../agreement/command_schema";
 
 export const OUTING_OWNED_COLLECTIONS=[
  "outing_participants",
@@ -72,7 +75,14 @@ export class OutingDeletionService {
   const writer=this.db.bulkWriter();
   for(const doc of snapshot.docs){
    if(doc.id===commandId||(commandId&&doc.data().type==="delete_outing"))continue;
-   if(["pending","processing"].includes(doc.data().status))writer.update(doc.ref,{status:"failed",errorCode:"not_found",errorMessage:"Outing was removed.",processedAt:FieldValue.serverTimestamp()});
+   if(["pending","processing"].includes(doc.data().status))writer.update(
+    doc.ref,
+    terminalAgreementCommandFields(
+     "failed",
+     undefined,
+     new CommandError("not_found","Outing was removed."),
+    ),
+   );
    else writer.delete(doc.ref);
   }
   await writer.close();

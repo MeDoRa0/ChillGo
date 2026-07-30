@@ -36,7 +36,7 @@ type PlacesErrorMetadata = {
 };
 
 export const searchMapPlace = onCall(
-  {secrets: [googleMapsPlacesApiKey]},
+  {secrets: [googleMapsPlacesApiKey], enforceAppCheck: true},
   async (request) => {
     requireAuthentication(request.auth);
     const query = parseSearchQuery(request.data);
@@ -48,7 +48,7 @@ export const searchMapPlace = onCall(
 );
 
 export const resolveMapPlace = onCall(
-  {secrets: [googleMapsPlacesApiKey]},
+  {secrets: [googleMapsPlacesApiKey], enforceAppCheck: true},
   async (request) => {
     requireAuthentication(request.auth);
     const placeId = parsePlaceId(request.data);
@@ -58,7 +58,7 @@ export const resolveMapPlace = onCall(
 );
 
 export const reverseGeocode = onCall(
-  {secrets: [googleMapsGeocodingApiKey]},
+  {secrets: [googleMapsGeocodingApiKey], enforceAppCheck: true},
   async (request) => {
     requireAuthentication(request.auth);
     const coordinate = parseCoordinates(request.data);

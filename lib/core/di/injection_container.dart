@@ -123,7 +123,7 @@ Future<void> init() async {
   // Repositories
   if (!sl.isRegistered<ConfigRepository>()) {
     sl.registerLazySingleton<ConfigRepository>(
-      () => ConfigRepositoryImpl(sharedPreferences: sl(), firestore: sl()),
+      () => ConfigRepositoryImpl(sharedPreferences: sl()),
     );
   }
   if (!sl.isRegistered<DiagnosticsRepository>()) {

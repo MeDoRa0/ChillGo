@@ -3,6 +3,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../outings/domain/entities/attendance_status.dart';
 import '../../../outings/domain/entities/outing_status.dart';
 import '../../../live_meetup/domain/repositories/live_meetup_repository.dart';
+import '../../domain/entities/agreement_proposal.dart';
+import '../../domain/entities/agreement_result.dart';
+import '../../domain/entities/agreement_round.dart';
 import '../../domain/entities/agreement_category.dart';
 import '../../domain/entities/agreement_command.dart';
 import '../../domain/entities/agreement_vote.dart';
@@ -27,12 +30,16 @@ class AgreementRepositoryImpl implements AgreementRepository {
 
   @override
   Stream<AgreementDetail?> streamAgreement(String outingId) {
-    late StreamSubscription roundsSub, proposalsSub, resultsSub, votesSub;
+    late StreamSubscription roundsSub, proposalsSub, resultsSub;
+    StreamSubscription? votesSub;
     final controller = StreamController<AgreementDetail?>();
-    var rounds = <dynamic>[];
-    var proposals = <dynamic>[];
-    var results = <dynamic>[];
+    var rounds = <AgreementRound>[];
+    var proposals = <AgreementProposal>[];
+    var results = <AgreementResult>[];
     var votes = <AgreementVote>[];
+    String? watchedVoteRoundId;
+    var voteSubscriptionGeneration = 0;
+
     void emit() => controller.add(
       AgreementDetail(
         activeRound: rounds.where((e) => e.isOpen).firstOrNull,
@@ -42,41 +49,56 @@ class AgreementRepositoryImpl implements AgreementRepository {
         results: List.from(results),
       ),
     );
+
+    Future<void> replaceVoteSubscription(String? roundId) async {
+      if (watchedVoteRoundId == roundId) return;
+      watchedVoteRoundId = roundId;
+      final generation = ++voteSubscriptionGeneration;
+      await votesSub?.cancel();
+      if (generation != voteSubscriptionGeneration) return;
+      votesSub = null;
+      votes = <AgreementVote>[];
+      emit();
+      if (roundId == null) return;
+      votesSub = datasource.streamMyVotes(roundId, _uid).listen((currentVotes) {
+        votes = currentVotes;
+        emit();
+      }, onError: controller.addError);
+    }
+
+    void watchVotesFor(String? roundId) {
+      unawaited(
+        replaceVoteSubscription(roundId).catchError(
+          (Object error, StackTrace stack) => controller.addError(error, stack),
+        ),
+      );
+    }
+
     controller.onListen = () {
-      roundsSub = datasource.streamRounds(outingId).listen((v) {
-        rounds = v;
+      roundsSub = datasource.streamRounds(outingId).listen((currentRounds) {
+        rounds = currentRounds;
+        emit();
+        watchVotesFor(
+          currentRounds.where((round) => round.isOpen).firstOrNull?.id,
+        );
+      }, onError: controller.addError);
+      proposalsSub = datasource.streamProposals(outingId).listen((
+        currentProposals,
+      ) {
+        proposals = currentProposals;
         emit();
       }, onError: controller.addError);
-      proposalsSub = datasource.streamProposals(outingId).listen((v) {
-        proposals = v;
+      resultsSub = datasource.streamResults(outingId).listen((currentResults) {
+        results = currentResults;
         emit();
       }, onError: controller.addError);
-      resultsSub = datasource.streamResults(outingId).listen((v) {
-        results = v;
-        emit();
-      }, onError: controller.addError);
-      votesSub = datasource
-          .streamRounds(outingId)
-          .asyncExpand(
-            (v) => v.where((r) => r.isOpen).isEmpty
-                ? Stream.value(<AgreementVote>[])
-                : datasource.streamMyVotes(
-                    v.firstWhere((r) => r.isOpen).id,
-                    _uid,
-                  ),
-          )
-          .listen((v) {
-            votes = v;
-            emit();
-          }, onError: controller.addError);
     };
     controller.onCancel = () async {
-      await Future.wait([
-        roundsSub.cancel(),
-        proposalsSub.cancel(),
-        resultsSub.cancel(),
-        votesSub.cancel(),
-      ]);
+      voteSubscriptionGeneration++;
+      await roundsSub.cancel();
+      await proposalsSub.cancel();
+      await resultsSub.cancel();
+      await votesSub?.cancel();
     };
     return controller.stream;
   }
@@ -162,22 +184,23 @@ class AgreementRepositoryImpl implements AgreementRepository {
   @override
   Future<String> previewConfirmation(String id) =>
       _command('preview_confirmation', id);
- @override
-Future<String> confirmRound(
-  String id, {
-  String? selectedTimeProposalId,
-  String? selectedLocationProposalId,
-}) {
-  final payload = <String, Object?>{
-    ...?(selectedTimeProposalId != null
-        ? {'selectedTimeProposalId': selectedTimeProposalId}
-        : null),
-    ...?(selectedLocationProposalId != null
-        ? {'selectedLocationProposalId': selectedLocationProposalId}
-        : null),
-  };
-  return _command('confirm_round', id, payload);
-}
+  @override
+  Future<String> confirmRound(
+    String id, {
+    String? selectedTimeProposalId,
+    String? selectedLocationProposalId,
+  }) {
+    final payload = <String, Object?>{
+      ...?(selectedTimeProposalId != null
+          ? {'selectedTimeProposalId': selectedTimeProposalId}
+          : null),
+      ...?(selectedLocationProposalId != null
+          ? {'selectedLocationProposalId': selectedLocationProposalId}
+          : null),
+    };
+    return _command('confirm_round', id, payload);
+  }
+
   @override
   Future<String> reopenRound(String id, String reason) {
     final r = reason.trim();

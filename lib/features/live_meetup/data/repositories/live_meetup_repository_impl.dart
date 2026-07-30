@@ -35,7 +35,6 @@ class LiveMeetupRepositoryImpl implements LiveMeetupRepository {
   Stream<LiveMeetupSnapshot> watchMeetup(String outingId) {
     late StreamController<LiveMeetupSnapshot> controller;
     StreamSubscription? accessSubscription;
-    StreamSubscription? outingSubscription;
     StreamSubscription? rosterSubscription;
     StreamSubscription? statusSubscription;
     StreamSubscription? locationSubscription;
@@ -132,14 +131,12 @@ class LiveMeetupRepositoryImpl implements LiveMeetupRepository {
       expiryTimer?.cancel();
       final subscriptions = [
         accessSubscription,
-        outingSubscription,
         rosterSubscription,
         statusSubscription,
         locationSubscription,
         pointSubscription,
       ].whereType<StreamSubscription>();
       accessSubscription = null;
-      outingSubscription = null;
       rosterSubscription = null;
       statusSubscription = null;
       locationSubscription = null;
@@ -181,11 +178,8 @@ class LiveMeetupRepositoryImpl implements LiveMeetupRepository {
             );
             return;
           }
+          outing = snapshot.outing;
           allowed = true;
-          emit();
-        }, onError: protect);
-        outingSubscription = datasource.watchOuting(outingId).listen((value) {
-          outing = value;
           emit();
         }, onError: protect);
         rosterSubscription = datasource.watchAcceptedRoster(outingId).listen((
@@ -214,7 +208,6 @@ class LiveMeetupRepositoryImpl implements LiveMeetupRepository {
       },
       onCancel: () async {
         await accessSubscription?.cancel();
-        await outingSubscription?.cancel();
         await rosterSubscription?.cancel();
         await statusSubscription?.cancel();
         await locationSubscription?.cancel();

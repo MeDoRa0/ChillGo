@@ -71,13 +71,6 @@
       ]
     },
     {
-      "collectionGroup": "notifications",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {"fieldPath": "expiresAt", "order": "ASCENDING"}
-      ]
-    },
-    {
       "collectionGroup": "notification_commands",
       "queryScope": "COLLECTION",
       "fields": [
@@ -87,6 +80,12 @@
     }
   ],
   "fieldOverrides": [
+    {
+      "collectionGroup": "agreement_commands",
+      "fieldPath": "purgeAt",
+      "ttl": true,
+      "indexes": []
+    },
     {
       "collectionGroup": "chat_messages",
       "fieldPath": "expiresAt",

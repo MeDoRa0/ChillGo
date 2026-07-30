@@ -13,6 +13,8 @@ import '../models/outing_model.dart';
 import '../models/outing_participant_model.dart';
 
 class FirestoreOutingsDatasource {
+  static const int _mvpListLimit = 100;
+
   final FirebaseFirestore firestore;
 
   FirestoreOutingsDatasource({required this.firestore});
@@ -36,8 +38,10 @@ class FirestoreOutingsDatasource {
     required DateTime scheduledAt,
     required String locationText,
   }) async {
-    await _requireCrewMember(crewId, creatorUserId);
-    final creatorProfile = await _requireUserProfile(creatorUserId);
+    final (_, creatorProfile) = await (
+      _requireCrewMember(crewId, creatorUserId),
+      _requireUserProfile(creatorUserId),
+    ).wait;
     final outingRef = outings.doc();
     final outingId = outingRef.id;
     final now = DateTime.now().toUtc();
@@ -75,15 +79,19 @@ class FirestoreOutingsDatasource {
   }
 
   Stream<List<Outing>> streamCrewOutings(String crewId) {
-    return outings.where('crewId', isEqualTo: crewId).snapshots().map((snap) {
-      final values = <Outing>[];
-      for (final doc in snap.docs) {
-        final outing = _tryReadOuting(doc.data(), doc.id);
-        if (outing != null) values.add(outing);
-      }
-      values.sort(_compareOutingsForList);
-      return values;
-    });
+    return outings
+        .where('crewId', isEqualTo: crewId)
+        .limit(_mvpListLimit)
+        .snapshots()
+        .map((snap) {
+          final values = <Outing>[];
+          for (final doc in snap.docs) {
+            final outing = _tryReadOuting(doc.data(), doc.id);
+            if (outing != null) values.add(outing);
+          }
+          values.sort(_compareOutingsForList);
+          return values;
+        });
   }
 
   Stream<Outing?> streamOuting(String outingId) {
@@ -94,17 +102,19 @@ class FirestoreOutingsDatasource {
   }
 
   Stream<List<OutingParticipant>> streamParticipants(String outingId) {
-    return participants.where('outingId', isEqualTo: outingId).snapshots().map((
-      snap,
-    ) {
-      final values = <OutingParticipant>[];
-      for (final doc in snap.docs) {
-        final participant = _tryReadParticipant(doc.data(), doc.id);
-        if (participant != null) values.add(participant);
-      }
-      values.sort((a, b) => a.addedAt.compareTo(b.addedAt));
-      return values;
-    });
+    return participants
+        .where('outingId', isEqualTo: outingId)
+        .limit(_mvpListLimit)
+        .snapshots()
+        .map((snap) {
+          final values = <OutingParticipant>[];
+          for (final doc in snap.docs) {
+            final participant = _tryReadParticipant(doc.data(), doc.id);
+            if (participant != null) values.add(participant);
+          }
+          values.sort((a, b) => a.addedAt.compareTo(b.addedAt));
+          return values;
+        });
   }
 
   Future<Outing?> getOuting(String outingId) async {
@@ -161,6 +171,7 @@ class FirestoreOutingsDatasource {
   Future<void> deleteOuting(String outingId) async {
     final participantSnapshots = await participants
         .where('outingId', isEqualTo: outingId)
+        .limit(_mvpListLimit)
         .get();
     final batch = firestore.batch();
 
@@ -177,8 +188,10 @@ class FirestoreOutingsDatasource {
     required String addedByUserId,
   }) async {
     final outing = await _requireOuting(outingId);
-    await _requireCrewMember(outing.crewId, userId);
-    final profile = await _requireUserProfile(userId);
+    final (_, profile) = await (
+      _requireCrewMember(outing.crewId, userId),
+      _requireUserProfile(userId),
+    ).wait;
     final participantId = _participantId(outingId, userId);
     final now = writeFirestoreTimestamp(DateTime.now());
     final ref = participants.doc(participantId);
