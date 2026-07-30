@@ -20,6 +20,10 @@ jobs:
           cache-dependency-path: |
             functions/package-lock.json
             firestore_tests/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
