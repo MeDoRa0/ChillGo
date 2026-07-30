@@ -14,18 +14,17 @@ class ReleaseMetadataRepositoryImpl implements ReleaseMetadataRepository {
              'APP_RELEASE_VERSION',
              defaultValue: '0.1.0',
            ),
-       _platform = platform;
+       _platform = platform ?? defaultTargetPlatform;
 
   final String _releaseVersion;
-  final TargetPlatform? _platform;
+  final TargetPlatform _platform;
 
   @override
   String get releaseVersion => _releaseVersion;
 
   @override
   String get clientType {
-    final platform = _platform ?? defaultTargetPlatform;
-    return switch (platform) {
+    return switch (_platform) {
       TargetPlatform.android => 'android',
       TargetPlatform.iOS => 'ios',
       _ => 'unsupported',

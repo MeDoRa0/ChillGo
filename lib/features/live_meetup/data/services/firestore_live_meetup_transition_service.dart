@@ -100,7 +100,7 @@ class FirestoreLiveMeetupTransitionService
       final ref = firestore.collection('live_meetup_transitions').doc();
       await ref.set({
         'type': type,
-        if (outingId != null) 'outingId': outingId,
+        'outingId': ?outingId,
         'crewId': resolvedCrewId,
         ...fields,
         'requestedByUserId': uid,

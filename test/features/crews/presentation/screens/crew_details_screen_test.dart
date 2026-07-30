@@ -102,7 +102,7 @@ void main() {
       routes: [
         GoRoute(
           path: '/',
-          builder: (_, __) => const CrewDetailsScreen(crewId: 'crew1'),
+          builder: (_, _) => const CrewDetailsScreen(crewId: 'crew1'),
         ),
         GoRoute(
           path: '/crews/:crewId/outings/new',

@@ -93,8 +93,8 @@ class FirestoreProfileDatasource {
     String? avatarUrl,
   }) async {
     final profileUpdates = <String, dynamic>{
-      if (displayName != null) 'displayName': displayName,
-      if (avatarUrl != null) 'avatarUrl': avatarUrl,
+      'displayName': ?displayName,
+      'avatarUrl': ?avatarUrl,
     };
     if (profileUpdates.isEmpty) return;
 
