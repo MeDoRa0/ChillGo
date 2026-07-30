@@ -162,17 +162,22 @@ class AgreementRepositoryImpl implements AgreementRepository {
   @override
   Future<String> previewConfirmation(String id) =>
       _command('preview_confirmation', id);
-  @override
-  Future<String> confirmRound(
-    String id, {
-    String? selectedTimeProposalId,
-    String? selectedLocationProposalId,
-  }) => _command('confirm_round', id, {
-    if (selectedTimeProposalId != null)
-      'selectedTimeProposalId': selectedTimeProposalId,
-    if (selectedLocationProposalId != null)
-      'selectedLocationProposalId': selectedLocationProposalId,
-  });
+ @override
+Future<String> confirmRound(
+  String id, {
+  String? selectedTimeProposalId,
+  String? selectedLocationProposalId,
+}) {
+  final payload = <String, Object?>{
+    ...?(selectedTimeProposalId != null
+        ? {'selectedTimeProposalId': selectedTimeProposalId}
+        : null),
+    ...?(selectedLocationProposalId != null
+        ? {'selectedLocationProposalId': selectedLocationProposalId}
+        : null),
+  };
+  return _command('confirm_round', id, payload);
+}
   @override
   Future<String> reopenRound(String id, String reason) {
     final r = reason.trim();
