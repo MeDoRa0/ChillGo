@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:chillgo/core/error/global_error_handler.dart';
 import 'package:chillgo/core/domain/repositories/diagnostics_repository.dart';
+import 'package:chillgo/core/data/repositories/release_metadata_repository_impl.dart';
 
 class MockDiagnosticsRepository extends Mock implements DiagnosticsRepository {}
 
@@ -11,7 +12,10 @@ void main() {
 
   setUp(() {
     mockDiagnosticsRepository = MockDiagnosticsRepository();
-    errorHandler = GlobalErrorHandler(diagnosticsRepository: mockDiagnosticsRepository);
+    errorHandler = GlobalErrorHandler(
+      diagnosticsRepository: mockDiagnosticsRepository,
+      releaseMetadataRepository: ReleaseMetadataRepositoryImpl(),
+    );
   });
 
   test('should initialize correctly and register handlers', () {

@@ -147,7 +147,9 @@ void main() {
       id: 'outing1',
       crewId: 'crew1',
       title: 'Old ramen run',
-      scheduledAt: DateTime.now().subtract(const Duration(minutes: 1)),
+      scheduledAt: DateTime.now().subtract(
+        outingCleanupDelay + const Duration(minutes: 1),
+      ),
       locationText: 'Ramen shop',
       status: OutingStatus.draft,
       createdByUserId: 'owner1',
