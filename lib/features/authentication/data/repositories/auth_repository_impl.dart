@@ -1,15 +1,15 @@
 import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 import '../../domain/repositories/auth_repository.dart';
 import '../../domain/entities/user_profile.dart';
 import '../datasources/firebase_auth_datasource.dart';
 import '../../../profile/domain/repositories/profile_repository.dart';
 
-/// Maximum time we wait for a Firestore profile read before treating it as
-/// missing and routing the user onward. Without this bound, a hung network
-/// call (common on Android emulators with broken Google Play Services) would
-/// lock the app on /loading indefinitely.
+/// Maximum time we wait for a Firestore profile read before retrying it.
 const _kProfileFetchTimeout = Duration(seconds: 10);
+
+const _kProfileFetchRetryDelay = Duration(seconds: 1);
 
 /// How long after construction we wait for `authStateChanges` to emit the
 /// restored user before triggering a defensive manual fetch. This covers the
@@ -27,7 +27,9 @@ class AuthRepositoryImpl implements AuthRepository {
   String? _cachedDisplayName;
   StreamSubscription<dynamic>? _authSub;
   Timer? _restoreFallbackTimer;
+  Timer? _profileFetchRetryTimer;
   Future<void> _statusRefresh = Future.value();
+  String? _latestAuthUserId;
 
   AuthRepositoryImpl({
     required this.authDatasource,
@@ -101,9 +103,25 @@ class AuthRepositoryImpl implements AuthRepository {
     if (cancelRestoreFallback) {
       _cancelRestoreFallbackTimer();
     }
+    _updateLatestAuthUser(user);
 
     _statusRefresh = _statusRefresh.then((_) => _updateStatus(user));
     return _statusRefresh;
+  }
+
+  void _updateLatestAuthUser(dynamic user) {
+    final userId = user?.uid as String?;
+    if (userId == _latestAuthUserId) return;
+
+    _latestAuthUserId = userId;
+    _profileFetchRetryTimer?.cancel();
+    _profileFetchRetryTimer = null;
+
+    if (_cachedStatus == AuthStatus.unknown) return;
+    _cachedUsername = null;
+    _cachedDisplayName = null;
+    _cachedStatus = AuthStatus.unknown;
+    _safeEmit(_cachedStatus);
   }
 
   void _cancelRestoreFallbackTimer() {
@@ -119,14 +137,13 @@ class AuthRepositoryImpl implements AuthRepository {
     }
     try {
       if (user == null) {
+        if (!_isLatestAuthState(user)) return;
         _cachedUsername = null;
         _cachedDisplayName = null;
         _cachedStatus = AuthStatus.unauthenticated;
       } else {
-        // Bound the profile fetch so a hung Firestore call cannot pin the
-        // app on /loading. On timeout we treat it as "no profile" (the safe
-        // direction) and log so the issue is visible in logcat.
         final profile = await _getProfileWithTimeout(user.uid);
+        if (!_isLatestAuthState(user)) return;
         if (profile != null) {
           _cachedUsername = profile.username;
           _cachedDisplayName = profile.displayName;
@@ -144,50 +161,40 @@ class AuthRepositoryImpl implements AuthRepository {
           '[ChillGo] _updateStatus finished; newStatus=$_cachedStatus, username=$_cachedUsername',
         );
       }
-    } catch (e, stack) {
-      // A Firestore/network/rules exception is NOT a missing profile.
-      // Log every failure (not just first run) so silent hangs become
+    } on FirebaseException catch (error, stack) {
       // visible — this is the exact signal that was missing before.
-      if (kDebugMode) {
-        debugPrint('[ChillGo] Profile fetch failed: $e\n$stack');
-      }
-
-      if (_cachedStatus == AuthStatus.unknown) {
-        // First run: fall back to authenticatedNoProfile so the router
-        // can proceed to onboarding, which is recoverable.
-        _cachedStatus = AuthStatus.authenticatedNoProfile;
-        _safeEmit(_cachedStatus);
-        if (kDebugMode) {
-          debugPrint(
-            '[ChillGo] _updateStatus fallback to authenticatedNoProfile',
-          );
-        }
-      }
-      // On subsequent runs, preserve the last successfully resolved
-      // status so the router does not misroute on a transient error.
+      _retryProfileFetch(user, error, stack);
+    } on TimeoutException catch (error, stack) {
+      _retryProfileFetch(user, error, stack);
     }
   }
 
-  /// Wraps [ProfileRepository.getProfile] with a hard timeout so a hung
-  /// Firestore call cannot lock the app on /loading indefinitely. Returning
-  /// `null` on timeout is intentional — the router treats it the same as a
-  /// genuine "no profile" response and routes the user to onboarding, which
-  /// is recoverable.
-  Future<UserProfile?> _getProfileWithTimeout(String uid) async {
-    try {
-      return await profileRepository
-          .getProfile(uid)
-          .timeout(_kProfileFetchTimeout);
-    } on TimeoutException {
-      if (kDebugMode) {
-        debugPrint(
-          '[ChillGo] Profile fetch timed out after '
-          '${_kProfileFetchTimeout.inSeconds}s for uid $uid; '
-          'treating as no profile.',
-        );
-      }
-      return null;
+  /// Bounds a profile read so a transient failure can be retried.
+  Future<UserProfile?> _getProfileWithTimeout(String uid) {
+    return profileRepository.getProfile(uid).timeout(_kProfileFetchTimeout);
+  }
+
+  bool _isLatestAuthState(dynamic user) {
+    return user == null
+        ? _latestAuthUserId == null
+        : user.uid == _latestAuthUserId;
+  }
+
+  void _scheduleProfileFetchRetry(String userId) {
+    _profileFetchRetryTimer?.cancel();
+    _profileFetchRetryTimer = Timer(_kProfileFetchRetryDelay, () {
+      final currentUser = authDatasource.currentUser;
+      if (currentUser?.uid != userId) return;
+      _refreshStatus(currentUser, cancelRestoreFallback: false);
+    });
+  }
+
+  void _retryProfileFetch(dynamic user, Object error, StackTrace stack) {
+    if (kDebugMode) {
+      debugPrint('[ChillGo] Profile fetch failed: $error\n$stack');
     }
+    if (!_isLatestAuthState(user) || user == null) return;
+    _scheduleProfileFetchRetry(user.uid);
   }
 
   /// Emit through the broadcast controller without letting a closed-sink
@@ -284,6 +291,7 @@ class AuthRepositoryImpl implements AuthRepository {
 
   Future<void> dispose() async {
     _cancelRestoreFallbackTimer();
+    _profileFetchRetryTimer?.cancel();
     await _authSub?.cancel();
     await _statusController.close();
   }

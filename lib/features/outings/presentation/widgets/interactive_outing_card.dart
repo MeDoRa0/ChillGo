@@ -124,7 +124,7 @@ class InteractiveOutingCard extends StatelessWidget {
       barrierLabel: 'Close outing actions',
       barrierColor: const Color(0xFF090812).withValues(alpha: 0.82),
       transitionDuration: const Duration(milliseconds: 240),
-      pageBuilder: (_, _, _) => _FocusedCard(
+      pageBuilder: (_, _, _) => OutingReviewCard(
         outing: outing,
         participants: participants,
         outingRepository: outingRepository,
@@ -236,8 +236,9 @@ class _CardChatButton extends StatelessWidget {
   );
 }
 
-class _FocusedCard extends StatefulWidget {
-  const _FocusedCard({
+class OutingReviewCard extends StatefulWidget {
+  const OutingReviewCard({
+    super.key,
     required this.outing,
     required this.participants,
     required this.outingRepository,
@@ -251,10 +252,10 @@ class _FocusedCard extends StatefulWidget {
   final String? currentUserId;
 
   @override
-  State<_FocusedCard> createState() => _FocusedCardState();
+  State<OutingReviewCard> createState() => _OutingReviewCardState();
 }
 
-class _FocusedCardState extends State<_FocusedCard> {
+class _OutingReviewCardState extends State<OutingReviewCard> {
   bool _busy = false;
 
   @override

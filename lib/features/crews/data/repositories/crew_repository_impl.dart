@@ -34,6 +34,7 @@ class CrewRepositoryImpl implements CrewRepository {
 
   @override
   Stream<List<Crew>> streamCrews() {
+    if (!_isAuthenticated) return const Stream.empty();
     return datasource.streamCrewsForUser(_requireCurrentUid());
   }
 
@@ -68,6 +69,7 @@ class CrewRepositoryImpl implements CrewRepository {
 
   @override
   Stream<List<CrewInvitation>> streamReceivedInvitations() {
+    if (!_isAuthenticated) return const Stream.empty();
     return datasource.streamReceivedInvitations(_requireCurrentUid());
   }
 
@@ -134,4 +136,6 @@ class CrewRepositoryImpl implements CrewRepository {
     }
     return uid;
   }
+
+  bool get _isAuthenticated => currentUid().isNotEmpty;
 }

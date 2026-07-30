@@ -88,32 +88,26 @@ void main() {
       },
     );
 
-    test(
-      'should redirect to /login when status is AuthStatus.unknown and path is not /login',
-      () {
-        sl.registerSingleton<AuthRepository>(mockAuthRepository);
-        when(
-          () => mockAuthRepository.currentStatus,
-        ).thenReturn(AuthStatus.unknown);
-        when(() => mockState.uri).thenReturn(Uri.parse('/'));
+    test('should redirect to /loading when auth status is unknown', () {
+      sl.registerSingleton<AuthRepository>(mockAuthRepository);
+      when(
+        () => mockAuthRepository.currentStatus,
+      ).thenReturn(AuthStatus.unknown);
+      when(() => mockState.uri).thenReturn(Uri.parse('/'));
 
-        final result = guardRedirect(mockContext, mockState);
-        expect(result, '/login');
-      },
-    );
+      final result = guardRedirect(mockContext, mockState);
+      expect(result, '/loading');
+    });
 
-    test(
-      'should redirect away from /loading when status is AuthStatus.unknown',
-      () {
-        when(
-          () => mockAuthRepository.currentStatus,
-        ).thenReturn(AuthStatus.unknown);
-        when(() => mockState.uri).thenReturn(Uri.parse('/loading'));
+    test('should remain on /loading when auth status is unknown', () {
+      when(
+        () => mockAuthRepository.currentStatus,
+      ).thenReturn(AuthStatus.unknown);
+      when(() => mockState.uri).thenReturn(Uri.parse('/loading'));
 
-        final result = guardRedirect(mockContext, mockState);
-        expect(result, '/login');
-      },
-    );
+      final result = guardRedirect(mockContext, mockState);
+      expect(result, isNull);
+    });
 
     test(
       'should redirect to /login when status is AuthStatus.unauthenticated and path is not /login',

@@ -65,6 +65,12 @@ void main() {
       () => crewRepository.streamMembers('crew1'),
     ).thenAnswer((_) => Stream.value(members));
     when(
+      () => crewRepository.inviteUser('crew1', any()),
+    ).thenAnswer((_) async {});
+    when(
+      () => crewRepository.usernameExists(any()),
+    ).thenAnswer((_) async => true);
+    when(
       () => authRepository.currentCredentials,
     ).thenReturn(const UserCredentials(uid: 'owner1', username: 'owner'));
     when(
@@ -88,10 +94,67 @@ void main() {
 
     expect(find.text('Weekend Hikers'), findsOneWidget);
     expect(find.text('Create outing'), findsOneWidget);
+    expect(find.byKey(const Key('crew-member-avatar-owner1')), findsOneWidget);
+    expect(find.byKey(const Key('crew-member-avatar-user1')), findsOneWidget);
+    expect(find.text('Crew Owner'), findsNothing);
+    expect(find.text('Trail Friend'), findsNothing);
+    expect(find.byKey(const Key('add-crew-member-button')), findsOneWidget);
+  });
+
+  testWidgets('owner can invite a member by username', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: CrewDetailsScreen(crewId: 'crew1')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('add-crew-member-button')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('invite-member-username-field')),
+      'newfriend',
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('matching-member-account')), findsOneWidget);
+    expect(find.text('@newfriend'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('send-member-invite-button')));
+    await tester.pumpAndSettle();
+
+    verify(() => crewRepository.inviteUser('crew1', 'newfriend')).called(1);
+    expect(find.text('Invitation sent to @newfriend.'), findsOneWidget);
+  });
+
+  testWidgets('shows an all-members control when avatars exceed the width', (
+    tester,
+  ) async {
+    final extraMembers = List.generate(
+      7,
+      (index) => CrewMembership(
+        id: 'crew1_user$index',
+        crewId: 'crew1',
+        userId: 'user$index',
+        role: CrewRole.member,
+        joinedAt: DateTime.utc(2026, 7, 2),
+        username: 'friend$index',
+        displayName: 'Trail Friend $index',
+      ),
+    );
+    when(
+      () => crewRepository.streamMembers('crew1'),
+    ).thenAnswer((_) => Stream.value([members.first, ...extraMembers]));
+    await tester.binding.setSurfaceSize(const Size(300, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      const MaterialApp(home: CrewDetailsScreen(crewId: 'crew1')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('see-all-members-button')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('see-all-members-button')));
+    await tester.pumpAndSettle();
+
     expect(find.text('Crew Owner'), findsOneWidget);
-    expect(find.text('Owner'), findsOneWidget);
-    expect(find.text('Trail Friend'), findsOneWidget);
-    expect(find.text('Member'), findsOneWidget);
   });
 
   testWidgets('create outing button is wired for the selected crew', (

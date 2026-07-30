@@ -31,6 +31,7 @@ class _OutingFormScreenState extends State<OutingFormScreen> {
   Outing? _outing;
   bool _isLoadingOuting = false;
   String? _loadError;
+  String? _selectedMapLocation;
 
   bool get _isEditMode => widget.outingId != null;
 
@@ -56,7 +57,11 @@ class _OutingFormScreenState extends State<OutingFormScreen> {
       child: BlocConsumer<OutingFormCubit, OutingFormState>(
         listener: (context, state) {
           if (state is OutingFormSuccess) {
-            context.go('/crews/${widget.crewId}/outings');
+            context.go(
+              _isEditMode
+                  ? '/crews/${widget.crewId}/outings'
+                  : '/crews/${widget.crewId}',
+            );
           } else if (state is OutingFormFailure) {
             ScaffoldMessenger.of(
               context,
@@ -112,11 +117,11 @@ class _OutingFormScreenState extends State<OutingFormScreen> {
                     style: const TextStyle(color: Colors.white70, fontSize: 16),
                   ),
                   const SizedBox(height: 24),
-                  const _QuestionLabel('Where do you want to go?'),
+                  const _QuestionLabel('What is the place name?'),
                   const SizedBox(height: 10),
                   _Field(
                     controller: _locationController,
-                    label: 'e.g. the new ramen spot',
+                    label: 'e.g. Cafe in Downtown',
                     enabled: isEditable,
                     validator: (value) {
                       final text = value?.trim() ?? '';
@@ -125,13 +130,25 @@ class _OutingFormScreenState extends State<OutingFormScreen> {
                       }
                       return null;
                     },
+                    onChanged: (_) => setState(() {}),
                   ),
                   const SizedBox(height: 10),
                   OutlinedButton.icon(
                     onPressed: isEditable ? _chooseLocationOnMap : null,
                     icon: const Icon(Icons.map_outlined),
-                    label: const Text('Choose on map'),
+                    label: Text(
+                      _selectedMapLocation == null
+                          ? 'Choose location on map'
+                          : 'Change map location',
+                    ),
                   ),
+                  if (_selectedMapLocation != null) ...[
+                    const SizedBox(height: 12),
+                    _SelectedLocationPreview(
+                      placeName: _locationController.text.trim(),
+                      mapLocation: _selectedMapLocation!,
+                    ),
+                  ],
                   const SizedBox(height: 24),
                   const _QuestionLabel('When do you want to go out?'),
                   const SizedBox(height: 10),
@@ -195,7 +212,26 @@ class _OutingFormScreenState extends State<OutingFormScreen> {
       );
       return;
     }
-    final locationText = _locationController.text.trim();
+    if (!_isEditMode && _selectedMapLocation == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Choose the place on the map first.')),
+      );
+      return;
+    }
+    final placeName = _locationController.text.trim();
+    final locationText = _selectedMapLocation == null
+        ? placeName
+        : '$placeName • $_selectedMapLocation';
+    if (locationText.length > 120) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Place name and map location must fit within 120 characters.',
+          ),
+        ),
+      );
+      return;
+    }
     final title = _isEditMode
         ? _titleController.text.trim()
         : 'Outing at ${locationText.length > 70 ? locationText.substring(0, 70) : locationText}';
@@ -223,10 +259,15 @@ class _OutingFormScreenState extends State<OutingFormScreen> {
   Future<void> _chooseLocationOnMap() async {
     final location = await Navigator.of(context).push<String>(
       MaterialPageRoute(
-        builder: (_) => OutingLocationPicker(mapProvider: sl<MapProvider>()),
+        builder: (_) => OutingLocationPicker(
+          mapProvider: sl<MapProvider>(),
+          initialQuery: _locationController.text.trim(),
+        ),
       ),
     );
-    if (location != null && mounted) _locationController.text = location;
+    if (location != null && mounted) {
+      setState(() => _selectedMapLocation = location);
+    }
   }
 
   void _loadExistingOuting() {
@@ -299,12 +340,14 @@ class _Field extends StatelessWidget {
   final String label;
   final bool enabled;
   final String? Function(String?)? validator;
+  final ValueChanged<String>? onChanged;
 
   const _Field({
     required this.controller,
     required this.label,
     this.enabled = true,
     this.validator,
+    this.onChanged,
   });
 
   @override
@@ -313,6 +356,7 @@ class _Field extends StatelessWidget {
       controller: controller,
       enabled: enabled,
       validator: validator,
+      onChanged: onChanged,
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         hintText: label,
@@ -321,6 +365,53 @@ class _Field extends StatelessWidget {
         filled: true,
         fillColor: const Color(0xFF1E1E2F),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+}
+
+class _SelectedLocationPreview extends StatelessWidget {
+  final String placeName;
+  final String mapLocation;
+
+  const _SelectedLocationPreview({
+    required this.placeName,
+    required this.mapLocation,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E2F),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF3B3560)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            placeName,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              const Icon(Icons.location_on, color: Color(0xFFB8A7FF), size: 18),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  mapLocation,
+                  style: const TextStyle(color: Colors.white70),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

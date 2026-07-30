@@ -7,6 +7,7 @@ import 'package:chillgo/features/authentication/domain/repositories/auth_reposit
 import 'package:chillgo/features/authentication/domain/entities/user_profile.dart';
 import 'package:chillgo/features/authentication/data/datasources/firebase_auth_datasource.dart';
 import 'package:chillgo/features/profile/domain/repositories/profile_repository.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 
 class MockFirebaseAuthDatasource extends Mock
@@ -130,6 +131,79 @@ void main() {
         );
       },
     );
+
+    test(
+      'keeps an existing account out of onboarding after a profile read error',
+      () async {
+        final authController = StreamController<firebase_auth.User?>();
+        final mockUser = MockUser();
+        when(() => mockUser.uid).thenReturn('test_uid');
+        when(
+          () => mockDatasource.authStateChanges,
+        ).thenAnswer((_) => authController.stream);
+        when(() => mockDatasource.currentUser).thenReturn(mockUser);
+        when(() => mockProfileRepository.getProfile('test_uid')).thenThrow(
+          FirebaseException(plugin: 'cloud_firestore', code: 'unavailable'),
+        );
+
+        repository = AuthRepositoryImpl(
+          authDatasource: mockDatasource,
+          profileRepository: mockProfileRepository,
+        );
+
+        authController.add(mockUser);
+        await Future<void>.delayed(Duration.zero);
+
+        expect(repository.currentStatus, AuthStatus.unknown);
+        await authController.close();
+      },
+    );
+
+    test('ignores a stale profile result after an account switch', () async {
+      final authController = StreamController<firebase_auth.User?>();
+      final firstProfile = Completer<UserProfile?>();
+      final firstUser = MockUser();
+      final secondUser = MockUser();
+      final secondProfile = UserProfile(
+        id: 'second_uid',
+        username: 'second_user',
+        displayName: 'Second User',
+        createdAt: DateTime.now(),
+      );
+      when(() => firstUser.uid).thenReturn('first_uid');
+      when(() => secondUser.uid).thenReturn('second_uid');
+      when(
+        () => mockDatasource.authStateChanges,
+      ).thenAnswer((_) => authController.stream);
+      when(() => mockDatasource.currentUser).thenReturn(secondUser);
+      when(
+        () => mockProfileRepository.getProfile('first_uid'),
+      ).thenAnswer((_) => firstProfile.future);
+      when(
+        () => mockProfileRepository.getProfile('second_uid'),
+      ).thenAnswer((_) async => secondProfile);
+
+      repository = AuthRepositoryImpl(
+        authDatasource: mockDatasource,
+        profileRepository: mockProfileRepository,
+      );
+      final statuses = <AuthStatus>[];
+      final subscription = repository.status.listen(statuses.add);
+
+      authController
+        ..add(firstUser)
+        ..add(secondUser);
+      await Future<void>.delayed(Duration.zero);
+      firstProfile.complete(null);
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(statuses, [AuthStatus.authenticatedWithProfile]);
+      expect(repository.currentStatus, AuthStatus.authenticatedWithProfile);
+
+      await subscription.cancel();
+      await authController.close();
+    });
 
     test(
       'currentCredentials uses profile display name after profile is loaded',

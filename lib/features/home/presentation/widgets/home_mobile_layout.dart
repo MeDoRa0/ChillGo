@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:chillgo/features/crews/domain/entities/crew.dart';
+import 'package:chillgo/features/crews/domain/entities/crew_invitation.dart';
+import 'package:chillgo/features/crews/domain/repositories/crew_repository.dart';
+import 'package:chillgo/features/notifications/domain/entities/outing_review_notification.dart';
+import 'package:chillgo/features/notifications/domain/repositories/outing_review_notification_repository.dart';
 import 'package:chillgo/features/crews/presentation/blocs/crews_list/crews_list_cubit.dart';
 import 'package:chillgo/features/crews/presentation/widgets/crew_card.dart';
 import 'sign_out_icon_button.dart';
@@ -10,11 +14,19 @@ import 'user_identity_summary.dart';
 class HomeMobileLayout extends StatelessWidget {
   final String? displayName;
   final String? username;
+  final OutingReviewNotificationRepository? outingNotificationRepository;
 
-  const HomeMobileLayout({super.key, this.displayName, this.username});
+  const HomeMobileLayout({
+    super.key,
+    this.displayName,
+    this.username,
+    this.outingNotificationRepository,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final crewRepository = context.read<CrewsListCubit>().crewRepository;
+
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F1A),
       body: SafeArea(
@@ -26,10 +38,9 @@ class HomeMobileLayout extends StatelessWidget {
               floating: false,
               pinned: true,
               actions: [
-                IconButton(
-                  icon: const Icon(Icons.mail_outline, color: Colors.white),
-                  tooltip: 'Invitations',
-                  onPressed: () => context.push('/invitations'),
+                _InvitationNotificationButton(
+                  repository: crewRepository,
+                  outingNotificationRepository: outingNotificationRepository,
                 ),
                 const SignOutIconButton(),
               ],
@@ -98,12 +109,11 @@ class HomeMobileLayout extends StatelessWidget {
                 ),
               ),
             ),
-            IconButton.filled(
-              constraints: const BoxConstraints.tightFor(width: 40, height: 40),
+            FilledButton.icon(
               onPressed: () => _showCreateCrewDialog(context),
-              icon: const Icon(Icons.groups),
-              tooltip: 'Create Crew',
-              style: IconButton.styleFrom(
+              icon: const Icon(Icons.group_add_outlined),
+              label: const Text('Create Crew'),
+              style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF6366F1),
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
@@ -236,6 +246,80 @@ class HomeMobileLayout extends StatelessWidget {
   String _inviteFailureMessage(List<String> failedInviteUsernames) {
     final failedLabels = failedInviteUsernames.map((username) => '@$username');
     return 'Crew created, but invites failed for ${failedLabels.join(', ')}.';
+  }
+}
+
+class _InvitationNotificationButton extends StatelessWidget {
+  final CrewRepository repository;
+  final OutingReviewNotificationRepository? outingNotificationRepository;
+
+  const _InvitationNotificationButton({
+    required this.repository,
+    required this.outingNotificationRepository,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<CrewInvitation>>(
+      stream: repository.streamReceivedInvitations(),
+      builder: (context, snapshot) {
+        final hasCrewInvitations = snapshot.data?.isNotEmpty ?? false;
+        final outingRepository = outingNotificationRepository;
+        if (outingRepository == null) {
+          return _NotificationBell(hasUnread: hasCrewInvitations);
+        }
+        return StreamBuilder<List<OutingReviewNotification>>(
+          stream: outingRepository.watchNotifications(),
+          builder: (context, outingSnapshot) {
+            final hasUnreadOutings = (outingSnapshot.data ?? const []).any(
+              (notification) => !notification.isRead,
+            );
+            return _NotificationBell(
+              hasUnread: hasCrewInvitations || hasUnreadOutings,
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _NotificationBell extends StatelessWidget {
+  final bool hasUnread;
+
+  const _NotificationBell({required this.hasUnread});
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      key: const Key('invitations-button'),
+      icon: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Icon(
+            hasUnread ? Icons.notifications_active : Icons.notifications,
+            color: Colors.white,
+          ),
+          if (hasUnread)
+            Positioned(
+              top: -2,
+              right: -2,
+              child: Container(
+                key: const Key('unread-invitations-badge'),
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEF4444),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFF6366F1), width: 2),
+                ),
+              ),
+            ),
+        ],
+      ),
+      tooltip: hasUnread ? 'New notifications' : 'Notifications',
+      onPressed: () => context.push('/invitations'),
+    );
   }
 }
 

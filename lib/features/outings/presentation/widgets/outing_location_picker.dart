@@ -9,9 +9,14 @@ import '../../../live_meetup/domain/repositories/live_meetup_repository.dart';
 import '../../../live_meetup/domain/services/map_provider.dart';
 
 class OutingLocationPicker extends StatefulWidget {
-  const OutingLocationPicker({super.key, required this.mapProvider});
+  const OutingLocationPicker({
+    super.key,
+    required this.mapProvider,
+    required this.initialQuery,
+  });
 
   final MapProvider mapProvider;
+  final String initialQuery;
 
   @override
   State<OutingLocationPicker> createState() => _OutingLocationPickerState();
@@ -33,6 +38,15 @@ class _OutingLocationPickerState extends State<OutingLocationPicker> {
   bool _isSearching = false;
   bool _isResolving = false;
   static final Random _random = Random.secure();
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.text = widget.initialQuery;
+    if (widget.initialQuery.trim().length >= 3) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _searchForPlace());
+    }
+  }
 
   @override
   void dispose() {
@@ -132,10 +146,7 @@ class _OutingLocationPickerState extends State<OutingLocationPicker> {
       return;
     }
     setState(() => _searchResults = const []);
-    _searchDebounce = Timer(
-      const Duration(milliseconds: 350),
-      _searchForPlace,
-    );
+    _searchDebounce = Timer(const Duration(milliseconds: 350), _searchForPlace);
   }
 
   Future<void> _searchForPlace() async {
@@ -183,9 +194,7 @@ class _OutingLocationPickerState extends State<OutingLocationPicker> {
       }
       _searchSessionToken = null;
       _searchController.text = resolvedPlace.label;
-      _selectCoordinate(
-        LatLng(coordinate.latitude, coordinate.longitude),
-      );
+      _selectCoordinate(LatLng(coordinate.latitude, coordinate.longitude));
       setState(() {
         _locationLabel = resolvedPlace.label;
         _searchResults = const [];

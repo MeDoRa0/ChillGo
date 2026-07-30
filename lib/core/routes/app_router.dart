@@ -14,6 +14,7 @@ import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/crews/presentation/screens/crew_details_screen.dart';
 import '../../features/crews/presentation/screens/invitations_screen.dart';
 import '../../features/outings/presentation/screens/outing_form_screen.dart';
+import '../../features/outings/presentation/screens/outing_review_screen.dart';
 import '../../features/outings/presentation/screens/outings_list_screen.dart';
 import '../../features/voting/presentation/screens/agreement_screen.dart';
 import '../../features/chat/presentation/cubit/outing_chat/outing_chat_cubit.dart';
@@ -67,9 +68,7 @@ FutureOr<String?> guardRedirect(BuildContext context, GoRouterState state) {
   final isLoading = state.uri.path == '/loading';
 
   if (status == AuthStatus.unknown) {
-    if (isLoggingIn) return null;
-    if (isLoading) return '/login';
-    return '/login';
+    return isLoading ? null : '/loading';
   }
 
   if (status == AuthStatus.unauthenticated) {
@@ -148,6 +147,12 @@ final GoRouter appRouter = GoRouter(
         final crewId = state.pathParameters['crewId'] ?? '';
         return OutingsListScreen(crewId: crewId);
       },
+    ),
+    GoRoute(
+      path: '/outings/:outingId/review',
+      name: 'outing-review',
+      builder: (context, state) =>
+          OutingReviewScreen(outingId: state.pathParameters['outingId'] ?? ''),
     ),
     GoRoute(
       path: '/outings/:outingId/agreement',

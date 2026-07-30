@@ -52,6 +52,8 @@ class CrewDetailsScreen extends StatelessWidget {
           if (crew == null) {
             return const _CenteredMessage(message: 'Crew not found.');
           }
+          final currentUserId = sl<AuthRepository>().currentCredentials?.uid;
+          final canInviteMembers = currentUserId == crew.ownerId;
 
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -62,13 +64,10 @@ class CrewDetailsScreen extends StatelessWidget {
               const SizedBox(height: 20),
               _CrewOutings(crewId: crew.id),
               const SizedBox(height: 24),
-              const Text(
-                'Members',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+              _MembersSectionHeader(
+                crewId: crew.id,
+                repository: repository,
+                canInviteMembers: canInviteMembers,
               ),
               const SizedBox(height: 12),
               _MembersList(repository: repository, crewId: crew.id),
@@ -76,6 +75,231 @@ class CrewDetailsScreen extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+class _MembersSectionHeader extends StatelessWidget {
+  final String crewId;
+  final CrewRepository repository;
+  final bool canInviteMembers;
+
+  const _MembersSectionHeader({
+    required this.crewId,
+    required this.repository,
+    required this.canInviteMembers,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Expanded(
+          child: Text(
+            'Members',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        if (canInviteMembers)
+          TextButton.icon(
+            key: const Key('add-crew-member-button'),
+            onPressed: () => showDialog<void>(
+              context: context,
+              builder: (context) =>
+                  _InviteMemberDialog(crewId: crewId, repository: repository),
+            ),
+            icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
+            label: const Text('Add member'),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFFA5B4FC),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _InviteMemberDialog extends StatefulWidget {
+  final String crewId;
+  final CrewRepository repository;
+
+  const _InviteMemberDialog({required this.crewId, required this.repository});
+
+  @override
+  State<_InviteMemberDialog> createState() => _InviteMemberDialogState();
+}
+
+class _InviteMemberDialogState extends State<_InviteMemberDialog> {
+  final _usernameController = TextEditingController();
+  bool _isSubmitting = false;
+  bool _isSearching = false;
+  int _searchGeneration = 0;
+  String? _matchingUsername;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _searchUsername(String input) async {
+    final username = input.trim().toLowerCase();
+    final generation = ++_searchGeneration;
+
+    setState(() {
+      _matchingUsername = null;
+      _errorMessage = null;
+      _isSearching = username.length >= 3;
+    });
+    if (username.length < 3) return;
+
+    try {
+      final exists = await widget.repository.usernameExists(username);
+      if (!mounted || generation != _searchGeneration) return;
+      setState(() {
+        _isSearching = false;
+        _matchingUsername = exists ? username : null;
+        _errorMessage = exists ? null : 'No account found with this username.';
+      });
+    } on Exception {
+      if (!mounted || generation != _searchGeneration) return;
+      setState(() {
+        _isSearching = false;
+        _errorMessage = 'Could not search for this username. Try again.';
+      });
+    }
+  }
+
+  Future<void> _sendInvitation() async {
+    final username = _matchingUsername!;
+
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+    });
+    try {
+      await widget.repository.inviteUser(widget.crewId, username);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Invitation sent to @$username.')));
+    } on Exception {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+        _errorMessage =
+            'Could not send the invitation. Check the username and try again.';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: const Color(0xFF1E1E2F),
+      title: const Text('Add a member', style: TextStyle(color: Colors.white)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            key: const Key('invite-member-username-field'),
+            controller: _usernameController,
+            autofocus: true,
+            textInputAction: TextInputAction.done,
+            onChanged: _searchUsername,
+            onSubmitted: (_) {
+              if (!_isSubmitting && _matchingUsername != null) {
+                _sendInvitation();
+              }
+            },
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              labelText: 'Username',
+              prefixText: '@',
+              errorText: _errorMessage,
+              labelStyle: const TextStyle(color: Colors.white70),
+              prefixStyle: const TextStyle(color: Colors.white70),
+              suffixIcon: _isSearching
+                  ? const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Color(0xFF6366F1),
+                        ),
+                      ),
+                    )
+                  : null,
+              enabledBorder: const OutlineInputBorder(
+                borderSide: BorderSide(color: Color(0xFF3B3560)),
+              ),
+              focusedBorder: const OutlineInputBorder(
+                borderSide: BorderSide(color: Color(0xFF6366F1)),
+              ),
+            ),
+          ),
+          if (_matchingUsername != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              key: const Key('matching-member-account'),
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F0F1A),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFF6366F1)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.person, color: Color(0xFF6366F1)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '@$_matchingUsername',
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ),
+                  const Icon(Icons.check_circle, color: Color(0xFF10B981)),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const Key('send-member-invite-button'),
+          onPressed: _isSubmitting || _matchingUsername == null
+              ? null
+              : _sendInvitation,
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF6366F1),
+            foregroundColor: Colors.white,
+          ),
+          child: _isSubmitting
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Text('Send invite'),
+        ),
+      ],
     );
   }
 }
@@ -443,15 +667,145 @@ class _MembersList extends StatelessWidget {
                 a.role == b.role ? 0 : (a.role == CrewRole.owner ? -1 : 1),
           );
 
-        return Column(
+        return _MemberAvatarStrip(members: sortedMembers);
+      },
+    );
+  }
+}
+
+class _MemberAvatarStrip extends StatelessWidget {
+  final List<CrewMembership> members;
+
+  static const _avatarDiameter = 60.0;
+  static const _avatarSpacing = 8.0;
+  static const _allMembersControlWidth = 128.0;
+  static const _overflowControlSpacing = 12.0;
+
+  const _MemberAvatarStrip({required this.members});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final membersFitWithoutControl =
+            ((constraints.maxWidth + _avatarSpacing) /
+                    (_avatarDiameter + _avatarSpacing))
+                .floor();
+        final allMembersFit = members.length <= membersFitWithoutControl;
+        final availableAvatarWidth =
+            constraints.maxWidth -
+            _allMembersControlWidth -
+            _overflowControlSpacing;
+        final visibleMemberCount = allMembersFit
+            ? members.length
+            : availableAvatarWidth < _avatarDiameter
+            ? 0
+            : ((availableAvatarWidth + _avatarSpacing) /
+                      (_avatarDiameter + _avatarSpacing))
+                  .floor()
+                  .clamp(0, members.length);
+        final visibleMembers = members.take(visibleMemberCount).toList();
+
+        return Row(
           children: [
-            for (var index = 0; index < sortedMembers.length; index++) ...[
-              _MemberTile(member: sortedMembers[index]),
-              if (index < sortedMembers.length - 1) const SizedBox(height: 8),
+            for (var index = 0; index < visibleMembers.length; index++) ...[
+              _MemberAvatar(member: visibleMembers[index]),
+              if (index < visibleMembers.length - 1)
+                const SizedBox(width: _avatarSpacing),
+            ],
+            if (!allMembersFit) ...[
+              if (visibleMembers.isNotEmpty)
+                const SizedBox(width: _overflowControlSpacing),
+              SizedBox(
+                width: _allMembersControlWidth,
+                child: TextButton.icon(
+                  key: const Key('see-all-members-button'),
+                  onPressed: () => _showAllMembers(context, members),
+                  icon: const Icon(Icons.arrow_forward, size: 18),
+                  label: const Text('See all members'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFFA5B4FC),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                  ),
+                ),
+              ),
             ],
           ],
         );
       },
+    );
+  }
+}
+
+void _showAllMembers(BuildContext context, List<CrewMembership> members) {
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: const Color(0xFF1E1E2F),
+    builder: (context) => SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.7,
+        ),
+        child: Column(
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(20),
+              child: Text(
+                'Members',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                itemCount: members.length,
+                itemBuilder: (context, index) =>
+                    _MemberTile(member: members[index]),
+                separatorBuilder: (context, index) => const SizedBox(height: 8),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _MemberAvatar extends StatelessWidget {
+  final CrewMembership member;
+
+  const _MemberAvatar({required this.member});
+
+  @override
+  Widget build(BuildContext context) {
+    final label = member.displayName.trim().isNotEmpty
+        ? member.displayName.trim()
+        : member.username.trim().isNotEmpty
+        ? '@${member.username.trim()}'
+        : 'Member';
+    final hasPhoto = member.avatarUrl?.isNotEmpty == true;
+
+    return Semantics(
+      label: label,
+      child: CircleAvatar(
+        key: Key('crew-member-avatar-${member.userId}'),
+        radius: _MemberAvatarStrip._avatarDiameter / 2,
+        backgroundColor: const Color(0xFF6366F1),
+        backgroundImage: hasPhoto ? NetworkImage(member.avatarUrl!) : null,
+        child: hasPhoto
+            ? null
+            : Text(
+                label[0].toUpperCase(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+      ),
     );
   }
 }

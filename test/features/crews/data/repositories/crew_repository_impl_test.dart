@@ -128,6 +128,17 @@ void main() {
 
       expect(repo.streamCrews(), emits([_fakeCrew]));
     });
+
+    test('emits no crews after sign-out', () async {
+      final signedOutRepository = _makeRepo(
+        mockDs,
+        uid: '',
+        transitionService: transitionService,
+      );
+
+      expect(await signedOutRepository.streamCrews().toList(), isEmpty);
+      verifyNever(() => mockDs.streamCrewsForUser(any()));
+    });
   });
 
   group('US1 - streamMembers', () {
@@ -245,6 +256,22 @@ void main() {
         ).called(1);
       },
     );
+  });
+
+  group('US3 - streamReceivedInvitations', () {
+    test('emits no invitations after sign-out', () async {
+      final signedOutRepository = _makeRepo(
+        mockDs,
+        uid: '',
+        transitionService: transitionService,
+      );
+
+      expect(
+        await signedOutRepository.streamReceivedInvitations().toList(),
+        isEmpty,
+      );
+      verifyNever(() => mockDs.streamReceivedInvitations(any()));
+    });
   });
 
   group('US3 - rejectInvitation', () {

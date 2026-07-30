@@ -31,6 +31,9 @@ import '../../features/crews/data/repositories/crew_repository_impl.dart';
 import '../../features/crews/domain/repositories/crew_repository.dart';
 import '../../features/crews/presentation/blocs/crews_list/crews_list_cubit.dart';
 import '../../features/crews/presentation/blocs/invitations/invitations_cubit.dart';
+import '../../features/notifications/data/datasources/firestore_outing_review_notification_datasource.dart';
+import '../../features/notifications/data/repositories/outing_review_notification_repository_impl.dart';
+import '../../features/notifications/domain/repositories/outing_review_notification_repository.dart';
 import '../../features/outings/data/datasources/firestore_outings_datasource.dart';
 import '../../features/outings/data/repositories/outing_repository_impl.dart';
 import '../../features/outings/domain/repositories/outing_repository.dart';
@@ -167,6 +170,19 @@ Future<void> init() async {
         datasource: sl<FirestoreCrewsDatasource>(),
         currentUid: () => sl<AuthRepository>().currentCredentials?.uid ?? '',
         transitionService: sl(),
+      ),
+    );
+  }
+  if (!sl.isRegistered<FirestoreOutingReviewNotificationDatasource>()) {
+    sl.registerLazySingleton<FirestoreOutingReviewNotificationDatasource>(
+      () => FirestoreOutingReviewNotificationDatasource(firestore: sl()),
+    );
+  }
+  if (!sl.isRegistered<OutingReviewNotificationRepository>()) {
+    sl.registerLazySingleton<OutingReviewNotificationRepository>(
+      () => OutingReviewNotificationRepositoryImpl(
+        datasource: sl(),
+        currentUserId: () => sl<AuthRepository>().currentCredentials?.uid ?? '',
       ),
     );
   }

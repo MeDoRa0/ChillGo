@@ -197,7 +197,6 @@ class _CrewMembersSummary extends StatelessWidget {
               children: [
                 _MemberAvatarRow(members: acceptedMembers),
                 const SizedBox(width: 10),
-                Expanded(child: _MemberNames(members: acceptedMembers)),
               ],
             );
           },
