@@ -11,6 +11,9 @@ import 'package:chillgo/features/outings/presentation/widgets/interactive_outing
 import 'package:chillgo/features/voting/domain/repositories/agreement_repository.dart';
 import 'package:chillgo/features/authentication/domain/repositories/auth_repository.dart';
 import 'package:chillgo/core/presentation/widgets/app_back_button.dart';
+import 'package:chillgo/core/presentation/theme/chillgo_colors.dart';
+import 'package:chillgo/core/presentation/widgets/responsive_content.dart';
+import 'package:chillgo/core/presentation/widgets/sunshine_background.dart';
 import 'package:go_router/go_router.dart';
 
 class CrewDetailsScreen extends StatelessWidget {
@@ -23,58 +26,120 @@ class CrewDetailsScreen extends StatelessWidget {
     final repository = sl<CrewRepository>();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1A),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0F0F1A),
-        elevation: 0,
         leading: const AppBackButton(),
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text(
-          'Crew Details',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
+        title: const Text('Crew details'),
       ),
-      body: StreamBuilder<Crew?>(
-        stream: repository.streamCrew(crewId),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting &&
-              !snapshot.hasData) {
-            return const Center(
-              child: CircularProgressIndicator(color: Color(0xFF6366F1)),
-            );
-          }
+      body: SunshineBackground(
+        child: ResponsiveContent(
+          maxWidth: 960,
+          child: StreamBuilder<Crew?>(
+            stream: repository.streamCrew(crewId),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting &&
+                  !snapshot.hasData) {
+                return const Center(
+                  child: CircularProgressIndicator(color: ChillGoColors.coral),
+                );
+              }
 
-          if (snapshot.hasError) {
-            return _CenteredMessage(message: snapshot.error.toString());
-          }
+              if (snapshot.hasError) {
+                return _CenteredMessage(message: snapshot.error.toString());
+              }
 
-          final crew = snapshot.data;
-          if (crew == null) {
-            return const _CenteredMessage(message: 'Crew not found.');
-          }
-          final currentUserId = sl<AuthRepository>().currentCredentials?.uid;
-          final canInviteMembers = currentUserId == crew.ownerId;
+              final crew = snapshot.data;
+              if (crew == null) {
+                return const _CenteredMessage(message: 'Crew not found.');
+              }
+              final currentUserId =
+                  sl<AuthRepository>().currentCredentials?.uid;
+              final canInviteMembers = currentUserId == crew.ownerId;
 
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              _CrewHeader(crew: crew),
-              const SizedBox(height: 16),
-              _CreateOutingButton(crewId: crew.id),
-              const SizedBox(height: 20),
-              _CrewOutings(crewId: crew.id),
-              const SizedBox(height: 24),
-              _MembersSectionHeader(
-                crewId: crew.id,
+              return _CrewDetailsContent(
+                crew: crew,
                 repository: repository,
                 canInviteMembers: canInviteMembers,
-              ),
-              const SizedBox(height: 12),
-              _MembersList(repository: repository, crewId: crew.id),
-            ],
-          );
-        },
+              );
+            },
+          ),
+        ),
       ),
+    );
+  }
+}
+
+class _CrewDetailsContent extends StatelessWidget {
+  const _CrewDetailsContent({
+    required this.crew,
+    required this.repository,
+    required this.canInviteMembers,
+  });
+
+  final Crew crew;
+  final CrewRepository repository;
+  final bool canInviteMembers;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return constraints.maxWidth >= 760 ? _wideLayout() : _compactLayout();
+      },
+    );
+  }
+
+  Widget _compactLayout() {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _planPanel(),
+        const SizedBox(height: 24),
+        _membersPanel(),
+      ],
+    );
+  }
+
+  Widget _wideLayout() {
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(flex: 6, child: _planPanel()),
+            const SizedBox(width: 24),
+            Expanded(flex: 4, child: _membersPanel()),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _planPanel() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _CrewHeader(crew: crew),
+        const SizedBox(height: 16),
+        _CreateOutingButton(crewId: crew.id),
+        const SizedBox(height: 20),
+        _CrewOutings(crewId: crew.id),
+      ],
+    );
+  }
+
+  Widget _membersPanel() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _MembersSectionHeader(
+          crewId: crew.id,
+          repository: repository,
+          canInviteMembers: canInviteMembers,
+        ),
+        const SizedBox(height: 12),
+        _MembersList(repository: repository, crewId: crew.id),
+      ],
     );
   }
 }
@@ -98,7 +163,7 @@ class _MembersSectionHeader extends StatelessWidget {
           child: Text(
             'Members',
             style: TextStyle(
-              color: Colors.white,
+              color: ChillGoColors.ink,
               fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
@@ -114,9 +179,7 @@ class _MembersSectionHeader extends StatelessWidget {
             ),
             icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
             label: const Text('Add member'),
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFFA5B4FC),
-            ),
+            style: TextButton.styleFrom(foregroundColor: ChillGoColors.coral),
           ),
       ],
     );
@@ -202,8 +265,8 @@ class _InviteMemberDialogState extends State<_InviteMemberDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: const Color(0xFF1E1E2F),
-      title: const Text('Add a member', style: TextStyle(color: Colors.white)),
+      backgroundColor: ChillGoColors.surface,
+      title: const Text('Add a member'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -218,13 +281,13 @@ class _InviteMemberDialogState extends State<_InviteMemberDialog> {
                 _sendInvitation();
               }
             },
-            style: const TextStyle(color: Colors.white),
+            style: const TextStyle(color: ChillGoColors.ink),
             decoration: InputDecoration(
               labelText: 'Username',
               prefixText: '@',
               errorText: _errorMessage,
-              labelStyle: const TextStyle(color: Colors.white70),
-              prefixStyle: const TextStyle(color: Colors.white70),
+              labelStyle: const TextStyle(color: ChillGoColors.inkMuted),
+              prefixStyle: const TextStyle(color: ChillGoColors.inkMuted),
               suffixIcon: _isSearching
                   ? const Padding(
                       padding: EdgeInsets.all(12),
@@ -233,16 +296,16 @@ class _InviteMemberDialogState extends State<_InviteMemberDialog> {
                         height: 18,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Color(0xFF6366F1),
+                          color: ChillGoColors.coral,
                         ),
                       ),
                     )
                   : null,
               enabledBorder: const OutlineInputBorder(
-                borderSide: BorderSide(color: Color(0xFF3B3560)),
+                borderSide: BorderSide(color: ChillGoColors.outline),
               ),
               focusedBorder: const OutlineInputBorder(
-                borderSide: BorderSide(color: Color(0xFF6366F1)),
+                borderSide: BorderSide(color: ChillGoColors.coral),
               ),
             ),
           ),
@@ -253,21 +316,21 @@ class _InviteMemberDialogState extends State<_InviteMemberDialog> {
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF0F0F1A),
+                color: ChillGoColors.canvas,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFF6366F1)),
+                border: Border.all(color: ChillGoColors.coral),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.person, color: Color(0xFF6366F1)),
+                  const Icon(Icons.person, color: ChillGoColors.coral),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       '@$_matchingUsername',
-                      style: const TextStyle(color: Colors.white),
+                      style: const TextStyle(color: ChillGoColors.ink),
                     ),
                   ),
-                  const Icon(Icons.check_circle, color: Color(0xFF10B981)),
+                  const Icon(Icons.check_circle, color: ChillGoColors.leaf),
                 ],
               ),
             ),
@@ -285,7 +348,7 @@ class _InviteMemberDialogState extends State<_InviteMemberDialog> {
               ? null
               : _sendInvitation,
           style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFF6366F1),
+            backgroundColor: ChillGoColors.coral,
             foregroundColor: Colors.white,
           ),
           child: _isSubmitting
@@ -294,7 +357,7 @@ class _InviteMemberDialogState extends State<_InviteMemberDialog> {
                   height: 18,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: Colors.white,
+                    color: ChillGoColors.ink,
                   ),
                 )
               : const Text('Send invite'),
@@ -314,19 +377,23 @@ class _CrewHeader extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E2F),
+        color: ChillGoColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF2E2E4F)),
+        border: Border.all(color: ChillGoColors.outline),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFF6366F1).withValues(alpha: 0.15),
+              color: ChillGoColors.coral.withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.groups, color: Color(0xFF6366F1), size: 28),
+            child: const Icon(
+              Icons.groups,
+              color: ChillGoColors.coral,
+              size: 28,
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -338,7 +405,7 @@ class _CrewHeader extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: ChillGoColors.ink,
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
                   ),
@@ -346,7 +413,10 @@ class _CrewHeader extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   'Created ${_formatCreatedDate(crew.createdAt)}',
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  style: const TextStyle(
+                    color: ChillGoColors.inkMuted,
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ),
@@ -380,7 +450,7 @@ class _CreateOutingButton extends StatelessWidget {
         icon: const Icon(Icons.add_location_alt_outlined),
         label: const Text('Create outing'),
         style: FilledButton.styleFrom(
-          backgroundColor: const Color(0xFF6366F1),
+          backgroundColor: ChillGoColors.coral,
           foregroundColor: Colors.white,
           minimumSize: const Size.fromHeight(48),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -415,7 +485,7 @@ class _CrewOutings extends StatelessWidget {
                   child: Text(
                     'Crew plans',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: ChillGoColors.ink,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
@@ -430,7 +500,7 @@ class _CrewOutings extends StatelessWidget {
             if (snapshot.hasError)
               const Text(
                 'Couldn’t load plans right now.',
-                style: TextStyle(color: Colors.white70),
+                style: TextStyle(color: ChillGoColors.inkMuted),
               )
             else if (outings.isEmpty)
               const _InlineMessage(message: 'No plans yet — start the vibe.')
@@ -482,9 +552,9 @@ class OutingCard extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E1E2F),
+              color: ChillGoColors.surface,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFF3B3560)),
+              border: Border.all(color: ChillGoColors.outline),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -495,7 +565,7 @@ class OutingCard extends StatelessWidget {
                       child: Text(
                         outing.locationText,
                         style: const TextStyle(
-                          color: Colors.white,
+                          color: ChillGoColors.ink,
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
@@ -507,7 +577,7 @@ class OutingCard extends StatelessWidget {
                         onPressed: () => _confirmDeletion(context),
                         icon: const Icon(
                           Icons.delete_outline,
-                          color: Colors.white70,
+                          color: ChillGoColors.inkMuted,
                         ),
                       ),
                   ],
@@ -516,7 +586,7 @@ class OutingCard extends StatelessWidget {
                 Text(
                   _scheduleLabel(outing.scheduledAt),
                   style: const TextStyle(
-                    color: Color(0xFFB8A7FF),
+                    color: ChillGoColors.coral,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -531,7 +601,7 @@ class OutingCard extends StatelessWidget {
                         onPressed: () =>
                             repository.acceptOuting(outingId: outing.id),
                         style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF7C5CFC),
+                          backgroundColor: ChillGoColors.coral,
                           foregroundColor: Colors.white,
                         ),
                         child: const Text('I’m in'),
@@ -539,7 +609,7 @@ class OutingCard extends StatelessWidget {
                     else if (hasAccepted)
                       const Text(
                         'You’re in ✨',
-                        style: TextStyle(color: Colors.white70),
+                        style: TextStyle(color: ChillGoColors.inkMuted),
                       ),
                   ],
                 ),
@@ -594,7 +664,7 @@ class AcceptedAvatars extends StatelessWidget {
     if (participants.isEmpty) {
       return const Text(
         'Be the first one in',
-        style: TextStyle(color: Colors.white54),
+        style: TextStyle(color: ChillGoColors.inkMuted),
       );
     }
     final shown = participants.take(4).toList();
@@ -607,7 +677,7 @@ class AcceptedAvatars extends StatelessWidget {
               left: index * 22.0,
               child: CircleAvatar(
                 radius: 17,
-                backgroundColor: const Color(0xFFB8A7FF),
+                backgroundColor: ChillGoColors.coralSoft,
                 backgroundImage: shown[index].avatarUrl?.isNotEmpty == true
                     ? NetworkImage(shown[index].avatarUrl!)
                     : null,
@@ -616,7 +686,7 @@ class AcceptedAvatars extends StatelessWidget {
                     : Text(
                         shown[index].displayName[0].toUpperCase(),
                         style: const TextStyle(
-                          color: Color(0xFF161324),
+                          color: ChillGoColors.ink,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -627,10 +697,13 @@ class AcceptedAvatars extends StatelessWidget {
               left: shown.length * 22.0,
               child: CircleAvatar(
                 radius: 17,
-                backgroundColor: const Color(0xFF3B3560),
+                backgroundColor: ChillGoColors.plum,
                 child: Text(
                   '+${participants.length - shown.length}',
-                  style: const TextStyle(color: Colors.white, fontSize: 11),
+                  style: const TextStyle(
+                    color: ChillGoColors.ink,
+                    fontSize: 11,
+                  ),
                 ),
               ),
             ),
@@ -724,7 +797,7 @@ class _MemberAvatarStrip extends StatelessWidget {
                   icon: const Icon(Icons.arrow_forward, size: 18),
                   label: const Text('See all members'),
                   style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFFA5B4FC),
+                    foregroundColor: ChillGoColors.coral,
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                   ),
                 ),
@@ -740,7 +813,7 @@ class _MemberAvatarStrip extends StatelessWidget {
 void _showAllMembers(BuildContext context, List<CrewMembership> members) {
   showModalBottomSheet<void>(
     context: context,
-    backgroundColor: const Color(0xFF1E1E2F),
+    backgroundColor: ChillGoColors.surface,
     builder: (context) => SafeArea(
       child: ConstrainedBox(
         constraints: BoxConstraints(
@@ -753,7 +826,7 @@ void _showAllMembers(BuildContext context, List<CrewMembership> members) {
               child: Text(
                 'Members',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: ChillGoColors.ink,
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
@@ -794,14 +867,14 @@ class _MemberAvatar extends StatelessWidget {
       child: CircleAvatar(
         key: Key('crew-member-avatar-${member.userId}'),
         radius: _MemberAvatarStrip._avatarDiameter / 2,
-        backgroundColor: const Color(0xFF6366F1),
+        backgroundColor: ChillGoColors.coral,
         backgroundImage: hasPhoto ? NetworkImage(member.avatarUrl!) : null,
         child: hasPhoto
             ? null
             : Text(
                 label[0].toUpperCase(),
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: ChillGoColors.ink,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -827,15 +900,15 @@ class _MemberTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E2F),
+        color: ChillGoColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF2E2E4F)),
+        border: Border.all(color: ChillGoColors.outline),
       ),
       child: Row(
         children: [
           CircleAvatar(
             radius: 20,
-            backgroundColor: const Color(0xFF6366F1),
+            backgroundColor: ChillGoColors.coral,
             backgroundImage: member.avatarUrl?.isNotEmpty == true
                 ? NetworkImage(member.avatarUrl!)
                 : null,
@@ -844,7 +917,7 @@ class _MemberTile extends StatelessWidget {
                 : Text(
                     title[0].toUpperCase(),
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: ChillGoColors.ink,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -859,7 +932,7 @@ class _MemberTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: ChillGoColors.ink,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -868,7 +941,10 @@ class _MemberTile extends StatelessWidget {
                   subtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  style: const TextStyle(
+                    color: ChillGoColors.inkMuted,
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ),
@@ -892,14 +968,14 @@ class _RoleBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: isOwner
-            ? const Color(0xFFF59E0B).withValues(alpha: 0.16)
-            : const Color(0xFF10B981).withValues(alpha: 0.16),
+            ? ChillGoColors.sunshineSoft
+            : ChillGoColors.leafSoft,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         isOwner ? 'Owner' : 'Member',
         style: TextStyle(
-          color: isOwner ? const Color(0xFFFBBF24) : const Color(0xFF34D399),
+          color: isOwner ? ChillGoColors.ink : ChillGoColors.leaf,
           fontSize: 12,
           fontWeight: FontWeight.bold,
         ),
@@ -921,7 +997,7 @@ class _CenteredMessage extends StatelessWidget {
         child: Text(
           message,
           textAlign: TextAlign.center,
-          style: const TextStyle(color: Colors.white70),
+          style: const TextStyle(color: ChillGoColors.inkMuted),
         ),
       ),
     );
@@ -939,11 +1015,14 @@ class _InlineMessage extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E2F),
+        color: ChillGoColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF2E2E4F)),
+        border: Border.all(color: ChillGoColors.outline),
       ),
-      child: Text(message, style: const TextStyle(color: Colors.white70)),
+      child: Text(
+        message,
+        style: const TextStyle(color: ChillGoColors.inkMuted),
+      ),
     );
   }
 }

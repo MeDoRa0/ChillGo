@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:chillgo/core/di/injection_container.dart';
+import 'package:chillgo/core/presentation/theme/chillgo_colors.dart';
+import 'package:chillgo/core/presentation/widgets/responsive_content.dart';
+import 'package:chillgo/core/presentation/widgets/sunshine_background.dart';
 import 'package:chillgo/features/authentication/domain/repositories/auth_repository.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -87,136 +90,106 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF0F0F1A), Color(0xFF1E1B4B)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
+      body: SunshineBackground(
         child: FadeTransition(
           opacity: _fadeAnimation,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Spacer(),
-
-                // App Logo / Branding
-                Center(
-                  child: Container(
-                    padding: const EdgeInsets.all(16.0),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF6366F1).withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF6366F1).withValues(alpha: 0.2),
-                          blurRadius: 30,
-                          spreadRadius: 10,
+          child: ResponsiveContent(
+            maxWidth: 520,
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(vertical: 32),
+                child: Container(
+                  padding: const EdgeInsets.all(28),
+                  decoration: BoxDecoration(
+                    color: ChillGoColors.surface,
+                    borderRadius: BorderRadius.circular(32),
+                    border: Border.all(color: ChillGoColors.outline),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x1A6D3A72),
+                        blurRadius: 28,
+                        offset: Offset(0, 12),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const _LoginBrand(),
+                      const SizedBox(height: 36),
+                      if (_errorMessage != null) ...[
+                        Text(
+                          _errorMessage!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: ChillGoColors.danger,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      if (_isLoading)
+                        const Center(child: CircularProgressIndicator())
+                      else ...[
+                        ElevatedButton.icon(
+                          onPressed: _handleGoogleSignIn,
+                          icon: const Icon(Icons.g_mobiledata, size: 28),
+                          label: const Text('Continue with Google'),
+                        ),
+                        const SizedBox(height: 14),
+                        FilledButton.icon(
+                          onPressed: _handleAppleSignIn,
+                          icon: const Icon(Icons.apple, size: 24),
+                          label: const Text('Continue with Apple'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: ChillGoColors.ink,
+                          ),
                         ),
                       ],
-                    ),
-                    child: const Icon(
-                      Icons.blur_on_rounded,
-                      size: 80,
-                      color: Color(0xFF6366F1),
-                    ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 24),
-                const Text(
-                  'ChillGo',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 42,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    letterSpacing: 2,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Organize Outings seamlessly with your Crew',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.white.withValues(alpha: 0.7),
-                  ),
-                ),
-
-                const Spacer(),
-
-                // Error Message Display
-                if (_errorMessage != null) ...[
-                  Text(
-                    _errorMessage!,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Colors.redAccent,
-                      fontSize: 14,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                if (_isLoading)
-                  const Center(
-                    child: CircularProgressIndicator(color: Color(0xFF6366F1)),
-                  )
-                else ...[
-                  // Google Sign-In Button
-                  ElevatedButton.icon(
-                    onPressed: _handleGoogleSignIn,
-                    icon: const Icon(Icons.g_mobiledata, size: 28),
-                    label: const Text('Continue with Google'),
-                    style: ElevatedButton.styleFrom(
-                      foregroundColor: Colors.black,
-                      backgroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      textStyle: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Apple Sign-In Button
-                  ElevatedButton.icon(
-                    onPressed: _handleAppleSignIn,
-                    icon: const Icon(Icons.apple, size: 24),
-                    label: const Text('Continue with Apple'),
-                    style: ElevatedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      backgroundColor: const Color(0xFF1E293B),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(
-                          color: Colors.white.withValues(alpha: 0.1),
-                        ),
-                      ),
-                      textStyle: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-
-                const SizedBox(height: 48),
-              ],
+              ),
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _LoginBrand extends StatelessWidget {
+  const _LoginBrand();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: const BoxDecoration(
+            color: ChillGoColors.sunshine,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.explore_rounded,
+            size: 62,
+            color: ChillGoColors.ink,
+          ),
+        ),
+        const SizedBox(height: 22),
+        Text('ChillGo', style: Theme.of(context).textTheme.displaySmall),
+        const SizedBox(height: 8),
+        const Text(
+          'Good plans, great people, unforgettable days.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: ChillGoColors.inkMuted,
+            fontSize: 16,
+            height: 1.4,
+          ),
+        ),
+      ],
     );
   }
 }

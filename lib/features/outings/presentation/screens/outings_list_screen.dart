@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:chillgo/core/presentation/theme/chillgo_colors.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/presentation/widgets/app_back_button.dart';
+import '../../../../core/presentation/widgets/responsive_content.dart';
+import '../../../../core/presentation/widgets/sunshine_background.dart';
 import '../../../voting/domain/repositories/agreement_repository.dart';
 import '../../../authentication/domain/repositories/auth_repository.dart';
 import '../../domain/entities/outing.dart';
@@ -23,12 +26,9 @@ class OutingsListScreen extends StatelessWidget {
           OutingsListCubit(outingRepository: sl<OutingRepository>())
             ..load(crewId),
       child: Scaffold(
-        backgroundColor: const Color(0xFF0F0F1A),
         appBar: AppBar(
-          backgroundColor: const Color(0xFF0F0F1A),
           leading: AppBackButton(fallbackRoute: '/crews/$crewId'),
-          iconTheme: const IconThemeData(color: Colors.white),
-          title: const Text('Outings', style: TextStyle(color: Colors.white)),
+          title: const Text('Outings'),
           actions: [
             IconButton(
               tooltip: 'Create outing',
@@ -37,35 +37,40 @@ class OutingsListScreen extends StatelessWidget {
             ),
           ],
         ),
-        body: BlocBuilder<OutingsListCubit, OutingsListState>(
-          builder: (context, state) {
-            if (state is OutingsListLoading) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (state is OutingsListError) {
-              return _Message(state.message);
-            }
-            final outings = state is OutingsListLoaded
-                ? state.outings
-                : const <Outing>[];
-            if (outings.isEmpty) {
-              return const _Message('No outings yet.');
-            }
-            final active = outings.where(
-              (outing) => !outing.status.isHistorical,
-            );
-            final history = outings.where(
-              (outing) => outing.status.isHistorical,
-            );
-            return ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                _Section(title: 'Active', outings: active.toList()),
-                const SizedBox(height: 20),
-                _Section(title: 'History', outings: history.toList()),
-              ],
-            );
-          },
+        body: SunshineBackground(
+          child: ResponsiveContent(
+            maxWidth: 900,
+            child: BlocBuilder<OutingsListCubit, OutingsListState>(
+              builder: (context, state) {
+                if (state is OutingsListLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (state is OutingsListError) {
+                  return _Message(state.message);
+                }
+                final outings = state is OutingsListLoaded
+                    ? state.outings
+                    : const <Outing>[];
+                if (outings.isEmpty) {
+                  return const _Message('No outings yet.');
+                }
+                final active = outings.where(
+                  (outing) => !outing.status.isHistorical,
+                );
+                final history = outings.where(
+                  (outing) => outing.status.isHistorical,
+                );
+                return ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    _Section(title: 'Active', outings: active.toList()),
+                    const SizedBox(height: 20),
+                    _Section(title: 'History', outings: history.toList()),
+                  ],
+                );
+              },
+            ),
+          ),
         ),
       ),
     );
@@ -87,7 +92,7 @@ class _Section extends StatelessWidget {
         Text(
           title,
           style: const TextStyle(
-            color: Colors.white,
+            color: ChillGoColors.ink,
             fontSize: 18,
             fontWeight: FontWeight.bold,
           ),
@@ -123,7 +128,7 @@ class _Message extends StatelessWidget {
         child: Text(
           message,
           textAlign: TextAlign.center,
-          style: const TextStyle(color: Colors.white70),
+          style: const TextStyle(color: ChillGoColors.inkMuted),
         ),
       ),
     );

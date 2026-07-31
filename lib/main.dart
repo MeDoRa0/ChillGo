@@ -8,6 +8,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'firebase_options.dart';
 import 'core/di/injection_container.dart' as di;
+import 'core/presentation/theme/chillgo_theme.dart';
 import 'core/routes/app_router.dart';
 import 'core/error/global_error_handler.dart';
 import 'features/authentication/presentation/blocs/auth/auth_bloc.dart';
@@ -100,10 +101,8 @@ class _MyAppState extends State<MyApp> {
       create: (_) => di.sl<AuthBloc>(),
       child: MaterialApp.router(
         title: 'ChillGo',
-        theme: ThemeData.dark().copyWith(
-          primaryColor: const Color(0xFF6366F1),
-          scaffoldBackgroundColor: const Color(0xFF0F0F1A),
-        ),
+        debugShowCheckedModeBanner: false,
+        theme: ChillGoTheme.sunshine,
         routerConfig: appRouter,
       ),
     );

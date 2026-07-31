@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:chillgo/core/presentation/theme/chillgo_colors.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -110,7 +111,7 @@ class InteractiveOutingCard extends StatelessWidget {
       onPressed: () =>
           GoRouter.of(context).push('/outings/${outing.id}/live-meetup'),
       icon: const Icon(Icons.location_on_outlined),
-      color: const Color(0xFF48E0A4),
+      color: ChillGoColors.leaf,
     ),
   );
 
@@ -163,16 +164,12 @@ class _CardSurface extends StatelessWidget {
     width: double.infinity,
     padding: const EdgeInsets.all(18),
     decoration: BoxDecoration(
-      gradient: const LinearGradient(
-        colors: [Color(0xFF24213A), Color(0xFF191827)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ),
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: const Color(0xFF50458A)),
+      color: ChillGoColors.sunshineSoft,
+      borderRadius: BorderRadius.circular(24),
+      border: Border.all(color: ChillGoColors.outline),
       boxShadow: const [
         BoxShadow(
-          color: Color(0x337C5CFC),
+          color: Color(0x186D3A72),
           blurRadius: 18,
           offset: Offset(0, 8),
         ),
@@ -189,7 +186,7 @@ class _CardSurface extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: ChillGoColors.ink,
                   fontSize: 19,
                   fontWeight: FontWeight.w800,
                 ),
@@ -197,13 +194,13 @@ class _CardSurface extends StatelessWidget {
             ),
             ?trailing,
             ?chatButtonSpace,
-            const Icon(Icons.open_in_full_rounded, color: Color(0xFFB8A7FF)),
+            const Icon(Icons.open_in_full_rounded, color: ChillGoColors.coral),
           ],
         ),
         const SizedBox(height: 8),
         Text(
           '${outing.locationText}  •  ${_scheduleLabel(outing.scheduledAt)}',
-          style: const TextStyle(color: Colors.white70),
+          style: const TextStyle(color: ChillGoColors.inkMuted),
         ),
         const SizedBox(height: 14),
         _AcceptedAvatars(participants: participants),
@@ -229,7 +226,7 @@ class _CardChatButton extends StatelessWidget {
           tooltip: 'Outing chat',
           onPressed: onPressed,
           icon: ChatUnreadBadge(count: summary?.unreadCount ?? 0),
-          color: const Color(0xFFB8A7FF),
+          color: ChillGoColors.plum,
         );
       },
     ),
@@ -271,15 +268,11 @@ class _OutingReviewCardState extends State<OutingReviewCard> {
               constraints: const BoxConstraints(maxWidth: 460),
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF302856), Color(0xFF181725)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                color: ChillGoColors.surface,
                 borderRadius: BorderRadius.circular(28),
-                border: Border.all(color: const Color(0xFF8A71FF), width: 1.5),
+                border: Border.all(color: ChillGoColors.outline, width: 1.5),
                 boxShadow: const [
-                  BoxShadow(color: Color(0x667C5CFC), blurRadius: 40),
+                  BoxShadow(color: Color(0x336D3A72), blurRadius: 40),
                 ],
               ),
               child: Column(
@@ -294,7 +287,7 @@ class _OutingReviewCardState extends State<OutingReviewCard> {
                           : () => Navigator.of(context).pop(),
                       icon: const Icon(
                         Icons.close_rounded,
-                        color: Colors.white70,
+                        color: ChillGoColors.inkMuted,
                       ),
                     ),
                   ),
@@ -302,7 +295,7 @@ class _OutingReviewCardState extends State<OutingReviewCard> {
                     widget.outing.title,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: ChillGoColors.ink,
                       fontSize: 26,
                       fontWeight: FontWeight.w900,
                     ),
@@ -311,7 +304,10 @@ class _OutingReviewCardState extends State<OutingReviewCard> {
                   Text(
                     '${widget.outing.locationText}\n${_scheduleLabel(widget.outing.scheduledAt)}',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white70, height: 1.5),
+                    style: const TextStyle(
+                      color: ChillGoColors.inkMuted,
+                      height: 1.5,
+                    ),
                   ),
                   const SizedBox(height: 22),
                   _AcceptedAvatars(participants: widget.participants),
@@ -328,7 +324,7 @@ class _OutingReviewCardState extends State<OutingReviewCard> {
                   ),
                   if (_busy) ...[
                     const SizedBox(height: 20),
-                    const LinearProgressIndicator(color: Color(0xFFB8A7FF)),
+                    const LinearProgressIndicator(),
                   ],
                 ],
               ),
@@ -358,7 +354,7 @@ class _OutingReviewCardState extends State<OutingReviewCard> {
           label: 'Cancel outing',
           caption: 'Cancel outing',
           icon: Icons.event_busy_rounded,
-          color: const Color(0xFFFF6685),
+          color: ChillGoColors.coral,
           onPressed: widget.outing.status.isCancellable ? _cancelOuting : null,
         ),
       ),
@@ -367,7 +363,7 @@ class _OutingReviewCardState extends State<OutingReviewCard> {
           label: 'Change date and location',
           caption: 'Change date and location',
           icon: Icons.edit_calendar_rounded,
-          color: const Color(0xFFFFC857),
+          color: ChillGoColors.sunshine,
           onPressed: widget.outing.status.isEditable
               ? _changeDateAndLocation
               : null,
@@ -407,7 +403,7 @@ class _OutingReviewCardState extends State<OutingReviewCard> {
     label: 'Accept outing',
     caption: 'Accept outing',
     icon: Icons.check_rounded,
-    color: const Color(0xFF48E0A4),
+    color: ChillGoColors.leaf,
     onPressed: () => _respond(AttendanceStatus.accepted),
   );
 
@@ -415,7 +411,7 @@ class _OutingReviewCardState extends State<OutingReviewCard> {
     label: 'Decline outing',
     caption: 'Decline outing',
     icon: Icons.close_rounded,
-    color: const Color(0xFFFF6685),
+    color: ChillGoColors.coral,
     onPressed: () => _respond(AttendanceStatus.declined),
   );
 
@@ -423,7 +419,7 @@ class _OutingReviewCardState extends State<OutingReviewCard> {
     label: 'Change date and location',
     caption: 'Change date and location',
     icon: Icons.edit_calendar_rounded,
-    color: const Color(0xFFFFC857),
+    color: ChillGoColors.sunshine,
     onPressed: _proposePlanChange,
   );
 
@@ -655,7 +651,7 @@ class _ActionIcon extends StatelessWidget {
           Text(
             caption,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.white70, fontSize: 11),
+            style: const TextStyle(color: ChillGoColors.inkMuted, fontSize: 11),
           ),
         ],
       ),
@@ -679,7 +675,7 @@ class _AcceptedAvatars extends StatelessWidget {
     if (accepted.isEmpty) {
       return const Text(
         'No one’s locked in yet ✨',
-        style: TextStyle(color: Colors.white54),
+        style: TextStyle(color: ChillGoColors.inkMuted),
       );
     }
     return SizedBox(
@@ -691,7 +687,7 @@ class _AcceptedAvatars extends StatelessWidget {
               left: index * 25,
               child: CircleAvatar(
                 radius: 19,
-                backgroundColor: const Color(0xFFB8A7FF),
+                backgroundColor: ChillGoColors.coralSoft,
                 backgroundImage: accepted[index].avatarUrl?.isNotEmpty == true
                     ? NetworkImage(accepted[index].avatarUrl!)
                     : null,
@@ -701,7 +697,7 @@ class _AcceptedAvatars extends StatelessWidget {
                         accepted[index].displayName.characters.first
                             .toUpperCase(),
                         style: const TextStyle(
-                          color: Color(0xFF161324),
+                          color: ChillGoColors.ink,
                           fontWeight: FontWeight.bold,
                         ),
                       ),

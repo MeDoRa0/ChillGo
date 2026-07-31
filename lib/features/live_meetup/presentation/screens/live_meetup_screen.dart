@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/presentation/widgets/app_back_button.dart';
+import '../../../../core/presentation/widgets/responsive_content.dart';
+import '../../../../core/presentation/widgets/sunshine_background.dart';
 import '../../../authentication/domain/repositories/auth_repository.dart';
 import '../../../../core/di/injection_container.dart';
 import '../cubit/live_meetup/live_meetup_cubit.dart';
@@ -27,105 +29,112 @@ class LiveMeetupScreen extends StatelessWidget {
       leading: const AppBackButton(),
       title: const Text('Live Meetup'),
     ),
-    body: BlocListener<LiveMeetupCubit, LiveMeetupState>(
-      listenWhen: (previous, current) =>
-          previous.status != LiveMeetupViewStatus.accessLost &&
-          current.status == LiveMeetupViewStatus.accessLost,
-      listener: (context, state) {
-        context.read<LocationSharingCubit>().accessLost();
-        context.read<MeetupPointEditorCubit>().accessLost();
-      },
-      child: BlocBuilder<LiveMeetupCubit, LiveMeetupState>(
-        builder: (context, state) {
-          if (state.status == LiveMeetupViewStatus.initial ||
-              state.status == LiveMeetupViewStatus.loading) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (state.status == LiveMeetupViewStatus.accessLost) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text('Live Meetup is no longer available.'),
-              ),
-            );
-          }
-          if (state.snapshot == null) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(state.failure?.message ?? 'Live Meetup failed to load.'),
-                  const SizedBox(height: 12),
-                  FilledButton.tonal(
-                    onPressed: () =>
-                        context.read<LiveMeetupCubit>().watch(outingId),
-                    child: const Text('Retry'),
+    body: SunshineBackground(
+      child: ResponsiveContent(
+        maxWidth: 960,
+        child: BlocListener<LiveMeetupCubit, LiveMeetupState>(
+          listenWhen: (previous, current) =>
+              previous.status != LiveMeetupViewStatus.accessLost &&
+              current.status == LiveMeetupViewStatus.accessLost,
+          listener: (context, state) {
+            context.read<LocationSharingCubit>().accessLost();
+            context.read<MeetupPointEditorCubit>().accessLost();
+          },
+          child: BlocBuilder<LiveMeetupCubit, LiveMeetupState>(
+            builder: (context, state) {
+              if (state.status == LiveMeetupViewStatus.initial ||
+                  state.status == LiveMeetupViewStatus.loading) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (state.status == LiveMeetupViewStatus.accessLost) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Text('Live Meetup is no longer available.'),
                   ),
+                );
+              }
+              if (state.snapshot == null) {
+                return Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        state.failure?.message ?? 'Live Meetup failed to load.',
+                      ),
+                      const SizedBox(height: 12),
+                      FilledButton.tonal(
+                        onPressed: () =>
+                            context.read<LiveMeetupCubit>().watch(outingId),
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              final snapshot = state.snapshot!;
+              final uid = sl.isRegistered<AuthRepository>()
+                  ? sl<AuthRepository>().currentCredentials?.uid
+                  : null;
+              final current = snapshot.attendees
+                  .where((attendee) => attendee.userId == uid)
+                  .firstOrNull;
+              return ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  Text(
+                    snapshot.locationText,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 16),
+                  StatusSelector(
+                    selected: current?.status,
+                    mutationState: state.statusMutation,
+                    onSelected: context.read<LiveMeetupCubit>().setStatus,
+                  ),
+                  const SizedBox(height: 16),
+                  BlocBuilder<LocationSharingCubit, LocationSharingState>(
+                    builder: (context, sharingState) => LocationSharingControl(
+                      outingId: outingId,
+                      state: sharingState,
+                      onStart: () =>
+                          context.read<LocationSharingCubit>().start(outingId),
+                      onTransfer: context
+                          .read<LocationSharingCubit>()
+                          .confirmTransfer,
+                      onStop: context.read<LocationSharingCubit>().stop,
+                    ),
+                  ),
+                  if (state.failure != null) ...[
+                    const SizedBox(height: 8),
+                    Text(state.failure!.message),
+                  ],
+                  const SizedBox(height: 24),
+                  BlocBuilder<MeetupPointEditorCubit, MeetupPointEditorState>(
+                    builder: (context, editorState) => MeetupPointEditor(
+                      state: editorState,
+                      onSearch: context.read<MeetupPointEditorCubit>().search,
+                      onSelect: context.read<MeetupPointEditorCubit>().select,
+                      onConfirm: context.read<MeetupPointEditorCubit>().confirm,
+                      onSave: context.read<MeetupPointEditorCubit>().save,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _MapSurface(snapshot: snapshot),
+                  const SizedBox(height: 8),
+                  MeetupTextAlternative(
+                    snapshot: snapshot,
+                    trustedNow: sl.isRegistered<TrustedClock>()
+                        ? sl<TrustedClock>().now
+                        : DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+                  ),
+                  const SizedBox(height: 24),
+                  AttendeeStatusSummary(attendees: snapshot.attendees),
                 ],
-              ),
-            );
-          }
-          final snapshot = state.snapshot!;
-          final uid = sl.isRegistered<AuthRepository>()
-              ? sl<AuthRepository>().currentCredentials?.uid
-              : null;
-          final current = snapshot.attendees
-              .where((attendee) => attendee.userId == uid)
-              .firstOrNull;
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              Text(
-                snapshot.locationText,
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 16),
-              StatusSelector(
-                selected: current?.status,
-                mutationState: state.statusMutation,
-                onSelected: context.read<LiveMeetupCubit>().setStatus,
-              ),
-              const SizedBox(height: 16),
-              BlocBuilder<LocationSharingCubit, LocationSharingState>(
-                builder: (context, sharingState) => LocationSharingControl(
-                  outingId: outingId,
-                  state: sharingState,
-                  onStart: () =>
-                      context.read<LocationSharingCubit>().start(outingId),
-                  onTransfer: context
-                      .read<LocationSharingCubit>()
-                      .confirmTransfer,
-                  onStop: context.read<LocationSharingCubit>().stop,
-                ),
-              ),
-              if (state.failure != null) ...[
-                const SizedBox(height: 8),
-                Text(state.failure!.message),
-              ],
-              const SizedBox(height: 24),
-              BlocBuilder<MeetupPointEditorCubit, MeetupPointEditorState>(
-                builder: (context, editorState) => MeetupPointEditor(
-                  state: editorState,
-                  onSearch: context.read<MeetupPointEditorCubit>().search,
-                  onSelect: context.read<MeetupPointEditorCubit>().select,
-                  onConfirm: context.read<MeetupPointEditorCubit>().confirm,
-                  onSave: context.read<MeetupPointEditorCubit>().save,
-                ),
-              ),
-              const SizedBox(height: 16),
-              _MapSurface(snapshot: snapshot),
-              const SizedBox(height: 8),
-              MeetupTextAlternative(
-                snapshot: snapshot,
-                trustedNow: sl.isRegistered<TrustedClock>()
-                    ? sl<TrustedClock>().now
-                    : DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
-              ),
-              const SizedBox(height: 24),
-              AttendeeStatusSummary(attendees: snapshot.attendees),
-            ],
-          );
-        },
+              );
+            },
+          ),
+        ),
       ),
     ),
   );

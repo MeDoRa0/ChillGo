@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:chillgo/core/di/injection_container.dart';
+import 'package:chillgo/core/presentation/theme/chillgo_colors.dart';
+import 'package:chillgo/core/presentation/widgets/responsive_content.dart';
+import 'package:chillgo/core/presentation/widgets/sunshine_background.dart';
 import 'package:chillgo/features/authentication/presentation/blocs/auth/auth_bloc.dart';
 import 'package:chillgo/features/authentication/presentation/blocs/auth/auth_state.dart';
 
@@ -87,14 +90,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         return BlocProvider(
           create: (_) => sl<OnboardingCubit>(),
           child: Scaffold(
-            body: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFF0F0F1A), Color(0xFF1E1B4B)],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-              ),
+            body: SunshineBackground(
               child: BlocConsumer<OnboardingCubit, OnboardingState>(
                 listener: (context, state) {
                   if (state is OnboardingSuccess) {
@@ -106,7 +102,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(state.error),
-                        backgroundColor: Colors.redAccent,
+                        backgroundColor: ChillGoColors.danger,
                       ),
                     );
                   }
@@ -115,138 +111,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   final cubit = context.read<OnboardingCubit>();
                   final isLoading = state is OnboardingLoading;
 
-                  return Center(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            // Header
-                            Center(
-                              child: Icon(
-                                Icons.account_circle_outlined,
-                                size: 80,
-                                color: const Color(
-                                  0xFF6366F1,
-                                ).withValues(alpha: 0.9),
-                              ),
-                            ),
-                            const SizedBox(height: 24),
-                            const Text(
-                              'Create Profile',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 32,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Set up your username and display name to join Crews.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.white.withValues(alpha: 0.7),
-                              ),
-                            ),
-                            const SizedBox(height: 40),
-
-                            // Username Field
-                            TextFormField(
-                              controller: _usernameController,
-                              enabled: !isLoading,
-                              style: const TextStyle(color: Colors.white),
-                              decoration: InputDecoration(
-                                labelText: 'Username',
-                                labelStyle: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.6),
-                                ),
-                                prefixText: '@ ',
-                                prefixStyle: const TextStyle(
-                                  color: Color(0xFF6366F1),
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                filled: true,
-                                fillColor: const Color(
-                                  0xFF1E293B,
-                                ).withValues(alpha: 0.6),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide.none,
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: const BorderSide(
-                                    color: Color(0xFF6366F1),
-                                    width: 2,
-                                  ),
-                                ),
-                              ),
-                              validator: _validateUsername,
-                            ),
-                            const SizedBox(height: 20),
-
-                            // Display Name Field
-                            TextFormField(
-                              controller: _displayNameController,
-                              enabled: !isLoading,
-                              style: const TextStyle(color: Colors.white),
-                              decoration: InputDecoration(
-                                labelText: 'Display Name',
-                                labelStyle: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.6),
-                                ),
-                                filled: true,
-                                fillColor: const Color(
-                                  0xFF1E293B,
-                                ).withValues(alpha: 0.6),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide.none,
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: const BorderSide(
-                                    color: Color(0xFF6366F1),
-                                    width: 2,
-                                  ),
-                                ),
-                              ),
-                              validator: _validateDisplayName,
-                            ),
-                            const SizedBox(height: 32),
-
-                            // Submit Button
-                            if (isLoading)
-                              const Center(
-                                child: CircularProgressIndicator(
-                                  color: Color(0xFF6366F1),
-                                ),
-                              )
-                            else
-                              ElevatedButton(
-                                onPressed: () => _submitForm(uid, cubit),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF6366F1),
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 16,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  textStyle: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                child: const Text('Complete Onboarding'),
-                              ),
-                          ],
-                        ),
+                  return ResponsiveContent(
+                    maxWidth: 580,
+                    child: Center(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(vertical: 28),
+                        child: _buildProfileForm(uid, cubit, isLoading),
                       ),
                     ),
                   );
@@ -256,6 +126,75 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildProfileForm(String uid, OnboardingCubit cubit, bool isLoading) {
+    return Container(
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        color: ChillGoColors.surface,
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(color: ChillGoColors.outline),
+      ),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Icon(
+              Icons.face_rounded,
+              size: 72,
+              color: ChillGoColors.coral,
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Make it yours',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.w900,
+                color: ChillGoColors.ink,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Choose how your crew will recognize you.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16, color: ChillGoColors.inkMuted),
+            ),
+            const SizedBox(height: 32),
+            TextFormField(
+              controller: _usernameController,
+              enabled: !isLoading,
+              decoration: const InputDecoration(
+                labelText: 'Username',
+                prefixText: '@ ',
+                prefixStyle: TextStyle(
+                  color: ChillGoColors.coral,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              validator: _validateUsername,
+            ),
+            const SizedBox(height: 18),
+            TextFormField(
+              controller: _displayNameController,
+              enabled: !isLoading,
+              decoration: const InputDecoration(labelText: 'Display name'),
+              validator: _validateDisplayName,
+            ),
+            const SizedBox(height: 28),
+            if (isLoading)
+              const Center(child: CircularProgressIndicator())
+            else
+              FilledButton(
+                onPressed: () => _submitForm(uid, cubit),
+                child: const Text('Complete profile'),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

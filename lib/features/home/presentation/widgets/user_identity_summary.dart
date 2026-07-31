@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:chillgo/core/presentation/theme/chillgo_colors.dart';
 
 class UserIdentitySummary extends StatelessWidget {
   final String? displayName;
@@ -21,10 +22,10 @@ class UserIdentitySummary extends StatelessWidget {
       children: [
         CircleAvatar(
           radius: compact ? 18 : 22,
-          backgroundColor: const Color(0xFF6366F1).withValues(alpha: 0.18),
+          backgroundColor: ChillGoColors.coralSoft,
           child: Icon(
             Icons.person,
-            color: const Color(0xFF818CF8),
+            color: ChillGoColors.coral,
             size: compact ? 20 : 24,
           ),
         ),
@@ -39,7 +40,7 @@ class UserIdentitySummary extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: Colors.white,
+                  color: ChillGoColors.ink,
                   fontSize: compact ? 16 : 20,
                   fontWeight: FontWeight.bold,
                 ),
@@ -51,7 +52,7 @@ class UserIdentitySummary extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: Colors.grey[400],
+                    color: ChillGoColors.inkMuted,
                     fontSize: compact ? 12 : 14,
                   ),
                 ),

@@ -8,6 +8,7 @@ import 'package:chillgo/features/crews/domain/entities/crew_role.dart';
 import 'package:chillgo/features/crews/domain/repositories/crew_repository.dart';
 import 'package:chillgo/features/outings/domain/entities/outing.dart';
 import 'package:chillgo/features/outings/domain/repositories/outing_repository.dart';
+import 'package:chillgo/core/presentation/theme/chillgo_colors.dart';
 
 class CrewCard extends StatefulWidget {
   final Crew crew;
@@ -55,8 +56,10 @@ class _CrewCardState extends State<CrewCard> {
   @override
   Widget build(BuildContext context) {
     final crew = widget.crew;
+    final accent = _crewAccent(crew.name);
 
     return Stack(
+      fit: StackFit.expand,
       clipBehavior: Clip.none,
       children: [
         Material(
@@ -67,9 +70,16 @@ class _CrewCardState extends State<CrewCard> {
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E1E2F),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFF2E2E4F)),
+                color: accent.background,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: ChillGoColors.outline),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x146D3A72),
+                    blurRadius: 16,
+                    offset: Offset(0, 7),
+                  ),
+                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -79,14 +89,12 @@ class _CrewCardState extends State<CrewCard> {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: const Color(
-                            0xFF6366F1,
-                          ).withValues(alpha: 0.15),
+                          color: ChillGoColors.surface.withValues(alpha: 0.78),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.groups,
-                          color: Color(0xFF6366F1),
+                          color: accent.foreground,
                           size: 20,
                         ),
                       ),
@@ -95,7 +103,7 @@ class _CrewCardState extends State<CrewCard> {
                         child: Text(
                           crew.name,
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: ChillGoColors.ink,
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
                           ),
@@ -118,6 +126,24 @@ class _CrewCardState extends State<CrewCard> {
       ],
     );
   }
+
+  _CrewAccent _crewAccent(String crewName) {
+    const accents = [
+      _CrewAccent(ChillGoColors.sunshineSoft, ChillGoColors.plum),
+      _CrewAccent(ChillGoColors.coralSoft, ChillGoColors.coral),
+      _CrewAccent(ChillGoColors.skySoft, ChillGoColors.sky),
+      _CrewAccent(ChillGoColors.leafSoft, ChillGoColors.leaf),
+      _CrewAccent(ChillGoColors.lavender, ChillGoColors.plum),
+    ];
+    return accents[crewName.hashCode.abs() % accents.length];
+  }
+}
+
+class _CrewAccent {
+  const _CrewAccent(this.background, this.foreground);
+
+  final Color background;
+  final Color foreground;
 }
 
 class _OutingIndicator extends StatelessWidget {
@@ -145,17 +171,17 @@ class _OutingIndicator extends StatelessWidget {
               width: 26,
               height: 26,
               decoration: BoxDecoration(
-                color: const Color(0xFFFFC857),
+                color: ChillGoColors.sunshine,
                 shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFF1E1E2F), width: 2),
+                border: Border.all(color: ChillGoColors.surface, width: 2),
                 boxShadow: const [
-                  BoxShadow(color: Color(0x88FFC857), blurRadius: 8),
+                  BoxShadow(color: Color(0x55FFC83D), blurRadius: 8),
                 ],
               ),
               child: const Icon(
                 Icons.event_available_rounded,
                 size: 14,
-                color: Color(0xFF241B3F),
+                color: ChillGoColors.ink,
               ),
             ),
           ),
@@ -190,13 +216,25 @@ class _CrewMembersSummary extends StatelessWidget {
             if (acceptedMembers.isEmpty) {
               return const Text(
                 'No members yet',
-                style: TextStyle(color: Colors.white54, fontSize: 12),
+                style: TextStyle(color: ChillGoColors.inkMuted, fontSize: 12),
               );
             }
             return Row(
               children: [
                 _MemberAvatarRow(members: acceptedMembers),
                 const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    acceptedMembers.length == 1
+                        ? '1 member'
+                        : '${acceptedMembers.length} members',
+                    style: const TextStyle(
+                      color: ChillGoColors.inkMuted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
               ],
             );
           },
@@ -233,14 +271,21 @@ class _PendingInvitesSummary extends StatelessWidget {
           padding: const EdgeInsets.only(top: 8),
           child: Row(
             children: [
-              const Icon(Icons.schedule, color: Colors.white38, size: 14),
+              const Icon(
+                Icons.schedule,
+                color: ChillGoColors.inkMuted,
+                size: 14,
+              ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   'Invited ${usernames.join(', ')}$suffix',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  style: const TextStyle(
+                    color: ChillGoColors.inkMuted,
+                    fontSize: 12,
+                  ),
                 ),
               ),
             ],
@@ -254,56 +299,6 @@ class _PendingInvitesSummary extends StatelessWidget {
     final username = invitation.invitedUsername.trim();
     if (username.isNotEmpty) return '@$username';
     return invitation.invitedUserId.trim();
-  }
-}
-
-class _MemberNames extends StatelessWidget {
-  final List<CrewMembership> members;
-
-  const _MemberNames({required this.members});
-
-  @override
-  Widget build(BuildContext context) {
-    final visibleNames = members
-        .take(3)
-        .map(_memberLabel)
-        .where((name) => name.isNotEmpty)
-        .toList();
-    final overflow = members.length - visibleNames.length;
-    final suffix = overflow > 0 ? ' +$overflow more' : '';
-    final countLabel = members.length == 1
-        ? '1 member'
-        : '${members.length} members';
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          countLabel,
-          style: const TextStyle(
-            color: Colors.white70,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        Text(
-          '${visibleNames.join(', ')}$suffix',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(color: Colors.white54, fontSize: 12),
-        ),
-      ],
-    );
-  }
-
-  String _memberLabel(CrewMembership member) {
-    if (member.displayName.trim().isNotEmpty) {
-      return member.displayName.trim();
-    }
-    if (member.username.trim().isNotEmpty) {
-      return '@${member.username.trim()}';
-    }
-    return 'Member';
   }
 }
 
@@ -349,7 +344,7 @@ class _MemberAvatarRow extends StatelessWidget {
     final hasPhoto = member.avatarUrl != null && member.avatarUrl!.isNotEmpty;
     return CircleAvatar(
       radius: 14,
-      backgroundColor: const Color(0xFF6366F1),
+      backgroundColor: ChillGoColors.coral,
       backgroundImage: hasPhoto ? NetworkImage(member.avatarUrl!) : null,
       child: hasPhoto
           ? null
@@ -369,7 +364,7 @@ class _MemberAvatarRow extends StatelessWidget {
   Widget _buildOverflowCircle(int count) {
     return CircleAvatar(
       radius: 14,
-      backgroundColor: const Color(0xFF2E2E4F),
+      backgroundColor: ChillGoColors.plum,
       child: Text(
         '+$count',
         style: const TextStyle(

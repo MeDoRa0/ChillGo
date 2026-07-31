@@ -1,11 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:chillgo/core/presentation/theme/chillgo_colors.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/presentation/widgets/app_back_button.dart';
+import '../../../../core/presentation/widgets/responsive_content.dart';
+import '../../../../core/presentation/widgets/sunshine_background.dart';
 import '../../../live_meetup/domain/services/map_provider.dart';
 import '../../domain/entities/outing.dart';
 import '../../domain/repositories/outing_repository.dart';
@@ -74,128 +77,137 @@ class _OutingFormScreenState extends State<OutingFormScreen> {
           final isEditable =
               !_isEditMode || (outing?.status.isEditable ?? false);
           return Scaffold(
-            backgroundColor: const Color(0xFF0F0F1A),
             appBar: AppBar(
-              backgroundColor: const Color(0xFF0F0F1A),
-              elevation: 0,
               leading: AppBackButton(fallbackRoute: '/crews/${widget.crewId}'),
-              iconTheme: const IconThemeData(color: Colors.white),
-              title: Text(
-                _isEditMode ? 'Edit outing' : 'Make a plan',
-                style: const TextStyle(color: Colors.white),
-              ),
+              title: Text(_isEditMode ? 'Edit outing' : 'Make a plan'),
             ),
-            body: Form(
-              key: _formKey,
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  if (_isLoadingOuting)
-                    const LinearProgressIndicator(color: Color(0xFF6366F1)),
-                  if (_loadError != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Text(
-                        _loadError!,
-                        style: const TextStyle(color: Colors.redAccent),
-                      ),
-                    ),
-                  if (_isEditMode &&
-                      outing != null &&
-                      !outing.status.isEditable)
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 12),
-                      child: Text(
-                        'This outing can no longer be edited.',
-                        style: TextStyle(color: Colors.white70),
-                      ),
-                    ),
-                  Text(
-                    _isEditMode
-                        ? 'Update the details for your crew.'
-                        : 'A couple taps and the crew is in the loop ✨',
-                    style: const TextStyle(color: Colors.white70, fontSize: 16),
-                  ),
-                  const SizedBox(height: 24),
-                  const _QuestionLabel('What is the place name?'),
-                  const SizedBox(height: 10),
-                  _Field(
-                    controller: _locationController,
-                    label: 'e.g. Cafe in Downtown',
-                    enabled: isEditable,
-                    validator: (value) {
-                      final text = value?.trim() ?? '';
-                      if (text.isEmpty || text.length > 120) {
-                        return 'Location must be between 1 and 120 characters.';
-                      }
-                      return null;
-                    },
-                    onChanged: (_) => setState(() {}),
-                  ),
-                  const SizedBox(height: 10),
-                  OutlinedButton.icon(
-                    onPressed: isEditable ? _chooseLocationOnMap : null,
-                    icon: const Icon(Icons.map_outlined),
-                    label: Text(
-                      _selectedMapLocation == null
-                          ? 'Choose location on map'
-                          : 'Change map location',
-                    ),
-                  ),
-                  if (_selectedMapLocation != null) ...[
-                    const SizedBox(height: 12),
-                    _SelectedLocationPreview(
-                      placeName: _locationController.text.trim(),
-                      mapLocation: _selectedMapLocation!,
-                    ),
-                  ],
-                  const SizedBox(height: 24),
-                  const _QuestionLabel('When do you want to go out?'),
-                  const SizedBox(height: 10),
-                  _ScheduleTile(
-                    scheduledAt: _scheduledAt,
-                    onChanged: isEditable
-                        ? (value) => setState(() => _scheduledAt = value)
-                        : null,
-                  ),
-                  const SizedBox(height: 28),
-                  FilledButton(
-                    onPressed:
-                        isSubmitting ||
-                            !isEditable ||
-                            (_isEditMode && outing == null)
-                        ? null
-                        : () => _submit(context),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF6366F1),
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size.fromHeight(48),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: isSubmitting
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(
-                            _isEditMode ? 'Save changes' : 'Share with crew',
+            body: SunshineBackground(
+              child: ResponsiveContent(
+                maxWidth: 760,
+                child: Form(
+                  key: _formKey,
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      if (_isLoadingOuting)
+                        const LinearProgressIndicator(
+                          color: ChillGoColors.coral,
+                        ),
+                      if (_loadError != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Text(
+                            _loadError!,
+                            style: const TextStyle(
+                              color: ChillGoColors.danger,
+                            ),
                           ),
+                        ),
+                      if (_isEditMode &&
+                          outing != null &&
+                          !outing.status.isEditable)
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 12),
+                          child: Text(
+                            'This outing can no longer be edited.',
+                            style: TextStyle(color: ChillGoColors.inkMuted),
+                          ),
+                        ),
+                      Text(
+                        _isEditMode
+                            ? 'Update the details for your crew.'
+                            : 'A couple taps and the crew is in the loop ✨',
+                        style: const TextStyle(
+                          color: ChillGoColors.inkMuted,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      const _QuestionLabel('What is the place name?'),
+                      const SizedBox(height: 10),
+                      _Field(
+                        controller: _locationController,
+                        label: 'e.g. Cafe in Downtown',
+                        enabled: isEditable,
+                        validator: (value) {
+                          final text = value?.trim() ?? '';
+                          if (text.isEmpty || text.length > 120) {
+                            return 'Location must be between 1 and 120 characters.';
+                          }
+                          return null;
+                        },
+                        onChanged: (_) => setState(() {}),
+                      ),
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        onPressed: isEditable ? _chooseLocationOnMap : null,
+                        icon: const Icon(Icons.map_outlined),
+                        label: Text(
+                          _selectedMapLocation == null
+                              ? 'Choose location on map'
+                              : 'Change map location',
+                        ),
+                      ),
+                      if (_selectedMapLocation != null) ...[
+                        const SizedBox(height: 12),
+                        _SelectedLocationPreview(
+                          placeName: _locationController.text.trim(),
+                          mapLocation: _selectedMapLocation!,
+                        ),
+                      ],
+                      const SizedBox(height: 24),
+                      const _QuestionLabel('When do you want to go out?'),
+                      const SizedBox(height: 10),
+                      _ScheduleTile(
+                        scheduledAt: _scheduledAt,
+                        onChanged: isEditable
+                            ? (value) => setState(() => _scheduledAt = value)
+                            : null,
+                      ),
+                      const SizedBox(height: 28),
+                      FilledButton(
+                        onPressed:
+                            isSubmitting ||
+                                !isEditable ||
+                                (_isEditMode && outing == null)
+                            ? null
+                            : () => _submit(context),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: ChillGoColors.coral,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size.fromHeight(48),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: isSubmitting
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Text(
+                                _isEditMode
+                                    ? 'Save changes'
+                                    : 'Share with crew',
+                              ),
+                      ),
+                      if (_isEditMode &&
+                          outing != null &&
+                          outing.status.isCancellable) ...[
+                        const SizedBox(height: 12),
+                        OutlinedButton(
+                          onPressed: isSubmitting
+                              ? null
+                              : () => _showCancelDialog(context),
+                          child: const Text('Cancel outing'),
+                        ),
+                      ],
+                    ],
                   ),
-                  if (_isEditMode &&
-                      outing != null &&
-                      outing.status.isCancellable) ...[
-                    const SizedBox(height: 12),
-                    OutlinedButton(
-                      onPressed: isSubmitting
-                          ? null
-                          : () => _showCancelDialog(context),
-                      child: const Text('Cancel outing'),
-                    ),
-                  ],
-                ],
+                ),
               ),
             ),
           );
@@ -357,13 +369,13 @@ class _Field extends StatelessWidget {
       enabled: enabled,
       validator: validator,
       onChanged: onChanged,
-      style: const TextStyle(color: Colors.white),
+      style: const TextStyle(color: ChillGoColors.ink),
       decoration: InputDecoration(
         hintText: label,
-        hintStyle: const TextStyle(color: Colors.white54),
-        labelStyle: const TextStyle(color: Colors.white70),
+        hintStyle: const TextStyle(color: ChillGoColors.inkMuted),
+        labelStyle: const TextStyle(color: ChillGoColors.inkMuted),
         filled: true,
-        fillColor: const Color(0xFF1E1E2F),
+        fillColor: ChillGoColors.surface,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
@@ -384,9 +396,9 @@ class _SelectedLocationPreview extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E2F),
+        color: ChillGoColors.surface,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF3B3560)),
+        border: Border.all(color: ChillGoColors.outline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -394,19 +406,23 @@ class _SelectedLocationPreview extends StatelessWidget {
           Text(
             placeName,
             style: const TextStyle(
-              color: Colors.white,
+              color: ChillGoColors.ink,
               fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 6),
           Row(
             children: [
-              const Icon(Icons.location_on, color: Color(0xFFB8A7FF), size: 18),
+              const Icon(
+                Icons.location_on,
+                color: ChillGoColors.coral,
+                size: 18,
+              ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   mapLocation,
-                  style: const TextStyle(color: Colors.white70),
+                  style: const TextStyle(color: ChillGoColors.inkMuted),
                 ),
               ),
             ],
@@ -428,18 +444,18 @@ class _ScheduleTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E2F),
+        color: ChillGoColors.surface,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         children: [
-          const Icon(Icons.calendar_month_rounded, color: Color(0xFFB8A7FF)),
+          const Icon(Icons.calendar_month_rounded, color: ChillGoColors.coral),
           const SizedBox(width: 14),
           Expanded(
             child: Text(
               '${_dateLabel(scheduledAt)} • ${_timeLabel(scheduledAt)}',
               style: const TextStyle(
-                color: Colors.white,
+                color: ChillGoColors.ink,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -449,7 +465,7 @@ class _ScheduleTile extends StatelessWidget {
             onPressed: onChanged == null ? null : () => _pickSchedule(context),
             icon: const Icon(
               Icons.edit_calendar_rounded,
-              color: Color(0xFFB8A7FF),
+              color: ChillGoColors.coral,
             ),
           ),
         ],
@@ -509,7 +525,7 @@ class _QuestionLabel extends StatelessWidget {
   Widget build(BuildContext context) => Text(
     text,
     style: const TextStyle(
-      color: Colors.white,
+      color: ChillGoColors.ink,
       fontSize: 22,
       fontWeight: FontWeight.w700,
     ),

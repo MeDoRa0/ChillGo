@@ -3,6 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/presentation/widgets/app_back_button.dart';
+import '../../../../core/presentation/theme/chillgo_colors.dart';
+import '../../../../core/presentation/widgets/responsive_content.dart';
+import '../../../../core/presentation/widgets/sunshine_background.dart';
 import '../../../notifications/domain/entities/outing_review_notification.dart';
 import '../../../notifications/domain/repositories/outing_review_notification_repository.dart';
 import '../blocs/invitations/invitations_cubit.dart';
@@ -28,83 +31,81 @@ class _InvitationsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1A),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0F0F1A),
-        elevation: 0,
         leading: const AppBackButton(),
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text(
-          'Notifications',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
+        title: const Text('Notifications'),
       ),
-      body: BlocConsumer<InvitationsCubit, InvitationsState>(
-        listener: (context, state) {
-          if (state is InvitationActionError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: Colors.redAccent,
-              ),
-            );
-          }
-        },
-        builder: (context, state) {
-          if (state is InvitationsLoading ||
-              state is InvitationActionInProgress) {
-            return const Center(
-              child: CircularProgressIndicator(color: Color(0xFF6366F1)),
-            );
-          }
-
-          if (state is InvitationsError) {
-            return Center(
-              child: Text(
-                state.message,
-                style: const TextStyle(color: Colors.white70),
-              ),
-            );
-          }
-
-          final invitations = state is InvitationsLoaded
-              ? state.invitations
-              : <CrewInvitation>[];
-
-          return StreamBuilder<List<OutingReviewNotification>>(
-            stream: notificationRepository.watchNotifications(),
-            builder: (context, notificationSnapshot) {
-              final notifications = notificationSnapshot.data ?? const [];
-              if (invitations.isEmpty && notifications.isEmpty) {
-                return const _EmptyNotifications();
+      body: SunshineBackground(
+        child: ResponsiveContent(
+          maxWidth: 840,
+          child: BlocConsumer<InvitationsCubit, InvitationsState>(
+            listener: (context, state) {
+              if (state is InvitationActionError) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(state.message),
+                    backgroundColor: ChillGoColors.danger,
+                  ),
+                );
               }
-              return ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  if (notifications.isNotEmpty) ...[
-                    const _NotificationSectionTitle('Outing updates'),
-                    const SizedBox(height: 10),
-                    for (final notification in notifications) ...[
-                      _OutingReviewNotificationCard(
-                        notification: notification,
-                        repository: notificationRepository,
-                      ),
-                      const SizedBox(height: 10),
+            },
+            builder: (context, state) {
+              if (state is InvitationsLoading ||
+                  state is InvitationActionInProgress) {
+                return const Center(
+                  child: CircularProgressIndicator(color: ChillGoColors.coral),
+                );
+              }
+
+              if (state is InvitationsError) {
+                return Center(
+                  child: Text(
+                    state.message,
+                    style: const TextStyle(color: ChillGoColors.inkMuted),
+                  ),
+                );
+              }
+
+              final invitations = state is InvitationsLoaded
+                  ? state.invitations
+                  : <CrewInvitation>[];
+
+              return StreamBuilder<List<OutingReviewNotification>>(
+                stream: notificationRepository.watchNotifications(),
+                builder: (context, notificationSnapshot) {
+                  final notifications = notificationSnapshot.data ?? const [];
+                  if (invitations.isEmpty && notifications.isEmpty) {
+                    return const _EmptyNotifications();
+                  }
+                  return ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      if (notifications.isNotEmpty) ...[
+                        const _NotificationSectionTitle('Outing updates'),
+                        const SizedBox(height: 10),
+                        for (final notification in notifications) ...[
+                          _OutingReviewNotificationCard(
+                            notification: notification,
+                            repository: notificationRepository,
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                      ],
+                      if (invitations.isNotEmpty) ...[
+                        const _NotificationSectionTitle('Crew invitations'),
+                        const SizedBox(height: 10),
+                        for (final invitation in invitations) ...[
+                          _InvitationCard(invitation: invitation),
+                          const SizedBox(height: 10),
+                        ],
+                      ],
                     ],
-                  ],
-                  if (invitations.isNotEmpty) ...[
-                    const _NotificationSectionTitle('Crew invitations'),
-                    const SizedBox(height: 10),
-                    for (final invitation in invitations) ...[
-                      _InvitationCard(invitation: invitation),
-                      const SizedBox(height: 10),
-                    ],
-                  ],
-                ],
+                  );
+                },
               );
             },
-          );
-        },
+          ),
+        ),
       ),
     );
   }
@@ -122,12 +123,12 @@ class _EmptyNotifications extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: const BoxDecoration(
-              color: Color(0xFF1E1E2F),
+              color: ChillGoColors.sunshineSoft,
               shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.notifications_none,
-              color: Color(0xFF6366F1),
+              color: ChillGoColors.coral,
               size: 48,
             ),
           ),
@@ -135,7 +136,7 @@ class _EmptyNotifications extends StatelessWidget {
           const Text(
             'No new notifications',
             style: TextStyle(
-              color: Colors.white,
+              color: ChillGoColors.ink,
               fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
@@ -143,7 +144,7 @@ class _EmptyNotifications extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             'New crew invitations and outings will appear here.',
-            style: TextStyle(color: Colors.grey[400], fontSize: 14),
+            style: TextStyle(color: ChillGoColors.inkMuted, fontSize: 14),
             textAlign: TextAlign.center,
           ),
         ],
@@ -161,7 +162,7 @@ class _NotificationSectionTitle extends StatelessWidget {
   Widget build(BuildContext context) => Text(
     text,
     style: const TextStyle(
-      color: Colors.white,
+      color: ChillGoColors.ink,
       fontSize: 18,
       fontWeight: FontWeight.bold,
     ),
@@ -186,17 +187,17 @@ class _OutingReviewNotificationCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF1E1E2F),
+          color: ChillGoColors.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: notification.isRead
-                ? const Color(0xFF2E2E4F)
-                : const Color(0xFF6366F1),
+                ? ChillGoColors.outline
+                : ChillGoColors.coral,
           ),
         ),
         child: Row(
           children: [
-            const Icon(Icons.event_available, color: Color(0xFFB8A7FF)),
+            const Icon(Icons.event_available, color: ChillGoColors.coral),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -205,27 +206,27 @@ class _OutingReviewNotificationCard extends StatelessWidget {
                   Text(
                     '${notification.creatorDisplayName} created a new outing',
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: ChillGoColors.ink,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     notification.outingTitle,
-                    style: const TextStyle(color: Colors.white70),
+                    style: const TextStyle(color: ChillGoColors.inkMuted),
                   ),
                   const SizedBox(height: 8),
                   const Text(
                     'Tap to review',
                     style: TextStyle(
-                      color: Color(0xFFA5B4FC),
+                      color: ChillGoColors.coral,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: Colors.white70),
+            const Icon(Icons.chevron_right, color: ChillGoColors.inkMuted),
           ],
         ),
       ),
@@ -259,9 +260,9 @@ class _InvitationCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E2F),
+        color: ChillGoColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF2E2E4F)),
+        border: Border.all(color: ChillGoColors.outline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -271,12 +272,12 @@ class _InvitationCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF6366F1).withValues(alpha: 0.15),
+                  color: ChillGoColors.coral.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
                   Icons.groups,
-                  color: Color(0xFF6366F1),
+                  color: ChillGoColors.coral,
                   size: 22,
                 ),
               ),
@@ -288,7 +289,7 @@ class _InvitationCard extends StatelessWidget {
                     Text(
                       invitation.crewName,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: ChillGoColors.ink,
                         fontWeight: FontWeight.bold,
                         fontSize: 15,
                       ),
@@ -296,7 +297,10 @@ class _InvitationCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       'Invited by ${invitation.invitedByDisplayName} (@${invitation.invitedByUsername})',
-                      style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                      style: TextStyle(
+                        color: ChillGoColors.inkMuted,
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ),
@@ -312,8 +316,8 @@ class _InvitationCard extends StatelessWidget {
                       .read<InvitationsCubit>()
                       .rejectInvitation(invitation.id),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.redAccent,
-                    side: const BorderSide(color: Colors.redAccent),
+                    foregroundColor: ChillGoColors.danger,
+                    side: const BorderSide(color: ChillGoColors.danger),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
@@ -328,7 +332,7 @@ class _InvitationCard extends StatelessWidget {
                       .read<InvitationsCubit>()
                       .acceptInvitation(invitation.id),
                   style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF10B981),
+                    backgroundColor: ChillGoColors.leaf,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),

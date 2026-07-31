@@ -8,6 +8,9 @@ import 'package:chillgo/features/notifications/domain/entities/outing_review_not
 import 'package:chillgo/features/notifications/domain/repositories/outing_review_notification_repository.dart';
 import 'package:chillgo/features/crews/presentation/blocs/crews_list/crews_list_cubit.dart';
 import 'package:chillgo/features/crews/presentation/widgets/crew_card.dart';
+import 'package:chillgo/core/presentation/theme/chillgo_colors.dart';
+import 'package:chillgo/core/presentation/widgets/responsive_content.dart';
+import 'package:chillgo/core/presentation/widgets/sunshine_background.dart';
 import 'sign_out_icon_button.dart';
 import 'user_identity_summary.dart';
 
@@ -28,13 +31,13 @@ class HomeMobileLayout extends StatelessWidget {
     final crewRepository = context.read<CrewsListCubit>().crewRepository;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1A),
-      body: SafeArea(
+      body: SunshineBackground(
         child: CustomScrollView(
           slivers: [
             SliverAppBar(
-              backgroundColor: Colors.transparent,
-              expandedHeight: 120.0,
+              backgroundColor: ChillGoColors.canvas.withValues(alpha: 0.96),
+              foregroundColor: ChillGoColors.ink,
+              expandedHeight: 152,
               floating: false,
               pinned: true,
               actions: [
@@ -48,42 +51,38 @@ class HomeMobileLayout extends StatelessWidget {
                 title: const Text(
                   'ChillGo',
                   style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
+                    color: ChillGoColors.ink,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.8,
                   ),
                 ),
-                background: Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Color(0xFF6366F1), Color(0xFFA855F7)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
+                background: const _SunshineHeader(),
+                titlePadding: const EdgeInsetsDirectional.only(
+                  start: 20,
+                  bottom: 16,
                 ),
               ),
             ),
             SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    UserIdentitySummary(
-                      displayName: displayName,
-                      username: username,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Coordinate and chill with your crews.',
-                      style: TextStyle(color: Colors.grey[400], fontSize: 14),
-                    ),
-                    const SizedBox(height: 24),
-
-                    _buildYourCrewsSection(context),
-                    const SizedBox(height: 24),
-                  ],
+              child: ResponsiveContent(
+                includeSafeArea: false,
+                maxWidth: 1080,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 22),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      UserIdentitySummary(
+                        displayName: displayName,
+                        username: username,
+                      ),
+                      const SizedBox(height: 18),
+                      const _WelcomeCard(),
+                      const SizedBox(height: 28),
+                      _buildYourCrewsSection(context),
+                      const SizedBox(height: 32),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -103,9 +102,9 @@ class HomeMobileLayout extends StatelessWidget {
               child: Text(
                 'Your Crews',
                 style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+                  color: ChillGoColors.ink,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
             ),
@@ -114,10 +113,10 @@ class HomeMobileLayout extends StatelessWidget {
               icon: const Icon(Icons.group_add_outlined),
               label: const Text('Create Crew'),
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF6366F1),
+                backgroundColor: ChillGoColors.coral,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(18),
                 ),
               ),
             ),
@@ -130,7 +129,7 @@ class HomeMobileLayout extends StatelessWidget {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(state.message),
-                  backgroundColor: Colors.redAccent,
+                  backgroundColor: ChillGoColors.danger,
                 ),
               );
             }
@@ -151,7 +150,7 @@ class HomeMobileLayout extends StatelessWidget {
               return const Center(
                 child: Padding(
                   padding: EdgeInsets.all(24),
-                  child: CircularProgressIndicator(color: Color(0xFF6366F1)),
+                  child: CircularProgressIndicator(),
                 ),
               );
             }
@@ -167,21 +166,21 @@ class HomeMobileLayout extends StatelessWidget {
               return Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E1E2F),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFF2E2E4F)),
+                  color: ChillGoColors.surface,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: ChillGoColors.outline),
                 ),
                 child: Row(
                   children: [
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF6366F1).withValues(alpha: 0.15),
+                        color: ChillGoColors.skySoft,
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
                         Icons.groups,
-                        color: Color(0xFF6366F1),
+                        color: ChillGoColors.sky,
                         size: 24,
                       ),
                     ),
@@ -193,7 +192,7 @@ class HomeMobileLayout extends StatelessWidget {
                           const Text(
                             'No crews yet',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: ChillGoColors.ink,
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
                             ),
@@ -202,7 +201,7 @@ class HomeMobileLayout extends StatelessWidget {
                           Text(
                             'Create a crew to start coordinating with friends.',
                             style: TextStyle(
-                              color: Colors.grey[400],
+                              color: ChillGoColors.inkMuted,
                               fontSize: 12,
                             ),
                           ),
@@ -214,18 +213,14 @@ class HomeMobileLayout extends StatelessWidget {
               );
             }
 
-            return ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: crews.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 8),
-              itemBuilder: (context, index) {
-                final crew = crews[index];
-                return CrewCard(
-                  crew: crew,
-                  onTap: () => context.push('/crews/${crew.id}'),
-                );
-              },
+            return ResponsiveGrid(
+              children: [
+                for (final crew in crews)
+                  CrewCard(
+                    crew: crew,
+                    onTap: () => context.push('/crews/${crew.id}'),
+                  ),
+              ],
             );
           },
         ),
@@ -298,7 +293,7 @@ class _NotificationBell extends StatelessWidget {
         children: [
           Icon(
             hasUnread ? Icons.notifications_active : Icons.notifications,
-            color: Colors.white,
+            color: ChillGoColors.ink,
           ),
           if (hasUnread)
             Positioned(
@@ -309,9 +304,9 @@ class _NotificationBell extends StatelessWidget {
                 width: 10,
                 height: 10,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEF4444),
+                  color: ChillGoColors.coral,
                   shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFF6366F1), width: 2),
+                  border: Border.all(color: ChillGoColors.canvas, width: 2),
                 ),
               ),
             ),
@@ -431,8 +426,8 @@ class _CreateCrewDialogState extends State<_CreateCrewDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: const Color(0xFF1E1E2F),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      backgroundColor: ChillGoColors.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
         child: SingleChildScrollView(
@@ -446,7 +441,7 @@ class _CreateCrewDialogState extends State<_CreateCrewDialog> {
                 const Text(
                   'Create a Crew',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: ChillGoColors.ink,
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
@@ -455,7 +450,7 @@ class _CreateCrewDialogState extends State<_CreateCrewDialog> {
                 TextFormField(
                   controller: _crewNameController,
                   autofocus: true,
-                  style: const TextStyle(color: Colors.white),
+                  style: const TextStyle(color: ChillGoColors.ink),
                   maxLength: 50,
                   decoration: _inputDecoration('e.g. Weekend Hikers'),
                   validator: (value) {
@@ -468,10 +463,10 @@ class _CreateCrewDialogState extends State<_CreateCrewDialog> {
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _usernameController,
-                  style: const TextStyle(color: Colors.white),
+                  style: const TextStyle(color: ChillGoColors.ink),
                   decoration: _inputDecoration('Friend username').copyWith(
                     prefixText: '@',
-                    prefixStyle: const TextStyle(color: Colors.white70),
+                    prefixStyle: const TextStyle(color: ChillGoColors.inkMuted),
                     suffixIcon: _isSearching
                         ? const Padding(
                             padding: EdgeInsets.all(12),
@@ -480,7 +475,7 @@ class _CreateCrewDialogState extends State<_CreateCrewDialog> {
                               height: 18,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Color(0xFF6366F1),
+                                color: ChillGoColors.coral,
                               ),
                             ),
                           )
@@ -497,24 +492,24 @@ class _CreateCrewDialogState extends State<_CreateCrewDialog> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0F0F1A),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFF6366F1)),
+                        color: ChillGoColors.canvas,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: ChillGoColors.coral),
                       ),
                       child: Row(
                         children: [
                           const Icon(
                             Icons.person_add_alt_1,
-                            color: Color(0xFF6366F1),
+                            color: ChillGoColors.coral,
                           ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               '@$_matchingUsername',
-                              style: const TextStyle(color: Colors.white),
+                              style: const TextStyle(color: ChillGoColors.ink),
                             ),
                           ),
-                          const Icon(Icons.add, color: Colors.white70),
+                          const Icon(Icons.add, color: ChillGoColors.inkMuted),
                         ],
                       ),
                     ),
@@ -524,7 +519,7 @@ class _CreateCrewDialogState extends State<_CreateCrewDialog> {
                   const SizedBox(height: 8),
                   Text(
                     _memberError!,
-                    style: const TextStyle(color: Colors.redAccent),
+                    style: const TextStyle(color: ChillGoColors.danger),
                   ),
                 ],
                 if (_selectedUsernames.isNotEmpty) ...[
@@ -553,16 +548,16 @@ class _CreateCrewDialogState extends State<_CreateCrewDialog> {
                       onPressed: () => Navigator.of(context).pop(),
                       child: Text(
                         'Cancel',
-                        style: TextStyle(color: Colors.grey[400]),
+                        style: const TextStyle(color: ChillGoColors.inkMuted),
                       ),
                     ),
                     const SizedBox(width: 8),
                     FilledButton(
                       onPressed: _isSubmitting ? null : _createCrew,
                       style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF6366F1),
+                        backgroundColor: ChillGoColors.coral,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(18),
                         ),
                       ),
                       child: const Text('Create'),
@@ -580,14 +575,112 @@ class _CreateCrewDialogState extends State<_CreateCrewDialog> {
   InputDecoration _inputDecoration(String hintText) {
     return InputDecoration(
       hintText: hintText,
-      hintStyle: TextStyle(color: Colors.grey[600]),
+      hintStyle: const TextStyle(color: ChillGoColors.inkMuted),
       filled: true,
-      fillColor: const Color(0xFF0F0F1A),
+      fillColor: ChillGoColors.canvas,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide.none,
+        borderRadius: BorderRadius.circular(18),
+        borderSide: const BorderSide(color: ChillGoColors.outline),
       ),
-      counterStyle: TextStyle(color: Colors.grey[600]),
+      counterStyle: const TextStyle(color: ChillGoColors.inkMuted),
+    );
+  }
+}
+
+class _SunshineHeader extends StatelessWidget {
+  const _SunshineHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        const ColoredBox(color: ChillGoColors.sunshineSoft),
+        Positioned(
+          right: 24,
+          bottom: 16,
+          child: Transform.rotate(
+            angle: -0.12,
+            child: const Icon(
+              Icons.wb_sunny_rounded,
+              color: ChillGoColors.sunshine,
+              size: 62,
+            ),
+          ),
+        ),
+        const Positioned(
+          right: 96,
+          top: 28,
+          child: Icon(
+            Icons.auto_awesome_rounded,
+            color: ChillGoColors.coral,
+            size: 24,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _WelcomeCard extends StatelessWidget {
+  const _WelcomeCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: ChillGoColors.coralSoft,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(28),
+          topRight: Radius.circular(18),
+          bottomLeft: Radius.circular(18),
+          bottomRight: Radius.circular(28),
+        ),
+        border: Border.all(color: ChillGoColors.coral.withValues(alpha: 0.3)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x1A6D3A72),
+            blurRadius: 20,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: const Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Good plans. Great stories.',
+                  style: TextStyle(
+                    color: ChillGoColors.ink,
+                    fontSize: 21,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                SizedBox(height: 6),
+                Text(
+                  'Bring your favorite people together and start the next adventure.',
+                  style: TextStyle(color: ChillGoColors.inkMuted, height: 1.35),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: 16),
+          CircleAvatar(
+            radius: 30,
+            backgroundColor: ChillGoColors.sunshine,
+            child: Icon(
+              Icons.explore_rounded,
+              color: ChillGoColors.ink,
+              size: 32,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

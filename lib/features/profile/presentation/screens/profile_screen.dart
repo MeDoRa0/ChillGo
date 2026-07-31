@@ -4,6 +4,9 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/presentation/widgets/app_back_button.dart';
+import '../../../../core/presentation/theme/chillgo_colors.dart';
+import '../../../../core/presentation/widgets/responsive_content.dart';
+import '../../../../core/presentation/widgets/sunshine_background.dart';
 import '../../../authentication/presentation/blocs/auth/auth_bloc.dart';
 import '../../../authentication/presentation/blocs/auth/auth_state.dart';
 import '../../../authentication/presentation/blocs/auth/auth_event.dart';
@@ -52,154 +55,142 @@ class _ProfileViewState extends State<_ProfileView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0F0F1A),
         leading: const AppBackButton(),
         title: const Text('Profile'),
-        elevation: 0,
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF0F0F1A), Color(0xFF1E1B4B)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: BlocConsumer<ProfileCubit, ProfileState>(
-          listener: (context, state) {
-            if (state is ProfileFailure) {
-              ScaffoldMessenger.of(context)
-                ..hideCurrentSnackBar()
-                ..showSnackBar(SnackBar(content: Text(state.error)));
-            }
-          },
-          builder: (context, state) {
-            if (state is ProfileInitial ||
-                state is ProfileLoading && state is! ProfileLoaded) {
-              return const Center(
-                child: CircularProgressIndicator(color: Color(0xFF6366F1)),
-              );
-            }
+      body: SunshineBackground(
+        child: ResponsiveContent(
+          maxWidth: 640,
+          child: BlocConsumer<ProfileCubit, ProfileState>(
+            listener: (context, state) {
+              if (state is ProfileFailure) {
+                ScaffoldMessenger.of(context)
+                  ..hideCurrentSnackBar()
+                  ..showSnackBar(SnackBar(content: Text(state.error)));
+              }
+            },
+            builder: (context, state) {
+              if (state is ProfileInitial ||
+                  state is ProfileLoading && state is! ProfileLoaded) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-            final loadedState = state is ProfileLoaded ? state : null;
-            final profile = loadedState?.profile;
-            if (profile == null) {
-              return const Center(
-                child: Text(
-                  'Profile unavailable',
-                  style: TextStyle(color: Colors.white70),
-                ),
-              );
-            }
+              final loadedState = state is ProfileLoaded ? state : null;
+              final profile = loadedState?.profile;
+              if (profile == null) {
+                return const Center(
+                  child: Text(
+                    'Profile unavailable',
+                    style: TextStyle(color: ChillGoColors.inkMuted),
+                  ),
+                );
+              }
 
-            return SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: 20),
-                    Center(
-                      child: Stack(
-                        alignment: Alignment.bottomRight,
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Container(
+                  padding: const EdgeInsets.all(28),
+                  decoration: BoxDecoration(
+                    color: ChillGoColors.surface,
+                    borderRadius: BorderRadius.circular(32),
+                    border: Border.all(color: ChillGoColors.outline),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const SizedBox(height: 20),
+                      Center(
+                        child: Stack(
+                          alignment: Alignment.bottomRight,
+                          children: [
+                            CircleAvatar(
+                              radius: 60,
+                              backgroundColor: ChillGoColors.sunshineSoft,
+                              backgroundImage: profile.avatarUrl != null
+                                  ? NetworkImage(profile.avatarUrl!)
+                                  : null,
+                              child: profile.avatarUrl == null
+                                  ? const Icon(
+                                      Icons.person,
+                                      size: 60,
+                                      color: ChillGoColors.coral,
+                                    )
+                                  : null,
+                            ),
+                            IconButton.filled(
+                              tooltip: 'Change avatar',
+                              onPressed: _isPickingAvatar
+                                  ? null
+                                  : () => _showAvatarSourceSheet(context),
+                              icon: _isPickingAvatar
+                                  ? const SizedBox.square(
+                                      dimension: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.photo_camera),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          CircleAvatar(
-                            radius: 60,
-                            backgroundColor: const Color(
-                              0xFF6366F1,
-                            ).withValues(alpha: 0.14),
-                            backgroundImage: profile.avatarUrl != null
-                                ? NetworkImage(profile.avatarUrl!)
-                                : null,
-                            child: profile.avatarUrl == null
-                                ? const Icon(
-                                    Icons.person,
-                                    size: 60,
-                                    color: Color(0xFF6366F1),
-                                  )
-                                : null,
+                          Flexible(
+                            child: Text(
+                              profile.displayName,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: ChillGoColors.ink,
+                              ),
+                            ),
                           ),
-                          IconButton.filled(
-                            tooltip: 'Change avatar',
-                            onPressed: _isPickingAvatar
-                                ? null
-                                : () => _showAvatarSourceSheet(context),
-                            icon: _isPickingAvatar
-                                ? const SizedBox.square(
-                                    dimension: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.photo_camera),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            tooltip: 'Edit display name',
+                            onPressed: () => _showEditDisplayNameDialog(
+                              context,
+                              profile.displayName,
+                            ),
+                            icon: const Icon(
+                              Icons.edit,
+                              color: ChillGoColors.inkMuted,
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            profile.displayName,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          tooltip: 'Edit display name',
-                          onPressed: () => _showEditDisplayNameDialog(
-                            context,
-                            profile.displayName,
-                          ),
-                          icon: const Icon(Icons.edit, color: Colors.white70),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '@${profile.username}',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.white.withValues(alpha: 0.65),
-                      ),
-                    ),
-                    const Spacer(),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        context.read<AuthBloc>().add(AuthLogoutRequested());
-                      },
-                      icon: const Icon(Icons.logout),
-                      label: const Text('Sign Out'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.redAccent.withValues(
-                          alpha: 0.2,
-                        ),
-                        foregroundColor: Colors.redAccent,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: const BorderSide(color: Colors.redAccent),
-                        ),
-                        textStyle: const TextStyle(
+                      const SizedBox(height: 6),
+                      Text(
+                        '@${profile.username}',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
                           fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                          color: ChillGoColors.inkMuted,
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                  ],
+                      const Spacer(),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          context.read<AuthBloc>().add(AuthLogoutRequested());
+                        },
+                        icon: const Icon(Icons.logout),
+                        label: const Text('Sign Out'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: ChillGoColors.danger,
+                          side: const BorderSide(color: ChillGoColors.danger),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );
