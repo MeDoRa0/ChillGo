@@ -36,52 +36,59 @@ class HomeMobileLayout extends StatelessWidget {
         child: CustomScrollView(
           slivers: [
             SliverAppBar(
-              backgroundColor: ChillGoColors.canvas.withValues(alpha: 0.96),
+              backgroundColor: ChillGoColors.sunshineSoft.withValues(
+                alpha: 0.96,
+              ),
               foregroundColor: ChillGoColors.ink,
-              expandedHeight: 152,
+              toolbarHeight: 76,
               floating: false,
               pinned: true,
+              titleSpacing: 20,
+              title: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'ChillGo',
+                    style: TextStyle(
+                      color: ChillGoColors.ink,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.8,
+                    ),
+                  ),
+                  SizedBox(width: 10),
+                  Icon(
+                    Icons.auto_awesome_rounded,
+                    color: ChillGoColors.coral,
+                    size: 20,
+                  ),
+                ],
+              ),
               actions: [
                 _InvitationNotificationButton(
                   repository: crewRepository,
                   outingNotificationRepository: outingNotificationRepository,
                 ),
                 const SignOutIconButton(),
+                const SizedBox(width: 8),
               ],
-              flexibleSpace: FlexibleSpaceBar(
-                title: const Text(
-                  'ChillGo',
-                  style: TextStyle(
-                    color: ChillGoColors.ink,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.8,
-                  ),
-                ),
-                background: const _SunshineHeader(),
-                titlePadding: const EdgeInsetsDirectional.only(
-                  start: 20,
-                  bottom: 16,
-                ),
-              ),
             ),
             SliverToBoxAdapter(
               child: ResponsiveContent(
                 includeSafeArea: false,
                 maxWidth: 1080,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 22),
+                  padding: const EdgeInsets.symmetric(vertical: 28),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      UserIdentitySummary(
+                      _EditorialIntro(
                         displayName: displayName,
                         username: username,
                       ),
-                      const SizedBox(height: 18),
-                      const _WelcomeCard(),
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 34),
                       _buildYourCrewsSection(context),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 56),
                     ],
                   ),
                 ),
@@ -116,14 +123,15 @@ class HomeMobileLayout extends StatelessWidget {
               style: FilledButton.styleFrom(
                 backgroundColor: ChillGoColors.coral,
                 foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 18),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(22),
                 ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 18),
         BlocConsumer<CrewsListCubit, CrewsListState>(
           listener: (context, state) {
             if (state is CrewCreateError) {
@@ -584,100 +592,83 @@ class _CreateCrewDialogState extends State<_CreateCrewDialog> {
   }
 }
 
-class _SunshineHeader extends StatelessWidget {
-  const _SunshineHeader();
+class _EditorialIntro extends StatelessWidget {
+  final String? displayName;
+  final String? username;
+
+  const _EditorialIntro({this.displayName, this.username});
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        const ColoredBox(color: ChillGoColors.sunshineSoft),
-        Positioned(
-          right: 24,
-          bottom: 16,
-          child: Transform.rotate(
-            angle: -0.12,
-            child: const Icon(
-              Icons.wb_sunny_rounded,
-              color: ChillGoColors.sunshine,
-              size: 62,
-            ),
-          ),
-        ),
-        const Positioned(
-          right: 96,
-          top: 28,
-          child: Icon(
-            Icons.auto_awesome_rounded,
-            color: ChillGoColors.coral,
-            size: 24,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _WelcomeCard extends StatelessWidget {
-  const _WelcomeCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: ChillGoColors.coralSoft,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(28),
-          topRight: Radius.circular(18),
-          bottomLeft: Radius.circular(18),
-          bottomRight: Radius.circular(28),
-        ),
-        border: Border.all(color: ChillGoColors.coral.withValues(alpha: 0.3)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x1A6D3A72),
-            blurRadius: 20,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
-      child: const Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Good plans. Great stories.',
-                  style: TextStyle(
-                    color: ChillGoColors.ink,
-                    fontSize: 21,
-                    fontWeight: FontWeight.w900,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final headlineSize = constraints.maxWidth < 360 ? 38.0 : 44.0;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              height: 112,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned.fill(
+                    right: 104,
+                    child: Align(
+                      alignment: Alignment.topLeft,
+                      child: UserIdentitySummary(
+                        displayName: displayName,
+                        username: username,
+                      ),
+                    ),
                   ),
-                ),
-                SizedBox(height: 6),
-                Text(
-                  'Bring your favorite people together and start the next adventure.',
-                  style: TextStyle(color: ChillGoColors.inkMuted, height: 1.35),
-                ),
-              ],
+                  const Positioned(
+                    top: -28,
+                    right: -42,
+                    child: ExcludeSemantics(
+                      child: Icon(
+                        Icons.wb_sunny_rounded,
+                        color: ChillGoColors.sunshine,
+                        size: 138,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          SizedBox(width: 16),
-          CircleAvatar(
-            radius: 30,
-            backgroundColor: ChillGoColors.sunshine,
-            child: Icon(
-              Icons.explore_rounded,
-              color: ChillGoColors.ink,
-              size: 32,
+            Text(
+              'Good plans.\nGreat stories.',
+              style: TextStyle(
+                color: ChillGoColors.ink,
+                fontSize: headlineSize,
+                height: 1.04,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -1.4,
+              ),
             ),
-          ),
-        ],
-      ),
+            const SizedBox(height: 16),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: const Text(
+                'Bring your favorite people together and start the next adventure.',
+                style: TextStyle(
+                  color: ChillGoColors.inkMuted,
+                  fontSize: 16,
+                  height: 1.45,
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Container(
+              width: 72,
+              height: 4,
+              decoration: BoxDecoration(
+                color: ChillGoColors.coral,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

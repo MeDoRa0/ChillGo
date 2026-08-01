@@ -75,7 +75,11 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: Center(
-            child: SizedBox(width: 320, child: CrewCard(crew: crew)),
+            child: SizedBox(
+              width: 320,
+              height: 160,
+              child: CrewCard(crew: crew),
+            ),
           ),
         ),
       ),
@@ -85,6 +89,11 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('6 members'), findsOneWidget);
     expect(find.text('+1'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('crew-card-no-upcoming-outing')),
+      findsOneWidget,
+    );
+    expect(find.text('No plans in the next 24h'), findsOneWidget);
   });
 
   testWidgets('invokes tap callback', (tester) async {
@@ -138,12 +147,14 @@ void main() {
     verify(() => outingRepository.streamCrewOutings('crew1')).called(1);
   });
 
-  testWidgets('shows an indicator only for active outings', (tester) async {
-    final activeOuting = Outing(
+  testWidgets('shows the countdown design for an outing in the next 24 hours', (
+    tester,
+  ) async {
+    final upcomingOuting = Outing(
       id: 'outing1',
       crewId: 'crew1',
       title: 'Ramen run',
-      scheduledAt: DateTime.utc(2030, 1, 1),
+      scheduledAt: DateTime.now().add(const Duration(hours: 4, minutes: 30)),
       locationText: 'Ramen shop',
       status: OutingStatus.draft,
       createdByUserId: 'owner1',
@@ -152,19 +163,35 @@ void main() {
     );
     when(
       () => outingRepository.streamCrewOutings('crew1'),
-    ).thenAnswer((_) => Stream.value([activeOuting]));
+    ).thenAnswer((_) => Stream.value([upcomingOuting]));
 
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(body: CrewCard(crew: crew)),
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 320,
+              height: 160,
+              child: CrewCard(crew: crew),
+            ),
+          ),
+        ),
       ),
     );
     await tester.pump();
 
+    expect(tester.takeException(), isNull);
+    expect(
+      find.byKey(const ValueKey('crew-card-upcoming-outing')),
+      findsOneWidget,
+    );
     expect(find.bySemanticsLabel('Active outing'), findsOneWidget);
+    expect(find.text('Ramen run'), findsOneWidget);
+    expect(find.text('Ramen shop'), findsOneWidget);
+    expect(find.text('4h'), findsOneWidget);
   });
 
-  testWidgets('does not show an indicator for an outdated active outing', (
+  testWidgets('uses the no-outing design for an outdated outing', (
     tester,
   ) async {
     final outdatedOuting = Outing(
@@ -192,5 +219,75 @@ void main() {
     await tester.pump();
 
     expect(find.bySemanticsLabel('Active outing'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('crew-card-no-upcoming-outing')),
+      findsOneWidget,
+    );
+    expect(find.text('No plans in the next 24h'), findsOneWidget);
+  });
+
+  testWidgets('uses the no-outing design for an outing beyond 24 hours', (
+    tester,
+  ) async {
+    final laterOuting = Outing(
+      id: 'outing1',
+      crewId: 'crew1',
+      title: 'Next weekend',
+      scheduledAt: DateTime.now().add(const Duration(hours: 25)),
+      locationText: 'Ramen shop',
+      status: OutingStatus.confirmed,
+      createdByUserId: 'owner1',
+      createdAt: DateTime.utc(2026, 7, 1),
+      updatedAt: DateTime.utc(2026, 7, 1),
+    );
+    when(
+      () => outingRepository.streamCrewOutings('crew1'),
+    ).thenAnswer((_) => Stream.value([laterOuting]));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: CrewCard(crew: crew)),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.bySemanticsLabel('Active outing'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('crew-card-no-upcoming-outing')),
+      findsOneWidget,
+    );
+    expect(find.text('Next weekend'), findsNothing);
+  });
+
+  testWidgets('shows the nearest outing when several are within 24 hours', (
+    tester,
+  ) async {
+    Outing outing(String id, String title, Duration startsIn) => Outing(
+      id: id,
+      crewId: 'crew1',
+      title: title,
+      scheduledAt: DateTime.now().add(startsIn),
+      locationText: 'Ramen shop',
+      status: OutingStatus.confirmed,
+      createdByUserId: 'owner1',
+      createdAt: DateTime.utc(2026, 7, 1),
+      updatedAt: DateTime.utc(2026, 7, 1),
+    );
+    when(() => outingRepository.streamCrewOutings('crew1')).thenAnswer(
+      (_) => Stream.value([
+        outing('later', 'Later plan', const Duration(hours: 9)),
+        outing('nearest', 'Nearest plan', const Duration(hours: 3)),
+      ]),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: CrewCard(crew: crew)),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Nearest plan'), findsOneWidget);
+    expect(find.text('Later plan'), findsNothing);
   });
 }
