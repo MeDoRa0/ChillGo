@@ -4,8 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:chillgo/features/crews/domain/entities/crew.dart';
 import 'package:chillgo/features/crews/domain/entities/crew_invitation.dart';
 import 'package:chillgo/features/crews/domain/repositories/crew_repository.dart';
-import 'package:chillgo/features/notifications/domain/entities/outing_review_notification.dart';
-import 'package:chillgo/features/notifications/domain/repositories/outing_review_notification_repository.dart';
+import 'package:chillgo/features/notifications/domain/repositories/notification_repository.dart';
+import 'package:chillgo/features/notifications/presentation/widgets/notification_unread_badge.dart';
 import 'package:chillgo/features/crews/presentation/blocs/crews_list/crews_list_cubit.dart';
 import 'package:chillgo/features/crews/presentation/widgets/crew_card.dart';
 import 'package:chillgo/core/presentation/theme/chillgo_colors.dart';
@@ -23,13 +23,13 @@ part 'home_mobile_layout/editorial_intro.dart';
 class HomeMobileLayout extends StatelessWidget {
   final String? displayName;
   final String? username;
-  final OutingReviewNotificationRepository? outingNotificationRepository;
+  final NotificationRepository? notificationRepository;
 
   const HomeMobileLayout({
     super.key,
     this.displayName,
     this.username,
-    this.outingNotificationRepository,
+    this.notificationRepository,
   });
 
   @override
@@ -70,10 +70,10 @@ class HomeMobileLayout extends StatelessWidget {
                 ],
               ),
               actions: [
-                _InvitationNotificationButton(
-                  repository: crewRepository,
-                  outingNotificationRepository: outingNotificationRepository,
-                ),
+                if (notificationRepository case final repository?)
+                  NotificationUnreadBadge(repository: repository)
+                else
+                  _InvitationNotificationButton(repository: crewRepository),
                 const SignOutIconButton(),
                 const SizedBox(width: 8),
               ],

@@ -25,11 +25,13 @@ describe('Firebase Security Rules', () => {
         host: '127.0.0.1',
         port: FIRESTORE_EMULATOR_PORT,
       },
-      storage: {
-        rules: fs.readFileSync(path.resolve(__dirname, '../storage.rules'), 'utf8'),
-        host: '127.0.0.1',
-        port: STORAGE_EMULATOR_PORT,
-      },
+      ...(process.env.SKIP_STORAGE_EMULATOR === 'true' ? {} : {
+        storage: {
+          rules: fs.readFileSync(path.resolve(__dirname, '../storage.rules'), 'utf8'),
+          host: '127.0.0.1',
+          port: STORAGE_EMULATOR_PORT,
+        },
+      }),
     });
   });
 
@@ -1591,6 +1593,136 @@ describe('Firebase Security Rules', () => {
       );
       await testing.assertFails(
         bob.collection('crew_memberships').doc('crew-live_bob').delete(),
+      );
+    });
+  });
+
+  describe('notification rules', () => {
+    async function seedNotification() {
+      const now = Date.now();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await db.collection('crews').doc('crew-notify').set({
+          name: 'Notify Crew', ownerId: 'owner', deletionPending: false,
+        });
+        await db.collection('crew_invitations').doc('crew-notify_alice').set({
+          crewId: 'crew-notify', invitedUserId: 'alice',
+          invitedByUserId: 'owner', createdAt: new Date(now),
+        });
+        await db.collection('notifications').doc('notification-1').set({
+          recipientUserId: 'alice', category: 'crew_invitation',
+          sourceEventId: 'event-1', sourceVersion: '1',
+          sourceId: 'crew-notify_alice', crewId: 'crew-notify',
+          target: {type: 'invitations', crewId: 'crew-notify'},
+          display: {title: 'Crew invitation', body: 'Open ChillGo.'},
+          createdAt: new Date(now),
+          expiresAt: new Date(now + 30 * 24 * 60 * 60 * 1000),
+          readAt: null,
+        });
+        await db.collection('notification_summaries').doc('alice').set({
+          userId: 'alice', unreadCount: 1, updatedAt: new Date(now),
+        });
+      });
+    }
+
+    it('allows only the current authorized recipient to read center state', async () => {
+      await seedNotification();
+      const alice = testEnv.authenticatedContext('alice').firestore();
+      const bob = testEnv.authenticatedContext('bob').firestore();
+      await testing.assertSucceeds(
+        alice.collection('notifications').doc('notification-1').get(),
+      );
+      await testing.assertFails(
+        alice.collection('notifications')
+          .where('recipientUserId', '==', 'alice')
+          .where('category', '==', 'crew_invitation')
+          .where('expiresAt', '>', new Date())
+          .orderBy('expiresAt', 'desc')
+          .orderBy('createdAt', 'desc')
+          .orderBy(firebase.firestore.FieldPath.documentId(), 'desc')
+          .limit(50)
+          .get(),
+      );
+      await testing.assertFails(
+        bob.collection('notifications').doc('notification-1').get(),
+      );
+      await testing.assertSucceeds(
+        alice.collection('notification_summaries').doc('alice').get(),
+      );
+      await testing.assertFails(
+        bob.collection('notification_summaries').doc('alice').get(),
+      );
+      await testing.assertFails(
+        alice.collection('notifications').doc('notification-1').update({
+          readAt: firebase.firestore.FieldValue.serverTimestamp(),
+        }),
+      );
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().collection('crew_invitations')
+          .doc('crew-notify_alice').delete();
+      });
+      await testing.assertFails(
+        alice.collection('notifications').doc('notification-1').get(),
+      );
+    });
+
+    it('validates exact preferences and requester-private commands', async () => {
+      const alice = testEnv.authenticatedContext('alice').firestore();
+      const bob = testEnv.authenticatedContext('bob').firestore();
+      await testing.assertSucceeds(
+        alice.collection('notification_preferences').doc('alice').set({
+          votingUpdatesEnabled: true,
+          outingChangesEnabled: false,
+          arrivalAlertsEnabled: true,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        }),
+      );
+      await testing.assertFails(
+        alice.collection('notification_preferences').doc('alice').set({
+          votingUpdatesEnabled: true,
+          outingChangesEnabled: true,
+          arrivalAlertsEnabled: true,
+          marketingEnabled: true,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        }),
+      );
+      const command = alice.collection('notification_commands').doc('command-1');
+      await testing.assertSucceeds(command.set({
+        type: 'register_device',
+        requestedByUserId: 'alice',
+        payload: {
+          installationId: 'installation-0001',
+          token: 'provider-token-0001',
+          platform: 'android',
+          permissionState: 'granted',
+        },
+        status: 'pending',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      }));
+      await testing.assertSucceeds(command.get());
+      await testing.assertFails(
+        alice.collection('notification_commands').doc('web-command').set({
+          type: 'register_device',
+          requestedByUserId: 'alice',
+          payload: {
+            installationId: 'installation-0002',
+            token: 'provider-token-0002',
+            platform: 'web',
+            permissionState: 'granted',
+          },
+          status: 'pending',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        }),
+      );
+      await testing.assertFails(
+        bob.collection('notification_commands').doc('command-1').get(),
+      );
+      await testing.assertFails(
+        alice.collection('notification_commands')
+          .where('requestedByUserId', '==', 'alice').get(),
+      );
+      await testing.assertFails(
+        alice.collection('notification_devices').doc('device').get(),
       );
     });
   });

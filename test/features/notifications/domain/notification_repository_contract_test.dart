@@ -6,7 +6,12 @@ void main() {
   test('repository contract exposes private-center operations only', () {
     NotificationRepository? repository;
     expect(repository, isNull);
-    const failure = NotificationOpenResult.unavailable(NotificationUnavailableReason.unavailable);
-    expect(failure.unavailableReason, NotificationUnavailableReason.unavailable);
+    const failure = NotificationOpenResult.unavailable(
+      NotificationUnavailableReason.unavailable,
+    );
+    expect(
+      failure.unavailableReason,
+      NotificationUnavailableReason.unavailable,
+    );
   });
 }

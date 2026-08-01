@@ -6,8 +6,8 @@ The domain repository exposes platform-neutral behavior:
 
 | Operation | Required behavior |
 |---|---|
-| Watch newest notifications | Emit only currently authorized, unexpired recipient records in stable newest-first order; use a bounded cursor/page and clear protected state on access loss. |
-| Load older notifications | Continue from the stable cursor without duplicate IDs or ordering changes. |
+| Watch newest notifications | Fetch only currently authorized, unexpired recipient records through the authenticated, App Check-protected `notificationCenterPage` callable in stable newest-first order; use the private summary document only as a refresh signal and clear protected state on access loss. |
+| Load older notifications | Continue through the callable's opaque stable cursor without duplicate IDs or ordering changes. |
 | Watch unread summary | Emit the recipient-private count; unavailable/auth loss clears it. |
 | Mark read / open | Submit a requester-private command; opening yields either an authorized semantic destination or a non-sensitive unavailable outcome. |
 | Watch/update preferences | Expose only the three optional categories and persist owner changes. |
@@ -15,13 +15,15 @@ The domain repository exposes platform-neutral behavior:
 
 No repository method returns raw FCM token, provider message, delivery attempt, another user's preferences, or unauthorized source metadata.
 
+Direct Firestore list access to `notifications` is intentionally denied. Mixed notification categories have different source-authorization predicates that cannot be enforced safely by a single client query; the callable performs those checks with trusted reads before returning each page.
+
 ## DeviceAlertService
 
-| Capability | Android/iOS/Web adapter | Windows adapter |
+| Capability | Android/iOS adapter | Defensive non-mobile adapter |
 |---|---|---|
 | Report support and permission state | Uses platform capability and current permission | Reports unsupported |
 | Request permission | Only when the user explicitly selects enable device alerts | Returns non-blocking unavailable; never prompts |
-| Observe target/token refresh | Emits a supported registration target after authorization | Emits no target |
+| Observe target/token refresh | Emits an Android/iOS registration target after authorization | Emits no target |
 | Receive foreground/opened alert | Emits opaque notification ID/category for repository reauthorization | Emits no device event |
 | Clear local registration | Stops token association at sign-out | Safe no-op |
 

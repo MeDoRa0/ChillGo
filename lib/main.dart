@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -15,9 +16,26 @@ import 'core/error/global_error_handler.dart';
 import 'features/authentication/presentation/blocs/auth/auth_bloc.dart';
 import 'features/authentication/domain/repositories/auth_repository.dart';
 import 'features/live_meetup/data/services/live_location_sharing_coordinator.dart';
+import 'features/notifications/data/services/notification_session_coordinator.dart';
+import 'features/notifications/domain/entities/device_alert.dart';
+import 'features/notifications/domain/entities/notification.dart';
+import 'features/notifications/domain/repositories/notification_repository.dart';
+import 'features/notifications/presentation/notification_navigation.dart';
 import 'dart:async';
 
 const _useFirebaseEmulators = bool.fromEnvironment('USE_FIREBASE_EMULATORS');
+final _messengerKey = GlobalKey<ScaffoldMessengerState>();
+
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  if (Firebase.apps.isEmpty) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  }
+  // The OS displays the generic provider alert. Navigation and protected reads
+  // occur only after the user opens the app and the repository reauthorizes it.
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,6 +53,7 @@ void main() async {
           ? const AppleDebugProvider()
           : const AppleAppAttestWithDeviceCheckFallbackProvider(),
     );
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
     if (_useFirebaseEmulators) {
       await _connectFirebaseEmulators();
@@ -79,22 +98,71 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   StreamSubscription<AuthStatus>? _authSubscription;
+  StreamSubscription<DeviceAlertEvent>? _foregroundAlertSubscription;
+  StreamSubscription<NotificationOpenResult>? _openedAlertSubscription;
 
   @override
   void initState() {
     super.initState();
     final coordinator = di.sl<LiveLocationSharingCoordinator>();
+    final notificationCoordinator = di.sl<NotificationSessionCoordinator>();
+    _foregroundAlertSubscription = notificationCoordinator.foregroundAlerts
+        .listen(_showForegroundAlert);
+    _openedAlertSubscription = notificationCoordinator.openedNotifications
+        .listen(_navigateToNotificationTarget);
     _authSubscription = di.sl<AuthRepository>().status.listen((status) {
       if (status == AuthStatus.unauthenticated) {
         unawaited(coordinator.clearLocalSessions());
+        unawaited(notificationCoordinator.clearLocalSession());
+      } else if (status == AuthStatus.authenticatedNoProfile ||
+          status == AuthStatus.authenticatedWithProfile) {
+        unawaited(notificationCoordinator.start());
       }
     });
+    final currentStatus = di.sl<AuthRepository>().currentStatus;
+    if (currentStatus == AuthStatus.authenticatedNoProfile ||
+        currentStatus == AuthStatus.authenticatedWithProfile) {
+      unawaited(notificationCoordinator.start());
+    }
   }
 
   @override
   void dispose() {
     unawaited(_authSubscription?.cancel());
+    unawaited(_foregroundAlertSubscription?.cancel());
+    unawaited(_openedAlertSubscription?.cancel());
     super.dispose();
+  }
+
+  void _showForegroundAlert(DeviceAlertEvent event) {
+    _messengerKey.currentState?.showSnackBar(
+      SnackBar(
+        content: const Text('You have a new ChillGo notification.'),
+        action: SnackBarAction(
+          label: 'Open',
+          onPressed: () async {
+            final result = await di.sl<NotificationRepository>().open(
+              event.notificationId,
+            );
+            _navigateToNotificationTarget(result);
+          },
+        ),
+      ),
+    );
+  }
+
+  void _navigateToNotificationTarget(NotificationOpenResult result) {
+    final target = result.target;
+    if (target == null) {
+      _messengerKey.currentState?.showSnackBar(
+        const SnackBar(
+          content: Text('This notification is no longer available.'),
+        ),
+      );
+      return;
+    }
+    final route = notificationRoute(target);
+    if (route != null) appRouter.go(route);
   }
 
   @override
@@ -105,6 +173,7 @@ class _MyAppState extends State<MyApp> {
         title: 'ChillGo',
         debugShowCheckedModeBanner: false,
         theme: ChillGoTheme.sunshine,
+        scaffoldMessengerKey: _messengerKey,
         routerConfig: appRouter,
       ),
     );

@@ -1,9 +1,7 @@
 part of '../../screens/invitations_screen.dart';
 
 class _InvitationsView extends StatelessWidget {
-  const _InvitationsView({required this.notificationRepository});
-
-  final OutingReviewNotificationRepository notificationRepository;
+  const _InvitationsView();
 
   @override
   Widget build(BuildContext context) {
@@ -45,38 +43,17 @@ class _InvitationsView extends StatelessWidget {
                   ? state.invitations
                   : <CrewInvitation>[];
 
-              return StreamBuilder<List<OutingReviewNotification>>(
-                stream: notificationRepository.watchNotifications(),
-                builder: (context, notificationSnapshot) {
-                  final notifications = notificationSnapshot.data ?? const [];
-                  if (invitations.isEmpty && notifications.isEmpty) {
-                    return const _EmptyNotifications();
-                  }
-                  return ListView(
-                    padding: const EdgeInsets.all(16),
-                    children: [
-                      if (notifications.isNotEmpty) ...[
-                        const _NotificationSectionTitle('Outing updates'),
-                        const SizedBox(height: 10),
-                        for (final notification in notifications) ...[
-                          _OutingReviewNotificationCard(
-                            notification: notification,
-                            repository: notificationRepository,
-                          ),
-                          const SizedBox(height: 10),
-                        ],
-                      ],
-                      if (invitations.isNotEmpty) ...[
-                        const _NotificationSectionTitle('Crew invitations'),
-                        const SizedBox(height: 10),
-                        for (final invitation in invitations) ...[
-                          _InvitationCard(invitation: invitation),
-                          const SizedBox(height: 10),
-                        ],
-                      ],
-                    ],
-                  );
-                },
+              if (invitations.isEmpty) return const _EmptyNotifications();
+              return ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  const _NotificationSectionTitle('Crew invitations'),
+                  const SizedBox(height: 10),
+                  for (final invitation in invitations) ...[
+                    _InvitationCard(invitation: invitation),
+                    const SizedBox(height: 10),
+                  ],
+                ],
               );
             },
           ),

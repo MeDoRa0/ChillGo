@@ -409,6 +409,112 @@ service cloud.firestore {
         username.matches('^[a-z0-9_]{3,20}$');
     }
 
+    function isNotificationOutingEligible(data) {
+      let outingId = data.get('outingId', '');
+      let outing = get(outingPath(outingId)).data;
+      let membershipId = data.crewId + '_' + request.auth.uid;
+      let participantId = outingId + '_' + request.auth.uid;
+      return outingId is string && outingId.size() > 0 &&
+        exists(outingPath(outingId)) &&
+        outing.crewId == data.crewId &&
+        outing.get('deletionPending', false) == false &&
+        outing.get('notificationCleanupPending', false) == false &&
+        exists(crewPath(data.crewId)) &&
+        get(crewPath(data.crewId)).data.get('deletionPending', false) == false &&
+        exists(membershipPath(membershipId)) &&
+        get(membershipPath(membershipId)).data.get(
+          'notificationCleanupPending', false) == false &&
+        exists(participantPath(participantId)) &&
+        get(participantPath(participantId)).data.get(
+          'notificationCleanupPending', false) == false;
+    }
+
+    function isNotificationSourceAuthorized(data) {
+      let invitation = invitationPath(data.get('sourceId', ''));
+      let participant = participantPath(
+        data.get('outingId', '') + '_' + request.auth.uid);
+      return data.category in [
+          'crew_invitation', 'outing_invitation', 'voting_update',
+          'agreement_confirmed', 'agreement_reopened', 'outing_changed',
+          'attendee_arrived'
+        ] && (data.category == 'crew_invitation' ?
+        exists(invitation) &&
+          get(invitation).data.invitedUserId == request.auth.uid &&
+          get(invitation).data.crewId == data.crewId &&
+          exists(crewPath(data.crewId)) &&
+          get(crewPath(data.crewId)).data.get('deletionPending', false) == false :
+        isNotificationOutingEligible(data) &&
+          (
+            data.category != 'outing_invitation' ||
+            get(participant).data.attendanceStatus == 'invited'
+          ) &&
+          (
+            data.category != 'attendee_arrived' ||
+            (
+              get(outingPath(data.outingId)).data.status == 'meeting' &&
+              get(membershipPath(data.crewId + '_' + request.auth.uid)).data.get(
+                'liveMeetupCleanupPending', false) == false &&
+              get(participant).data.get('liveMeetupCleanupPending', false) == false &&
+              get(participant).data.attendanceStatus == 'accepted'
+            )
+          ));
+    }
+
+    function validNotificationPreferences() {
+      let data = request.resource.data;
+      return data.keys().hasOnly([
+          'votingUpdatesEnabled', 'outingChangesEnabled',
+          'arrivalAlertsEnabled', 'updatedAt'
+        ]) &&
+        data.keys().hasAll([
+          'votingUpdatesEnabled', 'outingChangesEnabled',
+          'arrivalAlertsEnabled', 'updatedAt'
+        ]) &&
+        data.votingUpdatesEnabled is bool &&
+        data.outingChangesEnabled is bool &&
+        data.arrivalAlertsEnabled is bool &&
+        data.updatedAt == request.time;
+    }
+
+    function validNotificationCommand() {
+      let data = request.resource.data;
+      let notificationAction = data.type in ['mark_read', 'open'] &&
+        data.payload.keys().hasOnly(['notificationId']) &&
+        data.payload.notificationId is string &&
+        data.payload.notificationId.size() > 0 &&
+        data.payload.notificationId.size() <= 200;
+      let register = data.type == 'register_device' &&
+        data.payload.keys().hasOnly([
+          'installationId', 'token', 'platform', 'permissionState'
+        ]) &&
+        data.payload.installationId is string &&
+        data.payload.installationId.size() >= 16 &&
+        data.payload.installationId.size() <= 128 &&
+        data.payload.token is string &&
+        data.payload.token.size() >= 16 &&
+        data.payload.token.size() <= 4096 &&
+        data.payload.platform in ['android', 'ios'] &&
+        data.payload.permissionState == 'granted';
+      let unregister = data.type == 'unregister_device' &&
+        data.payload.keys().hasOnly(['installationId']) &&
+        data.payload.installationId is string &&
+        data.payload.installationId.size() >= 16 &&
+        data.payload.installationId.size() <= 128;
+      return data.keys().hasOnly([
+          'type', 'requestedByUserId', 'payload', 'status', 'createdAt'
+        ]) &&
+        data.keys().hasAll([
+          'type', 'requestedByUserId', 'payload', 'status', 'createdAt'
+        ]) &&
+        data.type in [
+          'mark_read', 'open', 'register_device', 'unregister_device'
+        ] &&
+        data.requestedByUserId == request.auth.uid &&
+        data.payload is map && data.status == 'pending' &&
+        data.createdAt == request.time &&
+        (notificationAction || register || unregister);
+    }
+
     function isValidDisplayName(displayName) {
       return displayName is string &&
         displayName.size() >= 1 &&
@@ -876,12 +982,48 @@ service cloud.firestore {
     }
 
     match /notifications/{notificationId} {
-      allow read: if signedIn() && resource.data.recipientUserId == request.auth.uid;
-      allow create, delete: if false;
-      allow update: if signedIn() &&
+      allow get: if signedIn() &&
         resource.data.recipientUserId == request.auth.uid &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readAt']) &&
-        request.resource.data.readAt == request.time;
+        resource.data.expiresAt > request.time &&
+        isNotificationSourceAuthorized(resource.data);
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+
+    match /notification_summaries/{userId} {
+      allow get: if signedIn() && userId == request.auth.uid;
+      allow list, create, update, delete: if false;
+    }
+
+    match /notification_preferences/{userId} {
+      allow get: if signedIn() && userId == request.auth.uid;
+      allow list: if false;
+      allow create, update: if signedIn() && userId == request.auth.uid &&
+        validNotificationPreferences();
+      allow delete: if false;
+    }
+
+    match /notification_commands/{commandId} {
+      allow create: if signedIn() && validNotificationCommand();
+      allow get: if signedIn() &&
+        resource.data.requestedByUserId == request.auth.uid;
+      allow list, update, delete: if false;
+    }
+
+    match /notification_devices/{deviceId} {
+      allow read, write: if false;
+    }
+
+    match /notification_events/{eventId} {
+      allow read, write: if false;
+    }
+
+    match /notification_recipient_work/{workId} {
+      allow read, write: if false;
+    }
+
+    match /notification_transitions/{transitionId} {
+      allow read, write: if false;
     }
 
     match /outings/{outingId} {

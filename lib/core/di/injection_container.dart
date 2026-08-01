@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import '../domain/repositories/config_repository.dart';
 import '../domain/repositories/diagnostics_repository.dart';
 import '../domain/repositories/release_metadata_repository.dart';
@@ -33,9 +34,15 @@ import '../../features/crews/data/repositories/crew_repository_impl.dart';
 import '../../features/crews/domain/repositories/crew_repository.dart';
 import '../../features/crews/presentation/blocs/crews_list/crews_list_cubit.dart';
 import '../../features/crews/presentation/blocs/invitations/invitations_cubit.dart';
-import '../../features/notifications/data/datasources/firestore_outing_review_notification_datasource.dart';
-import '../../features/notifications/data/repositories/outing_review_notification_repository_impl.dart';
-import '../../features/notifications/domain/repositories/outing_review_notification_repository.dart';
+import '../../features/notifications/data/datasources/firestore_notifications_datasource.dart';
+import '../../features/notifications/data/repositories/notification_repository_impl.dart';
+import '../../features/notifications/data/services/firebase_messaging_device_alert_service.dart';
+import '../../features/notifications/data/services/notification_session_coordinator.dart';
+import '../../features/notifications/data/services/unsupported_device_alert_service.dart';
+import '../../features/notifications/domain/repositories/notification_repository.dart';
+import '../../features/notifications/domain/services/device_alert_service.dart';
+import '../../features/notifications/presentation/cubit/notification_center/notification_center_cubit.dart';
+import '../../features/notifications/presentation/cubit/notification_preferences/notification_preferences_cubit.dart';
 import '../../features/outings/data/datasources/firestore_outings_datasource.dart';
 import '../../features/outings/data/repositories/outing_repository_impl.dart';
 import '../../features/outings/domain/repositories/outing_repository.dart';
@@ -181,17 +188,45 @@ Future<void> init() async {
       ),
     );
   }
-  if (!sl.isRegistered<FirestoreOutingReviewNotificationDatasource>()) {
-    sl.registerLazySingleton<FirestoreOutingReviewNotificationDatasource>(
-      () => FirestoreOutingReviewNotificationDatasource(firestore: sl()),
+  if (!sl.isRegistered<FirestoreNotificationsDatasource>()) {
+    sl.registerLazySingleton<FirestoreNotificationsDatasource>(
+      () => FirestoreNotificationsDatasource(
+        firestore: sl(),
+        functions: sl(),
+        currentUid: () => sl<AuthRepository>().currentCredentials?.uid ?? '',
+      ),
     );
   }
-  if (!sl.isRegistered<OutingReviewNotificationRepository>()) {
-    sl.registerLazySingleton<OutingReviewNotificationRepository>(
-      () => OutingReviewNotificationRepositoryImpl(
-        datasource: sl(),
-        currentUserId: () => sl<AuthRepository>().currentCredentials?.uid ?? '',
-      ),
+  if (!sl.isRegistered<NotificationRepository>()) {
+    sl.registerLazySingleton<NotificationRepository>(
+      () => NotificationRepositoryImpl(datasource: sl()),
+    );
+  }
+  if (!sl.isRegistered<DeviceAlertService>()) {
+    final platform = currentDeviceAlertPlatform();
+    if (platform == null) {
+      sl.registerLazySingleton<DeviceAlertService>(
+        UnsupportedDeviceAlertService.new,
+      );
+    } else {
+      sl.registerLazySingleton<DeviceAlertService>(
+        () => FirebaseMessagingDeviceAlertService(
+          FirebaseMessaging.instance,
+          sl(),
+          platform,
+        ),
+        dispose: (service) async {
+          if (service is FirebaseMessagingDeviceAlertService) {
+            await service.dispose();
+          }
+        },
+      );
+    }
+  }
+  if (!sl.isRegistered<NotificationSessionCoordinator>()) {
+    sl.registerLazySingleton<NotificationSessionCoordinator>(
+      () => NotificationSessionCoordinator(sl(), sl()),
+      dispose: (coordinator) => coordinator.dispose(),
     );
   }
   if (!sl.isRegistered<FirestoreOutingsDatasource>()) {
@@ -308,7 +343,12 @@ Future<void> init() async {
 
   // Blocs & Cubits
   if (!sl.isRegistered<AuthBloc>()) {
-    sl.registerFactory(() => AuthBloc(authRepository: sl()));
+    sl.registerFactory(
+      () => AuthBloc(
+        authRepository: sl(),
+        beforeSignOut: sl<NotificationSessionCoordinator>().stopBeforeSignOut,
+      ),
+    );
   }
   if (!sl.isRegistered<OnboardingCubit>()) {
     sl.registerFactory(
@@ -354,6 +394,17 @@ Future<void> init() async {
   if (!sl.isRegistered<MeetupPointEditorCubit>()) {
     sl.registerFactory(
       () => MeetupPointEditorCubit(repository: sl(), mapProvider: sl()),
+    );
+  }
+  if (!sl.isRegistered<NotificationCenterCubit>()) {
+    sl.registerFactory(() => NotificationCenterCubit(repository: sl()));
+  }
+  if (!sl.isRegistered<NotificationPreferencesCubit>()) {
+    sl.registerFactory(
+      () => NotificationPreferencesCubit(
+        repository: sl(),
+        sessionCoordinator: sl(),
+      ),
     );
   }
 
