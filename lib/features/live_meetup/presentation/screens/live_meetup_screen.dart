@@ -20,6 +20,8 @@ import '../widgets/meetup_map.dart';
 import '../widgets/meetup_text_alternative.dart';
 import '../../domain/entities/live_meetup_snapshot.dart';
 
+part '../widgets/live_meetup_screen/map_surface.dart';
+
 class LiveMeetupScreen extends StatelessWidget {
   const LiveMeetupScreen({super.key, required this.outingId});
   final String outingId;
@@ -137,26 +139,6 @@ class LiveMeetupScreen extends StatelessWidget {
           ),
         ),
       ),
-    ),
-  );
-}
-
-class _MapSurface extends StatelessWidget {
-  const _MapSurface({required this.snapshot});
-  final LiveMeetupSnapshot snapshot;
-
-  @override
-  Widget build(BuildContext context) {
-    if (!sl.isRegistered<MapProvider>() || !sl<MapProvider>().isConfigured) {
-      return _unavailableMap();
-    }
-    return MeetupMap(snapshot: snapshot);
-  }
-
-  Widget _unavailableMap() => const SizedBox(
-    height: 96,
-    child: Center(
-      child: Text('Google Maps is unavailable. Location details remain below.'),
     ),
   );
 }

@@ -10,6 +10,8 @@ import 'package:chillgo/core/presentation/widgets/responsive_content.dart';
 import 'package:chillgo/core/presentation/widgets/shimmer_loading.dart';
 import 'package:chillgo/core/presentation/widgets/sunshine_background.dart';
 
+part '../widgets/outing_review_screen/review_message.dart';
+
 class OutingReviewScreen extends StatelessWidget {
   const OutingReviewScreen({super.key, required this.outingId});
 
@@ -51,22 +53,4 @@ class OutingReviewScreen extends StatelessWidget {
       ),
     );
   }
-}
-
-class _ReviewMessage extends StatelessWidget {
-  const _ReviewMessage(this.message);
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(24),
-      child: Text(
-        message,
-        textAlign: TextAlign.center,
-        style: const TextStyle(color: ChillGoColors.inkMuted),
-      ),
-    ),
-  );
 }

@@ -15,6 +15,9 @@ import '../../domain/repositories/outing_repository.dart';
 import '../cubit/outings_list/outings_list_cubit.dart';
 import '../widgets/interactive_outing_card.dart';
 
+part '../widgets/outings_list_screen/section.dart';
+part '../widgets/outings_list_screen/message.dart';
+
 class OutingsListScreen extends StatelessWidget {
   final String crewId;
 
@@ -72,64 +75,6 @@ class OutingsListScreen extends StatelessWidget {
               },
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Section extends StatelessWidget {
-  final String title;
-  final List<Outing> outings;
-
-  const _Section({required this.title, required this.outings});
-
-  @override
-  Widget build(BuildContext context) {
-    if (outings.isEmpty) return const SizedBox.shrink();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            color: ChillGoColors.ink,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 12),
-        for (final outing in outings)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: InteractiveOutingCard(
-              outing: outing,
-              outingRepository: sl<OutingRepository>(),
-              currentUserId: sl<AuthRepository>().currentCredentials?.uid,
-              agreementRepository: sl.isRegistered<AgreementRepository>()
-                  ? sl<AgreementRepository>()
-                  : null,
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _Message extends StatelessWidget {
-  final String message;
-
-  const _Message(this.message);
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Text(
-          message,
-          textAlign: TextAlign.center,
-          style: const TextStyle(color: ChillGoColors.inkMuted),
         ),
       ),
     );

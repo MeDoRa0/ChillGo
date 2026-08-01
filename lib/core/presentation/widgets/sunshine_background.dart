@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../theme/chillgo_colors.dart';
 
+part 'sunshine_background/background_spot.dart';
+
 class SunshineBackground extends StatelessWidget {
   const SunshineBackground({super.key, required this.child});
 
@@ -29,27 +31,6 @@ class SunshineBackground extends StatelessWidget {
           ),
           child,
         ],
-      ),
-    );
-  }
-}
-
-class _BackgroundSpot extends StatelessWidget {
-  const _BackgroundSpot({required this.diameter, required this.color});
-
-  final double diameter;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: Container(
-        width: diameter,
-        height: diameter,
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.55),
-          shape: BoxShape.circle,
-        ),
       ),
     );
   }

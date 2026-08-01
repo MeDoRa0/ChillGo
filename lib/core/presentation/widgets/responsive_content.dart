@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+part 'responsive_content/responsive_grid.dart';
+
 class ResponsiveContent extends StatelessWidget {
   const ResponsiveContent({
     super.key,
@@ -31,29 +33,5 @@ class ResponsiveContent extends StatelessWidget {
       ),
     );
     return includeSafeArea ? SafeArea(child: content) : content;
-  }
-}
-
-class ResponsiveGrid extends StatelessWidget {
-  const ResponsiveGrid({super.key, required this.children});
-
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 720 ? 3 : 1;
-        return GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: columns,
-          mainAxisSpacing: 14,
-          crossAxisSpacing: 14,
-          childAspectRatio: columns == 1 ? 2 : 1.25,
-          children: children,
-        );
-      },
-    );
   }
 }
