@@ -6,7 +6,7 @@
 
 ## Summary
 
-Phase 7 adds a recipient-private notification center and best-effort device alerts for crew invitations, outing invitations, agreement activity, material outing changes, and a first arrival in Meeting. A trusted, idempotent outbox converts authoritative source changes into one record per eligible recipient. A separate worker revalidates access and preferences before fanning generic alerts to every currently registered, permission-granted Android, iOS, or Web target. Windows retains the full center and preferences but intentionally has no device-alert adapter.
+Phase 7 adds a recipient-private notification center and best-effort Android/iOS device alerts for crew invitations, outing invitations, agreement activity, material outing changes, and a first arrival in Meeting. A trusted, idempotent outbox converts authoritative source changes into one record per eligible recipient. A separate worker revalidates access and preferences before fanning generic alerts to every currently registered, permission-granted Android or iOS target. Non-mobile platforms are outside the product release scope.
 
 Notification state is isolated in `notifications`; Flutter uses repository, device-alert, and transition interfaces. Existing direct source writes receive narrow Firestore-event adapters, while trusted Agreement and Live Meetup transactions create their outbox events atomically. Access loss is fail-closed in Rules immediately, followed by resumable delete-before-finalize cleanup. Exactly-once center records are required; platform alert delivery is best effort and can be delayed or duplicated.
 
@@ -18,15 +18,15 @@ Notification state is isolated in `notifications`; Flutter uses repository, devi
 
 **Storage**: Existing users, crews, memberships, invitations, outings, participants, agreement records, and live-meetup status; new `notifications`, `notification_summaries`, `notification_preferences`, `notification_devices`, short-lived `notification_commands`, trusted `notification_events`, recipient work, and resumable notification transitions. TTL policies cover backstop retention and short-lived work; scheduled cleanup enforces the product boundary.
 
-**Testing**: `flutter_test`, `bloc_test`, `mocktail`; Functions TypeScript/Mocha unit and emulator integration tests; Firestore Rules emulator tests; Android/iOS/Web delivery smoke checks and Windows in-app fallback smoke check. Manual device-push validation requires user approval.
+**Testing**: `flutter_test`, `bloc_test`, `mocktail`; Functions TypeScript/Mocha unit and emulator integration tests; Firestore Rules emulator tests; Android/iOS delivery smoke checks. Manual device-push validation requires user approval.
 
-**Target Platform**: One Flutter codebase for Android, iOS, Web, and Windows. Notification center/preferences run everywhere; Firebase Messaging delivery runs only on Android, iOS, and Web behind a capability-safe adapter.
+**Target Platform**: Android and iOS. Firebase Messaging stays behind a capability-safe adapter so an unsupported build target cannot accidentally register a device.
 
-**Project Type**: Multi-platform Flutter application with Firestore and serverless Functions
+**Project Type**: Mobile Flutter application with Firestore and serverless Functions
 
 **Performance Goals**: Meet SC-001 through SC-008: 95% of in-app records available within 5 seconds under the stated network profile; 95% of enabled supported-device alert attempts handed to the platform within 10 seconds; stable private pagination and unread state; zero authorization or duplicate-record failures in validation matrices.
 
-**Constraints**: Source actions are authoritative before notification creation. Records are recipient-private, minimal, newest-first, expire exactly 30 days after creation, and are immediately denied and physically removed on source access loss. Server code revalidates recipient/preference before record creation and delivery. Raw device tokens are never exposed to the center. Device payloads contain generic copy plus an opaque notification ID. FCM is not delivery/read proof and is unavailable on Windows. TTL is never relied upon for timely expiry.
+**Constraints**: Source actions are authoritative before notification creation. Records are recipient-private, minimal, newest-first, expire exactly 30 days after creation, and are immediately denied and physically removed on source access loss. Server code revalidates recipient/preference before record creation and delivery. Raw device tokens are never exposed to the center. Device payloads contain generic copy plus an opaque notification ID. FCM is not delivery/read proof. TTL is never relied upon for timely expiry.
 
 **Scale/Scope**: Seven source categories, one record per recipient and authoritative event, 30-day retention, newest-first pages of 50, up to 10 active alert registrations per user, 100-recipient outing fan-out, and provider sends batched at up to 500 targets.
 
@@ -36,7 +36,7 @@ Notification state is isolated in `notifications`; Flutter uses repository, devi
 
 - **Principle I (Feature-First and Clean Architecture)**: PASS. Production code is isolated under `lib/features/notifications/{domain,data,presentation}`. Shared changes are limited to source lifecycle integration, DI, routes, bootstrap, platform config, Functions, Rules, indexes, and outing deletion.
 - **Principle II (Crew-First Interaction Model)**: PASS. Every category is crew-owned and category-specific recipient authorization rechecks membership, participation, attendance, Meeting status, or invitation ownership. No social graph or activity feed is introduced.
-- **Principle III (Decoupled Provider Interfaces)**: PASS. Cubits depend on `NotificationRepository`, `DeviceAlertService`, and `NotificationTransitionService`; Firestore, Messaging, permissions, and tokens remain in data/platform adapters. Windows has an unsupported adapter.
+- **Principle III (Decoupled Provider Interfaces)**: PASS. Cubits depend on `NotificationRepository`, `DeviceAlertService`, and `NotificationTransitionService`; Firestore, Messaging, permissions, and tokens remain in data/platform adapters. Non-mobile targets receive an unsupported adapter defensively.
 - **Principle IV (Mandatory Automated Testing)**: PASS. Domain, repository, Cubit, widget, Function, idempotency, cleanup, and Rules coverage are mandatory. Device push tests are explicit user-approved deployment smoke checks.
 - **Principle V (Temporary Data Lifecycle Rules)**: PASS. Notification records have a 30-day product boundary enforced by trusted cleanup and TTL recovery. Phase 7 stores no precise location or presence data and retains existing live-data cleanup.
 - **Architecture & Platform Constraints**: PASS. Trusted Functions own recipient fan-out, summary mutation, token handling, and cleanup; Rules are the immediate source-aware access boundary.
@@ -130,7 +130,7 @@ Design outputs:
 
 - **Principle I**: PASS. `notifications` contains notification contracts, adapters, Cubits, and UI; cross-feature changes only emit events or coordinate lifecycle cleanup.
 - **Principle II**: PASS. Recipient checks re-evaluate the current crew/outing/invitation state, and generic alerts create no public interaction surface.
-- **Principle III**: PASS. Messaging, permission, and Firestore types remain in adapters; Windows capability is a domain result rather than a UI platform branch.
+- **Principle III**: PASS. Messaging, permission, and Firestore types remain in adapters; unsupported capability is a domain result rather than a UI platform branch.
 - **Principle IV**: PASS. The quickstart requires focused/full Flutter, Functions, Rules, race, and user-approved device-delivery validation.
 - **Principle V**: PASS. Trusted-time filtering, scheduled cleanup, and Rules enforce product expiry before asynchronous TTL. Records exclude live location and presence data.
-- **Architecture & Platform Constraints**: PASS. Functions serialize sensitive fan-out/cleanup and Rules provide immediate denial. Android/iOS/Web setup is explicit; Windows uses the secure in-app fallback.
+- **Architecture & Platform Constraints**: PASS. Functions serialize sensitive fan-out/cleanup and Rules provide immediate denial. Android/iOS setup is explicit; no Web or desktop registration target is accepted.

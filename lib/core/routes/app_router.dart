@@ -25,6 +25,10 @@ import '../../features/live_meetup/presentation/cubit/live_meetup/live_meetup_cu
 import '../../features/live_meetup/presentation/screens/live_meetup_screen.dart';
 import '../../features/live_meetup/presentation/cubit/location_sharing/location_sharing_cubit.dart';
 import '../../features/live_meetup/presentation/cubit/meetup_point_editor/meetup_point_editor_cubit.dart';
+import '../../features/notifications/presentation/cubit/notification_center/notification_center_cubit.dart';
+import '../../features/notifications/presentation/cubit/notification_preferences/notification_preferences_cubit.dart';
+import '../../features/notifications/presentation/screens/notification_center_screen.dart';
+import '../../features/notifications/presentation/screens/notification_preferences_screen.dart';
 import '../di/injection_container.dart';
 
 class AppRouterRefreshNotifier extends ChangeNotifier {
@@ -158,6 +162,22 @@ final GoRouter appRouter = GoRouter(
       path: '/invitations',
       name: 'invitations',
       builder: (context, state) => const InvitationsScreen(),
+    ),
+    GoRoute(
+      path: '/notifications',
+      name: 'notifications',
+      builder: (context, state) => BlocProvider(
+        create: (_) => sl<NotificationCenterCubit>()..watch(),
+        child: const NotificationCenterScreen(),
+      ),
+    ),
+    GoRoute(
+      path: '/notifications/preferences',
+      name: 'notification-preferences',
+      builder: (context, state) => BlocProvider(
+        create: (_) => sl<NotificationPreferencesCubit>()..watch(),
+        child: const NotificationPreferencesScreen(),
+      ),
     ),
     GoRoute(
       path: '/crews/:crewId',

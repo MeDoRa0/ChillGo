@@ -4,7 +4,7 @@ import 'package:chillgo/core/di/injection_container.dart';
 import 'package:chillgo/features/authentication/presentation/blocs/auth/auth_bloc.dart';
 import 'package:chillgo/features/authentication/presentation/blocs/auth/auth_state.dart';
 import 'package:chillgo/features/crews/presentation/blocs/crews_list/crews_list_cubit.dart';
-import 'package:chillgo/features/notifications/domain/repositories/outing_review_notification_repository.dart';
+import 'package:chillgo/features/notifications/domain/repositories/notification_repository.dart';
 import '../widgets/home_mobile_layout.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -25,8 +25,7 @@ class HomeScreen extends StatelessWidget {
           child: HomeMobileLayout(
             displayName: credentials?.displayName,
             username: credentials?.username,
-            outingNotificationRepository:
-                sl<OutingReviewNotificationRepository>(),
+            notificationRepository: sl<NotificationRepository>(),
           ),
         );
       },

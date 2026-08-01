@@ -10,9 +10,9 @@
 
 ## Delivery targets and payload
 
-**Decision**: Store at most 10 current registrations per user, keyed by random per-installation IDs. Use Messaging through a `DeviceAlertService` adapter on Android, iOS, and Web only. Revalidate source access and preferences before sending generic copy with only an opaque notification ID/category/schema version. Windows has an unsupported adapter and uses the center.
+**Decision**: Store at most 10 current registrations per user, keyed by random per-installation IDs. Use Messaging through a `DeviceAlertService` adapter on Android and iOS only. Revalidate source access and preferences before sending generic copy with only an opaque notification ID/category/schema version. Non-mobile targets use an unsupported adapter defensively.
 
-**Rationale**: The installed Flutter Messaging plugin has no Windows implementation. Generic payloads stay safe if a platform delays delivery after access loss. Server-only token access prevents another user from learning device state.
+**Rationale**: The product ships only on Android and iOS. Generic payloads stay safe if a platform delays delivery after access loss. Server-only token access prevents another user from learning device state.
 
 **Alternatives considered**: Payload source details cannot be recalled; latest-device-only conflicts with the clarification; FCM handoff is not a delivery/read receipt.
 

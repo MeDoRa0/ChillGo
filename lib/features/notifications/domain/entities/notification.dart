@@ -13,7 +13,11 @@ enum NotificationCategory {
 enum NotificationTargetType { invitations, agreement, liveMeetup }
 
 class NotificationTarget extends Equatable {
-  const NotificationTarget({required this.type, required this.crewId, this.outingId});
+  const NotificationTarget({
+    required this.type,
+    required this.crewId,
+    this.outingId,
+  });
 
   final NotificationTargetType type;
   final String crewId;
@@ -34,7 +38,10 @@ class NotificationDisplay extends Equatable {
 }
 
 class NotificationCursor extends Equatable {
-  const NotificationCursor({required this.createdAt, required this.notificationId});
+  const NotificationCursor({
+    required this.createdAt,
+    required this.notificationId,
+  });
 
   final DateTime createdAt;
   final String notificationId;
@@ -68,15 +75,31 @@ class AppNotification extends Equatable {
   bool isExpiredAt(DateTime time) => !expiresAt.isAfter(time);
 
   @override
-  List<Object?> get props => [id, recipientUserId, category, target, display, createdAt, expiresAt, readAt];
+  List<Object?> get props => [
+    id,
+    recipientUserId,
+    category,
+    target,
+    display,
+    createdAt,
+    expiresAt,
+    readAt,
+  ];
 }
 
-enum NotificationUnavailableReason { signInRequired, unavailable, expired, serviceUnavailable }
+enum NotificationUnavailableReason {
+  signInRequired,
+  unavailable,
+  expired,
+  serviceUnavailable,
+}
 
 class NotificationOpenResult extends Equatable {
   const NotificationOpenResult._({this.target, this.unavailableReason});
-  const NotificationOpenResult.opened(NotificationTarget target) : this._(target: target);
-  const NotificationOpenResult.unavailable(NotificationUnavailableReason reason) : this._(unavailableReason: reason);
+  const NotificationOpenResult.opened(NotificationTarget target)
+    : this._(target: target);
+  const NotificationOpenResult.unavailable(NotificationUnavailableReason reason)
+    : this._(unavailableReason: reason);
 
   final NotificationTarget? target;
   final NotificationUnavailableReason? unavailableReason;
@@ -84,4 +107,32 @@ class NotificationOpenResult extends Equatable {
 
   @override
   List<Object?> get props => [target, unavailableReason];
+}
+
+sealed class NotificationFailure implements Exception {
+  const NotificationFailure(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
+final class NotificationAuthenticationFailure extends NotificationFailure {
+  const NotificationAuthenticationFailure()
+    : super('Sign in to view notifications.');
+}
+
+final class NotificationUnavailableFailure extends NotificationFailure {
+  const NotificationUnavailableFailure()
+    : super('This notification is no longer available.');
+}
+
+final class NotificationExpiredFailure extends NotificationFailure {
+  const NotificationExpiredFailure() : super('This notification has expired.');
+}
+
+final class NotificationServiceFailure extends NotificationFailure {
+  const NotificationServiceFailure()
+    : super('Notifications are temporarily unavailable.');
 }

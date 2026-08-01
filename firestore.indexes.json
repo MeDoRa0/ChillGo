@@ -71,6 +71,38 @@
       ]
     },
     {
+      "collectionGroup": "notifications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "outingId", "order": "ASCENDING"},
+        {"fieldPath": "recipientUserId", "order": "ASCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "notifications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "crewId", "order": "ASCENDING"},
+        {"fieldPath": "recipientUserId", "order": "ASCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "notifications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "outingId", "order": "ASCENDING"},
+        {"fieldPath": "category", "order": "ASCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "notification_devices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "userId", "order": "ASCENDING"},
+        {"fieldPath": "permissionState", "order": "ASCENDING"}
+      ]
+    },
+    {
       "collectionGroup": "notification_commands",
       "queryScope": "COLLECTION",
       "fields": [
@@ -153,37 +185,50 @@
       "collectionGroup": "notifications",
       "fieldPath": "expiresAt",
       "ttl": true,
-      "indexes": []
+      "indexes": [
+        {"order": "ASCENDING", "queryScope": "COLLECTION"},
+        {"order": "DESCENDING", "queryScope": "COLLECTION"}
+      ]
     },
     {
       "collectionGroup": "notification_commands",
       "fieldPath": "purgeAt",
       "ttl": true,
-      "indexes": []
+      "indexes": [
+        {"order": "ASCENDING", "queryScope": "COLLECTION"}
+      ]
     },
     {
       "collectionGroup": "notification_events",
       "fieldPath": "purgeAt",
       "ttl": true,
-      "indexes": []
+      "indexes": [
+        {"order": "ASCENDING", "queryScope": "COLLECTION"}
+      ]
     },
     {
       "collectionGroup": "notification_recipient_work",
       "fieldPath": "purgeAt",
       "ttl": true,
-      "indexes": []
+      "indexes": [
+        {"order": "ASCENDING", "queryScope": "COLLECTION"}
+      ]
     },
     {
       "collectionGroup": "notification_devices",
       "fieldPath": "expiresAt",
       "ttl": true,
-      "indexes": []
+      "indexes": [
+        {"order": "ASCENDING", "queryScope": "COLLECTION"}
+      ]
     },
     {
       "collectionGroup": "notification_transitions",
       "fieldPath": "purgeAt",
       "ttl": true,
-      "indexes": []
+      "indexes": [
+        {"order": "ASCENDING", "queryScope": "COLLECTION"}
+      ]
     }
   ]
 }
