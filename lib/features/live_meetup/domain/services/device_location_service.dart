@@ -11,6 +11,7 @@ abstract interface class DeviceLocationService {
   Future<bool> isServiceEnabled();
   Future<DeviceLocationPermission> checkPermission();
   Future<DeviceLocationPermission> requestPermission();
+  Future<DeviceLocationSample> currentPosition();
   Stream<DeviceLocationSample> watchPositions();
   Future<void> stop();
 }

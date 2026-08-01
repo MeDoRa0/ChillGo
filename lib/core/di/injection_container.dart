@@ -26,6 +26,8 @@ import '../../features/profile/data/repositories/profile_repository_impl.dart';
 import '../../features/profile/domain/repositories/profile_repository.dart';
 import '../../features/profile/presentation/blocs/onboarding/onboarding_cubit.dart';
 import '../../features/profile/presentation/blocs/profile/profile_cubit.dart';
+import '../../features/welcome/data/repositories/welcome_onboarding_repository_impl.dart';
+import '../../features/welcome/domain/repositories/welcome_onboarding_repository.dart';
 import '../../features/crews/data/datasources/firestore_crews_datasource.dart';
 import '../../features/crews/data/repositories/crew_repository_impl.dart';
 import '../../features/crews/domain/repositories/crew_repository.dart';
@@ -155,6 +157,12 @@ Future<void> init() async {
   if (!sl.isRegistered<ProfileRepository>()) {
     sl.registerLazySingleton<ProfileRepository>(
       () => ProfileRepositoryImpl(profileDatasource: sl()),
+    );
+  }
+  if (!sl.isRegistered<WelcomeOnboardingRepository>()) {
+    sl.registerLazySingleton<WelcomeOnboardingRepository>(
+      () => WelcomeOnboardingRepositoryImpl(sharedPreferences: sl()),
+      dispose: (repository) => repository.dispose(),
     );
   }
 

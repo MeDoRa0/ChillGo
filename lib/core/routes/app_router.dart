@@ -11,6 +11,8 @@ import '../../features/authentication/domain/repositories/auth_repository.dart';
 import '../../features/authentication/presentation/screens/login_screen.dart';
 import '../../features/profile/presentation/screens/onboarding_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
+import '../../features/welcome/domain/repositories/welcome_onboarding_repository.dart';
+import '../../features/welcome/presentation/screens/welcome_onboarding_screen.dart';
 import '../../features/crews/presentation/screens/crew_details_screen.dart';
 import '../../features/crews/presentation/screens/invitations_screen.dart';
 import '../../features/outings/presentation/screens/outing_form_screen.dart';
@@ -25,21 +27,25 @@ import '../../features/live_meetup/presentation/cubit/location_sharing/location_
 import '../../features/live_meetup/presentation/cubit/meetup_point_editor/meetup_point_editor_cubit.dart';
 import '../di/injection_container.dart';
 
-class GoRouterRefreshStream extends ChangeNotifier {
-  late final StreamSubscription<dynamic> _subscription;
-
-  GoRouterRefreshStream(Stream<dynamic> stream) {
-    notifyListeners();
-    debugPrint('[AppRouter] Subscribing to auth status stream');
-    _subscription = stream.asBroadcastStream().listen((val) {
-      debugPrint('[AppRouter] auth status stream emitted: $val');
-      notifyListeners();
-    });
+class AppRouterRefreshNotifier extends ChangeNotifier {
+  AppRouterRefreshNotifier(Iterable<Stream<dynamic>> streams) {
+    for (final stream in streams) {
+      _subscriptions.add(
+        stream.listen((event) {
+          debugPrint('[AppRouter] refresh event: $event');
+          notifyListeners();
+        }),
+      );
+    }
   }
+
+  final List<StreamSubscription<dynamic>> _subscriptions = [];
 
   @override
   void dispose() {
-    _subscription.cancel();
+    for (final subscription in _subscriptions) {
+      subscription.cancel();
+    }
     super.dispose();
   }
 }
@@ -58,14 +64,33 @@ Stream<AuthStatus> _authStatusStream() {
   return Stream<AuthStatus>.value(AuthStatus.unauthenticated);
 }
 
+bool _isWelcomeOnboardingComplete() {
+  if (!sl.isRegistered<WelcomeOnboardingRepository>()) return true;
+  return sl<WelcomeOnboardingRepository>().isComplete;
+}
+
+Stream<bool> _welcomeCompletionStream() {
+  if (!sl.isRegistered<WelcomeOnboardingRepository>()) {
+    return const Stream<bool>.empty();
+  }
+  return sl<WelcomeOnboardingRepository>().completionChanges;
+}
+
 FutureOr<String?> guardRedirect(BuildContext context, GoRouterState state) {
   final status = _currentAuthStatus();
+  final welcomeComplete = _isWelcomeOnboardingComplete();
   debugPrint(
-    '[AppRouter] guardRedirect called; status=$status, path=${state.uri.path}',
+    '[AppRouter] guardRedirect called; status=$status, '
+    'welcomeComplete=$welcomeComplete, path=${state.uri.path}',
   );
   final isLoggingIn = state.uri.path == '/login';
-  final isOnboarding = state.uri.path == '/onboarding';
+  final isProfileOnboarding = state.uri.path == '/onboarding';
   final isLoading = state.uri.path == '/loading';
+  final isWelcome = state.uri.path == '/welcome';
+
+  if (!welcomeComplete) {
+    return isWelcome ? null : '/welcome';
+  }
 
   if (status == AuthStatus.unknown) {
     return isLoading ? null : '/loading';
@@ -76,11 +101,11 @@ FutureOr<String?> guardRedirect(BuildContext context, GoRouterState state) {
   }
 
   if (status == AuthStatus.authenticatedNoProfile) {
-    return isOnboarding ? null : '/onboarding';
+    return isProfileOnboarding ? null : '/onboarding';
   }
 
   if (status == AuthStatus.authenticatedWithProfile) {
-    if (isLoggingIn || isOnboarding || isLoading) {
+    if (isLoggingIn || isProfileOnboarding || isLoading || isWelcome) {
       return '/';
     }
   }
@@ -91,13 +116,23 @@ FutureOr<String?> guardRedirect(BuildContext context, GoRouterState state) {
 final GoRouter appRouter = GoRouter(
   initialLocation: '/',
   errorBuilder: (context, state) => const NotFoundScreen(),
-  refreshListenable: GoRouterRefreshStream(_authStatusStream()),
+  refreshListenable: AppRouterRefreshNotifier([
+    _authStatusStream(),
+    _welcomeCompletionStream(),
+  ]),
   redirect: guardRedirect,
   routes: [
     GoRoute(
       path: '/',
       name: 'home',
       builder: (context, state) => const HomeScreen(),
+    ),
+    GoRoute(
+      path: '/welcome',
+      name: 'welcome',
+      builder: (context, state) => WelcomeOnboardingScreen(
+        welcomeRepository: sl<WelcomeOnboardingRepository>(),
+      ),
     ),
     GoRoute(
       path: '/login',

@@ -10,15 +10,24 @@ import '../../domain/services/device_location_service.dart';
 class GeolocatorDeviceLocationService implements DeviceLocationService {
   GeolocatorDeviceLocationService({Stopwatch? monotonicClock})
     : _clock = monotonicClock ?? (Stopwatch()..start()),
-      _positionStream = null;
+      _positionStream = null,
+      _currentPosition = null;
 
   GeolocatorDeviceLocationService.withPositionStream(
     this._positionStream, {
+    Stopwatch? monotonicClock,
+  }) : _clock = monotonicClock ?? (Stopwatch()..start()),
+       _currentPosition = null;
+
+  GeolocatorDeviceLocationService.withPositionProviders(
+    this._positionStream,
+    this._currentPosition, {
     Stopwatch? monotonicClock,
   }) : _clock = monotonicClock ?? (Stopwatch()..start());
 
   final Stopwatch _clock;
   final Stream<Position> Function()? _positionStream;
+  final Future<Position> Function()? _currentPosition;
   StreamSubscription<Position>? _subscription;
   StreamController<DeviceLocationSample>? _controller;
 
@@ -32,6 +41,33 @@ class GeolocatorDeviceLocationService implements DeviceLocationService {
   @override
   Future<DeviceLocationPermission> requestPermission() async =>
       _mapPermission(await Geolocator.requestPermission());
+
+  @override
+  Future<DeviceLocationSample> currentPosition() async {
+    try {
+      return _sampleFrom(await _readCurrentPosition());
+    } on ArgumentError catch (_, stack) {
+      _throwServiceFailure(stack);
+    } on PermissionDeniedException catch (_, stack) {
+      _throwServiceFailure(stack);
+    } on LocationServiceDisabledException catch (_, stack) {
+      _throwServiceFailure(stack);
+    } on TimeoutException catch (_, stack) {
+      _throwServiceFailure(stack);
+    }
+  }
+
+  Future<Position> _readCurrentPosition() =>
+      _currentPosition?.call() ??
+      Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 15),
+        ),
+      );
+
+  Never _throwServiceFailure(StackTrace stack) =>
+      Error.throwWithStackTrace(const LiveMeetupServiceFailure(), stack);
 
   @override
   Stream<DeviceLocationSample> watchPositions() {
@@ -52,16 +88,7 @@ class GeolocatorDeviceLocationService implements DeviceLocationService {
           (position) {
             if (cancelled || controller.isClosed) return;
             try {
-              controller.add(
-                DeviceLocationSample(
-                  coordinate: GeoCoordinate(
-                    latitude: position.latitude,
-                    longitude: position.longitude,
-                  ),
-                  accuracyMeters: position.accuracy,
-                  acquiredAtMonotonic: _clock.elapsed,
-                ),
-              );
+              controller.add(_sampleFrom(position));
             } on ArgumentError {
               // Malformed provider samples are ignored and never published.
             }
@@ -101,4 +128,13 @@ class GeolocatorDeviceLocationService implements DeviceLocationService {
         LocationPermission.always => DeviceLocationPermission.whileInUse,
         LocationPermission.unableToDetermine => DeviceLocationPermission.denied,
       };
+
+  DeviceLocationSample _sampleFrom(Position position) => DeviceLocationSample(
+    coordinate: GeoCoordinate(
+      latitude: position.latitude,
+      longitude: position.longitude,
+    ),
+    accuracyMeters: position.accuracy,
+    acquiredAtMonotonic: _clock.elapsed,
+  );
 }

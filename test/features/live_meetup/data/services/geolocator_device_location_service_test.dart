@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:chillgo/features/live_meetup/data/services/geolocator_device_location_service.dart';
+import 'package:chillgo/features/live_meetup/domain/repositories/live_meetup_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:mocktail/mocktail.dart';
@@ -8,6 +9,36 @@ import 'package:mocktail/mocktail.dart';
 class _Position extends Mock implements Position {}
 
 void main() {
+  test('returns a validated one-shot current position', () async {
+    final position = _Position();
+    when(() => position.latitude).thenReturn(30);
+    when(() => position.longitude).thenReturn(31);
+    when(() => position.accuracy).thenReturn(10);
+    final service = GeolocatorDeviceLocationService.withPositionProviders(
+      () => const Stream<Position>.empty(),
+      () async => position,
+    );
+
+    final sample = await service.currentPosition();
+
+    expect(sample.coordinate.latitude, 30);
+    expect(sample.coordinate.longitude, 31);
+    expect(sample.accuracyMeters, 10);
+  });
+
+  test('maps an invalid one-shot position to a service failure', () async {
+    final position = _Position();
+    when(() => position.latitude).thenReturn(30);
+    when(() => position.longitude).thenReturn(31);
+    when(() => position.accuracy).thenReturn(5001);
+    final service = GeolocatorDeviceLocationService.withPositionProviders(
+      () => const Stream<Position>.empty(),
+      () async => position,
+    );
+
+    expect(service.currentPosition(), throwsA(isA<LiveMeetupServiceFailure>()));
+  });
+
   test('maps valid provider fixes and ignores invalid accuracy', () async {
     final positions = StreamController<Position>();
     final service = GeolocatorDeviceLocationService.withPositionStream(

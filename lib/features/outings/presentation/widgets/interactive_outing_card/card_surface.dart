@@ -5,11 +5,15 @@ class _CardSurface extends StatelessWidget {
     required this.outing,
     required this.participants,
     required this.actionButtonSpace,
+    required this.isStartingSoon,
+    required this.minutesUntilStart,
     this.trailing,
   });
   final Outing outing;
   final List<OutingParticipant> participants;
   final Widget? actionButtonSpace;
+  final bool isStartingSoon;
+  final int minutesUntilStart;
   final Widget? trailing;
 
   @override
@@ -18,7 +22,10 @@ class _CardSurface extends StatelessWidget {
       final dateRailWidth = (constraints.maxWidth * 0.24)
           .clamp(84.0, 112.0)
           .toDouble();
-      return Container(
+      return AnimatedContainer(
+        key: const Key('outing-card-surface'),
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
         width: double.infinity,
         clipBehavior: Clip.antiAlias,
         decoration: _cardDecoration,
@@ -29,7 +36,10 @@ class _CardSurface extends StatelessWidget {
               top: 0,
               bottom: 0,
               width: dateRailWidth,
-              child: _DateRail(scheduledAt: outing.scheduledAt),
+              child: _DateRail(
+                scheduledAt: outing.scheduledAt,
+                isStartingSoon: isStartingSoon,
+              ),
             ),
             Padding(
               padding: EdgeInsets.only(left: dateRailWidth),
@@ -38,6 +48,8 @@ class _CardSurface extends StatelessWidget {
                 participants: participants,
                 actionButtonSpace: actionButtonSpace,
                 trailing: trailing,
+                isStartingSoon: isStartingSoon,
+                minutesUntilStart: minutesUntilStart,
               ),
             ),
           ],
@@ -47,11 +59,26 @@ class _CardSurface extends StatelessWidget {
   );
 
   BoxDecoration get _cardDecoration => BoxDecoration(
-    color: ChillGoColors.sunshineSoft,
+    gradient: LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: isStartingSoon
+          ? const [Color(0xFFFFF1A9), Color(0xFFFFD6C8)]
+          : const [ChillGoColors.sunshineSoft, ChillGoColors.sunshineSoft],
+    ),
     borderRadius: BorderRadius.circular(24),
-    border: Border.all(color: ChillGoColors.outline),
-    boxShadow: const [
-      BoxShadow(color: Color(0x186D3A72), blurRadius: 18, offset: Offset(0, 8)),
+    border: Border.all(
+      color: isStartingSoon ? ChillGoColors.coral : ChillGoColors.outline,
+      width: isStartingSoon ? 1.5 : 1,
+    ),
+    boxShadow: [
+      BoxShadow(
+        color: isStartingSoon
+            ? const Color(0x40C93F49)
+            : const Color(0x186D3A72),
+        blurRadius: isStartingSoon ? 24 : 18,
+        offset: const Offset(0, 8),
+      ),
     ],
   );
 }

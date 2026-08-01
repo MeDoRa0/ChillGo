@@ -99,9 +99,21 @@ class FakeDeviceLocationService implements DeviceLocationService {
   Stream<DeviceLocationSample>? streamOverride;
   bool enabled = true;
   DeviceLocationPermission permission = DeviceLocationPermission.whileInUse;
+  DeviceLocationSample currentSample = DeviceLocationSample(
+    coordinate: GeoCoordinate(latitude: 30, longitude: 31),
+    accuracyMeters: 10,
+    acquiredAtMonotonic: Duration.zero,
+  );
+  int currentPositionCalls = 0;
   int stopCalls = 0;
   @override
   Future<DeviceLocationPermission> checkPermission() async => permission;
+  @override
+  Future<DeviceLocationSample> currentPosition() async {
+    currentPositionCalls++;
+    return currentSample;
+  }
+
   @override
   Future<bool> isServiceEnabled() async => enabled;
   @override

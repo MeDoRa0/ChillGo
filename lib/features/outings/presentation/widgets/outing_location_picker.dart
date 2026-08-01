@@ -7,16 +7,19 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../../core/presentation/widgets/shimmer_loading.dart';
 import '../../../live_meetup/domain/entities/geo_coordinate.dart';
 import '../../../live_meetup/domain/repositories/live_meetup_repository.dart';
+import '../../../live_meetup/domain/services/device_location_service.dart';
 import '../../../live_meetup/domain/services/map_provider.dart';
 
 class OutingLocationPicker extends StatefulWidget {
   const OutingLocationPicker({
     super.key,
     required this.mapProvider,
+    required this.deviceLocationService,
     required this.initialQuery,
   });
 
   final MapProvider mapProvider;
+  final DeviceLocationService deviceLocationService;
   final String initialQuery;
 
   @override
@@ -38,6 +41,8 @@ class _OutingLocationPickerState extends State<OutingLocationPicker> {
   int _searchSequence = 0;
   bool _isSearching = false;
   bool _isResolving = false;
+  bool _isLocating = false;
+  bool _showsDeviceLocation = false;
   static final Random _random = Random.secure();
 
   @override
@@ -106,17 +111,36 @@ class _OutingLocationPickerState extends State<OutingLocationPicker> {
             ),
           ),
         Expanded(
-          child: GoogleMap(
-            initialCameraPosition: const CameraPosition(
-              target: _defaultCenter,
-              zoom: 11,
-            ),
-            markers: _markers,
-            mapToolbarEnabled: false,
-            myLocationButtonEnabled: false,
-            onMapCreated: (controller) => _mapController = controller,
-            onCameraMove: (position) => _searchCenter = position.target,
-            onTap: _selectCoordinate,
+          child: Stack(
+            children: [
+              GoogleMap(
+                initialCameraPosition: const CameraPosition(
+                  target: _defaultCenter,
+                  zoom: 11,
+                ),
+                markers: _markers,
+                mapToolbarEnabled: false,
+                myLocationButtonEnabled: false,
+                myLocationEnabled: _showsDeviceLocation,
+                onMapCreated: (controller) => _mapController = controller,
+                onCameraMove: (position) => _searchCenter = position.target,
+                onTap: _selectCoordinate,
+              ),
+              Positioned(
+                top: 16,
+                right: 16,
+                child: IconButton.filledTonal(
+                  tooltip: 'Go to my location',
+                  onPressed: _isLocating ? null : _goToCurrentLocation,
+                  icon: _isLocating
+                      ? const SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.my_location),
+                ),
+              ),
+            ],
           ),
         ),
         Padding(
@@ -139,6 +163,55 @@ class _OutingLocationPickerState extends State<OutingLocationPicker> {
       ],
     ),
   );
+
+  Future<void> _goToCurrentLocation() async {
+    setState(() => _isLocating = true);
+    try {
+      await _locateDevice();
+    } on LiveMeetupFailure {
+      if (mounted) _showMessage('Could not get your current location.');
+    } finally {
+      if (mounted) setState(() => _isLocating = false);
+    }
+  }
+
+  Future<void> _locateDevice() async {
+    final accessFailure = await _locationAccessFailure();
+    if (!mounted) return;
+    if (accessFailure != null) {
+      _showMessage(accessFailure);
+      return;
+    }
+    final sample = await widget.deviceLocationService.currentPosition();
+    if (mounted) await _showDeviceLocation(sample.coordinate);
+  }
+
+  Future<String?> _locationAccessFailure() async {
+    if (!await widget.deviceLocationService.isServiceEnabled()) {
+      return 'Turn on location services and try again.';
+    }
+    var permission = await widget.deviceLocationService.checkPermission();
+    if (permission == DeviceLocationPermission.denied) {
+      permission = await widget.deviceLocationService.requestPermission();
+    }
+    return switch (permission) {
+      DeviceLocationPermission.deniedForever =>
+        'Enable location permission in system settings.',
+      DeviceLocationPermission.denied => 'Location permission was denied.',
+      DeviceLocationPermission.whileInUse ||
+      DeviceLocationPermission.reducedWhileInUse => null,
+    };
+  }
+
+  Future<void> _showDeviceLocation(GeoCoordinate coordinate) async {
+    setState(() => _showsDeviceLocation = true);
+    await _mapController?.animateCamera(
+      CameraUpdate.newLatLngZoom(
+        LatLng(coordinate.latitude, coordinate.longitude),
+        16,
+      ),
+    );
+  }
 
   void _onSearchQueryChanged(String query) {
     _searchDebounce?.cancel();

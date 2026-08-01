@@ -55,6 +55,106 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('card highlights an active outing during its final hour', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(320, 700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final outing = FakeOutingRepository.sampleOuting().copyWith(
+      scheduledAt: DateTime.now().add(const Duration(minutes: 45)),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: InteractiveOutingCard(
+            outing: outing,
+            outingRepository: FakeOutingRepository(
+              detail: OutingDetail(outing: outing, participants: const []),
+            ),
+            currentUserId: 'user-1',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('outing-starting-soon-banner')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('outing-starting-soon-badge')), findsOneWidget);
+    expect(find.text('STARTS IN 45 MIN'), findsOneWidget);
+    expect(find.text('Time to get ready'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('card enters and leaves soon state without a data refresh', (
+    tester,
+  ) async {
+    var now = DateTime(2030, 8, 1, 19);
+    final outing = FakeOutingRepository.sampleOuting().copyWith(
+      scheduledAt: now.add(const Duration(hours: 1, seconds: 2)),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: InteractiveOutingCard(
+            outing: outing,
+            outingRepository: FakeOutingRepository(
+              detail: OutingDetail(outing: outing, participants: const []),
+            ),
+            currentUserId: 'user-1',
+            now: () => now,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.byKey(const Key('outing-starting-soon-banner')), findsNothing);
+
+    now = now.add(const Duration(seconds: 3));
+    await tester.pump(const Duration(seconds: 3));
+
+    expect(
+      find.byKey(const Key('outing-starting-soon-banner')),
+      findsOneWidget,
+    );
+    expect(find.text('STARTS IN 1 HOUR'), findsOneWidget);
+
+    now = outing.scheduledAt;
+    await tester.pump(const Duration(hours: 1));
+
+    expect(find.byKey(const Key('outing-starting-soon-banner')), findsNothing);
+  });
+
+  testWidgets('historical outings never use the starting-soon treatment', (
+    tester,
+  ) async {
+    final outing = FakeOutingRepository.sampleOuting(
+      status: OutingStatus.cancelled,
+    ).copyWith(scheduledAt: DateTime.now().add(const Duration(minutes: 20)));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: InteractiveOutingCard(
+            outing: outing,
+            outingRepository: FakeOutingRepository(
+              detail: OutingDetail(outing: outing, participants: const []),
+            ),
+            currentUserId: 'user-1',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('outing-starting-soon-banner')), findsNothing);
+    expect(find.text('CANCELLED'), findsOneWidget);
+  });
+
   testWidgets('Live Meetup entry is Meeting-only and Accepted-only', (
     tester,
   ) async {

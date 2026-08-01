@@ -5,8 +5,12 @@ import 'package:go_router/go_router.dart';
 import 'package:chillgo/core/di/injection_container.dart';
 import 'package:chillgo/core/routes/app_router.dart';
 import 'package:chillgo/features/authentication/domain/repositories/auth_repository.dart';
+import 'package:chillgo/features/welcome/domain/repositories/welcome_onboarding_repository.dart';
 
 class MockAuthRepository extends Mock implements AuthRepository {}
+
+class MockWelcomeOnboardingRepository extends Mock
+    implements WelcomeOnboardingRepository {}
 
 class MockBuildContext extends Mock implements BuildContext {}
 
@@ -14,26 +18,39 @@ class MockGoRouterState extends Mock implements GoRouterState {}
 
 void main() {
   late MockAuthRepository mockAuthRepository;
+  late MockWelcomeOnboardingRepository mockWelcomeRepository;
 
   setUpAll(() {
     mockAuthRepository = MockAuthRepository();
+    mockWelcomeRepository = MockWelcomeOnboardingRepository();
     // Default fallback status stream and current status
     when(
       () => mockAuthRepository.status,
     ).thenAnswer((_) => const Stream.empty());
     when(() => mockAuthRepository.currentStatus).thenReturn(AuthStatus.unknown);
+    when(() => mockWelcomeRepository.isComplete).thenReturn(true);
+    when(
+      () => mockWelcomeRepository.completionChanges,
+    ).thenAnswer((_) => const Stream.empty());
 
     // Guard against duplicate registration when tests share the same process.
     if (sl.isRegistered<AuthRepository>()) {
       sl.unregister<AuthRepository>();
     }
     sl.registerSingleton<AuthRepository>(mockAuthRepository);
+    if (sl.isRegistered<WelcomeOnboardingRepository>()) {
+      sl.unregister<WelcomeOnboardingRepository>();
+    }
+    sl.registerSingleton<WelcomeOnboardingRepository>(mockWelcomeRepository);
   });
 
   tearDownAll(() async {
     // Restore sl to a clean state so other test files are not affected.
     if (sl.isRegistered<AuthRepository>()) {
       await sl.unregister<AuthRepository>();
+    }
+    if (sl.isRegistered<WelcomeOnboardingRepository>()) {
+      await sl.unregister<WelcomeOnboardingRepository>();
     }
   });
 
@@ -65,6 +82,13 @@ void main() {
     expect(paths, contains('/outings/:outingId/live-meetup'));
   });
 
+  test('AppRouter exposes the first-launch welcome route', () {
+    final paths = appRouter.configuration.routes.whereType<GoRoute>().map(
+      (route) => route.path,
+    );
+    expect(paths, contains('/welcome'));
+  });
+
   group('AppRouter Redirect Logic', () {
     late MockBuildContext mockContext;
     late MockGoRouterState mockState;
@@ -72,6 +96,28 @@ void main() {
     setUp(() {
       mockContext = MockBuildContext();
       mockState = MockGoRouterState();
+      when(() => mockWelcomeRepository.isComplete).thenReturn(true);
+    });
+
+    test('redirects first-time users to /welcome before auth routing', () {
+      when(() => mockWelcomeRepository.isComplete).thenReturn(false);
+      when(
+        () => mockAuthRepository.currentStatus,
+      ).thenReturn(AuthStatus.unauthenticated);
+      when(() => mockState.uri).thenReturn(Uri.parse('/'));
+
+      final result = guardRedirect(mockContext, mockState);
+
+      expect(result, '/welcome');
+    });
+
+    test('keeps first-time users on /welcome', () {
+      when(() => mockWelcomeRepository.isComplete).thenReturn(false);
+      when(() => mockState.uri).thenReturn(Uri.parse('/welcome'));
+
+      final result = guardRedirect(mockContext, mockState);
+
+      expect(result, isNull);
     });
 
     test(
@@ -162,13 +208,13 @@ void main() {
     );
 
     test(
-      'should redirect to / when status is AuthStatus.authenticatedWithProfile and path is /loading, /login, or /onboarding',
+      'should redirect to / when an authenticated profile opens a startup route',
       () {
         when(
           () => mockAuthRepository.currentStatus,
         ).thenReturn(AuthStatus.authenticatedWithProfile);
 
-        for (final path in ['/loading', '/login', '/onboarding']) {
+        for (final path in ['/loading', '/login', '/onboarding', '/welcome']) {
           when(() => mockState.uri).thenReturn(Uri.parse(path));
           final result = guardRedirect(mockContext, mockState);
           expect(result, '/');

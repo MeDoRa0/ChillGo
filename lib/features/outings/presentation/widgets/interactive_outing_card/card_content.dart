@@ -6,12 +6,16 @@ class _CardContent extends StatelessWidget {
     required this.participants,
     required this.actionButtonSpace,
     required this.trailing,
+    required this.isStartingSoon,
+    required this.minutesUntilStart,
   });
 
   final Outing outing;
   final List<OutingParticipant> participants;
   final Widget? actionButtonSpace;
   final Widget? trailing;
+  final bool isStartingSoon;
+  final int minutesUntilStart;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -24,6 +28,10 @@ class _CardContent extends StatelessWidget {
           status: outing.status,
           trailing: trailing,
         ),
+        if (isStartingSoon) ...[
+          const SizedBox(height: 10),
+          _StartingSoonBanner(minutesUntilStart: minutesUntilStart),
+        ],
         const SizedBox(height: 10),
         _OutingTitle(title: outing.title),
         const SizedBox(height: 10),

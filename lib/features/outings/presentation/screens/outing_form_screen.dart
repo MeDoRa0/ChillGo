@@ -10,6 +10,7 @@ import '../../../../core/presentation/widgets/app_back_button.dart';
 import '../../../../core/presentation/widgets/responsive_content.dart';
 import '../../../../core/presentation/widgets/shimmer_loading.dart';
 import '../../../../core/presentation/widgets/sunshine_background.dart';
+import '../../../live_meetup/domain/services/device_location_service.dart';
 import '../../../live_meetup/domain/services/map_provider.dart';
 import '../../domain/entities/outing.dart';
 import '../../domain/repositories/outing_repository.dart';
@@ -236,6 +237,7 @@ class _OutingFormScreenState extends State<OutingFormScreen> {
       MaterialPageRoute(
         builder: (_) => OutingLocationPicker(
           mapProvider: sl<MapProvider>(),
+          deviceLocationService: sl<DeviceLocationService>(),
           initialQuery: _locationController.text.trim(),
         ),
       ),
