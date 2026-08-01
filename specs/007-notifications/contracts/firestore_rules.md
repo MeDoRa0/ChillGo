@@ -4,7 +4,7 @@
 
 | Collection | Get/list condition |
 |---|---|
-| `notifications` | Authenticated recipient only; record unexpired; category-specific current source authorization passes. List is recipient-scoped, newest-first, and bounded. |
+| `notifications` | Exact authenticated-recipient get only when the record is unexpired and its category-specific current source authorization passes. Direct list access is denied; the center uses the trusted `notificationCenterPage` callable. |
 | `notification_summaries` | Exact authenticated owner only. |
 | `notification_preferences` | Exact authenticated owner only. |
 | `notification_commands` | Exact requester get of known command only; list denied. |
@@ -24,4 +24,4 @@
 - Arrival: previous conditions plus `attendanceStatus == accepted`, outing `status == meeting`, and live-meetup cleanup boundaries are clear.
 - Any source/crew/outing/participant/membership cleanup-pending state denies the record before physical cleanup completes.
 
-Rules never filter stale client results. Emulator tests must prove exact get/list denial after every access loss, cross-user isolation, malformed command/preference rejection, direct record/summary/device/event mutation denial, bounded-query constraints, and expiry behavior.
+Rules never filter stale client results. The App Check-protected center callable authenticates the requester, performs bounded newest-first server scans, rechecks every record's expiry and current source authorization, and returns only the safe page projection. Emulator tests must prove exact-get denial after every access loss, direct-list denial, cross-user isolation, malformed command/preference rejection, direct record/summary/device/event mutation denial, and expiry behavior.

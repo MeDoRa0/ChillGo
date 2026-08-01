@@ -7,10 +7,11 @@ import 'auth_state.dart';
 
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final AuthRepository _authRepository;
+  final Future<void> Function()? beforeSignOut;
   late final StreamSubscription<AuthStatus> _statusSubscription;
 
   // Keep the public constructor parameter aligned with the injected dependency.
-  AuthBloc({required AuthRepository authRepository})
+  AuthBloc({required AuthRepository authRepository, this.beforeSignOut})
     // ignore: prefer_initializing_formals
     : _authRepository = authRepository,
       super(const AuthState.unknown()) {
@@ -78,6 +79,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthLogoutRequested event,
     Emitter<AuthState> emit,
   ) async {
+    await beforeSignOut?.call();
     await _authRepository.signOut();
   }
 

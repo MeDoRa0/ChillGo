@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Use branch `codex/007-notifications` with Firebase dependencies installed.
-- Configure Auth, Firestore, Functions, and platform-specific Firebase Messaging prerequisites. Android needs notification permission/channel configuration; iOS needs Push Notifications, background remote-notification capability, and APNs credentials; Web needs HTTPS, a VAPID key, and the messaging service worker. Windows intentionally has no device-alert target.
+- Configure Auth, Firestore, Functions, and platform-specific Firebase Messaging prerequisites. Android needs notification permission/channel configuration. iOS needs Push Notifications, background remote-notification capability, and APNs credentials. Web and desktop delivery are outside the release scope and cannot register a notification target.
 - Do not run manual device-push tests without user approval.
 
 ## Automated validation
@@ -45,7 +45,7 @@
 
 ## User-approved release smoke checks
 
-After explicit approval, verify Android, physical iOS device, and Web foreground/background/terminated open behavior, permission denial/settings recovery, APNs/VAPID configuration, invalid-token cleanup, and Windows in-app-only fallback. Confirm all alert copy is generic and every tap reauthorizes before navigation. For SC-002, record physical-device receipt separately from the automated provider-handoff metric; device receipt is best-effort evidence, not an FCM guarantee.
+After explicit approval, verify Android and physical iOS foreground/background/terminated open behavior, permission denial/settings recovery, APNs configuration, and invalid-token cleanup. Confirm all alert copy is generic and every tap reauthorizes before navigation. For SC-002, record physical-device receipt separately from the automated provider-handoff metric; device receipt is best-effort evidence, not an FCM guarantee.
 
 With representative participants who explicitly consent, run timed usability checks for SC-003 and SC-008: ask participants to open a new invitation or identify a confirmed plan, then find alert preferences, disable one optional category, and explain the effect. Record completion time, success, and usability observations without collecting protected notification content.
 

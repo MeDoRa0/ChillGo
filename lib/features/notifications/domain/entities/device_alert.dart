@@ -1,11 +1,16 @@
 import 'package:equatable/equatable.dart';
 import 'notification.dart';
 
-enum DeviceAlertPlatform { android, ios, web, windows }
-enum DeviceAlertCapability { supported, unsupported, denied }
+enum DeviceAlertPlatform { android, ios }
+
+enum DeviceAlertCapability { supported, notDetermined, unsupported, denied }
 
 class DeviceRegistrationTarget extends Equatable {
-  const DeviceRegistrationTarget({required this.installationId, required this.token, required this.platform});
+  const DeviceRegistrationTarget({
+    required this.installationId,
+    required this.token,
+    required this.platform,
+  });
   final String installationId;
   final String token;
   final DeviceAlertPlatform platform;
@@ -14,7 +19,10 @@ class DeviceRegistrationTarget extends Equatable {
 }
 
 class DeviceAlertEvent extends Equatable {
-  const DeviceAlertEvent({required this.notificationId, required this.category});
+  const DeviceAlertEvent({
+    required this.notificationId,
+    required this.category,
+  });
   final String notificationId;
   final NotificationCategory category;
   @override

@@ -9,11 +9,19 @@ class NotificationPreferences extends Equatable {
   final bool votingUpdatesEnabled;
   final bool outingChangesEnabled;
   final bool arrivalAlertsEnabled;
-  NotificationPreferences copyWith({bool? votingUpdatesEnabled, bool? outingChangesEnabled, bool? arrivalAlertsEnabled}) => NotificationPreferences(
+  NotificationPreferences copyWith({
+    bool? votingUpdatesEnabled,
+    bool? outingChangesEnabled,
+    bool? arrivalAlertsEnabled,
+  }) => NotificationPreferences(
     votingUpdatesEnabled: votingUpdatesEnabled ?? this.votingUpdatesEnabled,
     outingChangesEnabled: outingChangesEnabled ?? this.outingChangesEnabled,
     arrivalAlertsEnabled: arrivalAlertsEnabled ?? this.arrivalAlertsEnabled,
   );
   @override
-  List<Object?> get props => [votingUpdatesEnabled, outingChangesEnabled, arrivalAlertsEnabled];
+  List<Object?> get props => [
+    votingUpdatesEnabled,
+    outingChangesEnabled,
+    arrivalAlertsEnabled,
+  ];
 }

@@ -2,12 +2,8 @@ part of '../home_mobile_layout.dart';
 
 class _InvitationNotificationButton extends StatelessWidget {
   final CrewRepository repository;
-  final OutingReviewNotificationRepository? outingNotificationRepository;
 
-  const _InvitationNotificationButton({
-    required this.repository,
-    required this.outingNotificationRepository,
-  });
+  const _InvitationNotificationButton({required this.repository});
 
   @override
   Widget build(BuildContext context) {
@@ -15,21 +11,7 @@ class _InvitationNotificationButton extends StatelessWidget {
       stream: repository.streamReceivedInvitations(),
       builder: (context, snapshot) {
         final hasCrewInvitations = snapshot.data?.isNotEmpty ?? false;
-        final outingRepository = outingNotificationRepository;
-        if (outingRepository == null) {
-          return _NotificationBell(hasUnread: hasCrewInvitations);
-        }
-        return StreamBuilder<List<OutingReviewNotification>>(
-          stream: outingRepository.watchNotifications(),
-          builder: (context, outingSnapshot) {
-            final hasUnreadOutings = (outingSnapshot.data ?? const []).any(
-              (notification) => !notification.isRead,
-            );
-            return _NotificationBell(
-              hasUnread: hasCrewInvitations || hasUnreadOutings,
-            );
-          },
-        );
+        return _NotificationBell(hasUnread: hasCrewInvitations);
       },
     );
   }
