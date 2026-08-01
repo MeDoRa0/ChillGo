@@ -42,7 +42,7 @@ void main() {
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
     await tester.pumpAndSettle();
 
-    expect(find.text('1 of 2'), findsOneWidget);
+    expect(find.text('Make a plan'), findsOneWidget);
     expect(find.text('Where are we going?'), findsOneWidget);
     expect(find.text('Choose on map'), findsOneWidget);
 

@@ -6,7 +6,7 @@ service firebase.storage {
       allow write: if request.auth != null 
                    && request.auth.uid == uid 
                    && request.resource.size < 512 * 1024 // Limit to 500 KB
-                   && request.resource.contentType.matches('image/.*');
+                   && request.resource.contentType in ['image/jpeg', 'image/png'];
     }
   }
 }

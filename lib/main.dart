@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'firebase_options.dart';
 import 'core/di/injection_container.dart' as di;
@@ -66,6 +67,7 @@ Future<void> _connectFirebaseEmulators() async {
   await FirebaseAuth.instance.useAuthEmulator(host, 9099);
   FirebaseFirestore.instance.useFirestoreEmulator(host, 8080);
   await FirebaseStorage.instance.useStorageEmulator(host, 9199);
+  FirebaseFunctions.instance.useFunctionsEmulator(host, 5001);
 }
 
 class MyApp extends StatefulWidget {

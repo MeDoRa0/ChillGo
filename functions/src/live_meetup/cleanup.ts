@@ -6,6 +6,7 @@ import {
   Timestamp,
 } from "firebase-admin/firestore";
 import {logger} from "firebase-functions";
+import {onSchedule} from "firebase-functions/v2/scheduler";
 import {
   onDocumentDeleted,
   onDocumentUpdated,
@@ -110,6 +111,19 @@ export async function runLiveMeetupRepair(
     resumed: await resumeAbandonedTransitions(db, now),
   };
 }
+
+export const liveMeetupCleanupScheduled = onSchedule(
+  {schedule: "every 1 minutes", timeZone: "UTC"},
+  async () => {
+    const started = Date.now();
+    const cleanup = await runLiveMeetupRepair(getFirestore(), Timestamp.now());
+    logger.info("live_meetup_cleanup_terminal", {
+      deleted: cleanup.deleted,
+      resumed: cleanup.resumed,
+      latencyMs: Date.now() - started,
+    });
+  },
+);
 
 async function resumeAbandonedTransitions(
   db: Firestore,

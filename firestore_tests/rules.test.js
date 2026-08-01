@@ -45,14 +45,17 @@ describe('Firebase Security Rules', () => {
     it('allows an authenticated user to create and update their own profile', async () => {
       const aliceDb = testEnv.authenticatedContext('alice').firestore();
       const aliceDoc = aliceDb.collection('users').doc('alice');
+      const registration = aliceDb.batch();
 
-      await testing.assertSucceeds(aliceDoc.set({
+      registration.set(aliceDb.collection('usernames').doc('alice'), { uid: 'alice' });
+      registration.set(aliceDoc, {
         username: 'alice',
         displayName: 'Alice',
         avatarUrl: null,
-        createdAt: new Date('2026-06-29T16:15:00.000Z'),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         locale: 'en',
-      }));
+      });
+      await testing.assertSucceeds(registration.commit());
       await testing.assertSucceeds(aliceDoc.update({
         displayName: 'Alice Smith',
         onboardingVersion: 2,
@@ -61,17 +64,65 @@ describe('Firebase Security Rules', () => {
 
     it('rejects missing required profile fields and incorrect known optional types', async () => {
       const aliceDb = testEnv.authenticatedContext('alice').firestore();
+      const aliceDoc = aliceDb.collection('users').doc('alice');
+      const usernameDoc = aliceDb.collection('usernames').doc('alice');
+      const missingDisplayName = aliceDb.batch();
 
-      await testing.assertFails(aliceDb.collection('users').doc('alice').set({
+      missingDisplayName.set(usernameDoc, { uid: 'alice' });
+      missingDisplayName.set(aliceDoc, {
         username: 'alice',
-        createdAt: new Date('2026-06-29T16:15:00.000Z'),
-      }));
-      await testing.assertFails(aliceDb.collection('users').doc('alice').set({
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      await testing.assertFails(missingDisplayName.commit());
+
+      const invalidAvatar = aliceDb.batch();
+      invalidAvatar.set(usernameDoc, { uid: 'alice' });
+      invalidAvatar.set(aliceDoc, {
         username: 'alice',
         displayName: 'Alice',
         avatarUrl: 42,
-        createdAt: new Date('2026-06-29T16:15:00.000Z'),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      await testing.assertFails(invalidAvatar.commit());
+    });
+
+    it('enforces profile identity format and the matching username reservation', async () => {
+      const aliceDb = testEnv.authenticatedContext('alice').firestore();
+      const aliceDoc = aliceDb.collection('users').doc('alice');
+
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        await adminDb.collection('usernames').doc('bob').set({ uid: 'bob' });
+        await adminDb.collection('users').doc('bob').set({
+          username: 'bob',
+          displayName: 'Bob',
+          createdAt: new Date(),
+        });
+      });
+
+      await testing.assertFails(aliceDoc.set({
+        username: 'bob',
+        displayName: 'Alice',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       }));
+
+      const invalidUsername = aliceDb.batch();
+      invalidUsername.set(aliceDb.collection('usernames').doc('Alice Smith'), { uid: 'alice' });
+      invalidUsername.set(aliceDoc, {
+        username: 'Alice Smith',
+        displayName: 'Alice',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      await testing.assertFails(invalidUsername.commit());
+
+      const blankDisplayName = aliceDb.batch();
+      blankDisplayName.set(aliceDb.collection('usernames').doc('alice'), { uid: 'alice' });
+      blankDisplayName.set(aliceDoc, {
+        username: 'alice',
+        displayName: '   ',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      await testing.assertFails(blankDisplayName.commit());
     });
 
     it('denies creating or updating another user profile', async () => {
@@ -106,8 +157,18 @@ describe('Firebase Security Rules', () => {
       const aliceDb = testEnv.authenticatedContext('alice').firestore();
       const unauthDb = testEnv.unauthenticatedContext().firestore();
       const usernameDoc = aliceDb.collection('usernames').doc('alice');
+      const registration = aliceDb.batch();
 
-      await testing.assertSucceeds(usernameDoc.set({ uid: 'alice' }));
+      registration.set(usernameDoc, { uid: 'alice' });
+      registration.set(aliceDb.collection('users').doc('alice'), {
+        username: 'alice',
+        displayName: 'Alice',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      await testing.assertSucceeds(registration.commit());
+      await testing.assertFails(
+        aliceDb.collection('usernames').doc('reserved').set({ uid: 'alice' }),
+      );
       await testing.assertFails(aliceDb.collection('usernames').doc('alice2').set({ uid: 'bob' }));
       await testing.assertFails(aliceDb.collection('usernames').doc('alice3').set({
         uid: 'alice',
@@ -137,6 +198,9 @@ describe('Firebase Security Rules', () => {
       );
       await testing.assertFails(
         aliceStorage.ref('avatars/alice').put(Buffer.from('not-image'), { contentType: 'text/plain' }),
+      );
+      await testing.assertFails(
+        aliceStorage.ref('avatars/alice').put(Buffer.from('<svg/>'), { contentType: 'image/svg+xml' }),
       );
       await testing.assertFails(
         aliceStorage.ref('avatars/alice').put(Buffer.alloc(512 * 1024), { contentType: 'image/jpeg' }),
@@ -684,6 +748,7 @@ describe('Firebase Security Rules', () => {
           displayName: 'Old Name',
           createdAt: new Date('2026-07-01T00:00:00Z'),
         });
+        await adminDb.collection('usernames').doc('alice').set({ uid: 'alice' });
         await adminDb.collection('crew_memberships').doc('crew1_alice').set({
           crewId: 'crew1',
           userId: 'alice',
@@ -1363,6 +1428,39 @@ describe('Firebase Security Rules', () => {
       });
       await testing.assertFails(
         bob.collection('live_meetup_statuses').doc('outing-live_alice').get(),
+      );
+    });
+
+    it('prevents clients from clearing trusted cleanup boundaries', async () => {
+      await seedLiveMeetup();
+      const alice = testEnv.authenticatedContext('alice').firestore();
+      const bob = testEnv.authenticatedContext('bob').firestore();
+
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        await adminDb.collection('crews').doc('crew-live').update({
+          deletionPending: true,
+        });
+        await adminDb.collection('crew_memberships').doc('crew-live_bob').update({
+          liveMeetupCleanupPending: true,
+        });
+        await adminDb.collection('outing_participants').doc('outing-live_bob').update({
+          liveMeetupCleanupPending: true,
+        });
+      });
+
+      await testing.assertFails(
+        alice.collection('crews').doc('crew-live').update({ deletionPending: false }),
+      );
+      await testing.assertFails(
+        bob.collection('crew_memberships').doc('crew-live_bob').update({
+          liveMeetupCleanupPending: false,
+        }),
+      );
+      await testing.assertFails(
+        bob.collection('outing_participants').doc('outing-live_bob').update({
+          liveMeetupCleanupPending: false,
+        }),
       );
     });
 

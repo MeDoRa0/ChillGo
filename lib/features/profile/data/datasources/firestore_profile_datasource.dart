@@ -82,7 +82,7 @@ class FirestoreProfileDatasource {
         'username': lowercaseUsername,
         'displayName': displayName,
         'avatarUrl': avatarUrl,
-        'createdAt': writeFirestoreTimestamp(DateTime.now()),
+        'createdAt': FieldValue.serverTimestamp(),
       });
     });
   }
