@@ -26,6 +26,13 @@ class OnboardingFailure extends OnboardingState {
   List<Object?> get props => [error];
 }
 
+class OnboardingAvatar {
+  final List<int> bytes;
+  final String fileExtension;
+
+  const OnboardingAvatar({required this.bytes, required this.fileExtension});
+}
+
 class OnboardingCubit extends Cubit<OnboardingState> {
   final ProfileRepository _profileRepository;
   final AuthRepository _authRepository;
@@ -39,6 +46,7 @@ class OnboardingCubit extends Cubit<OnboardingState> {
     required String uid,
     required String username,
     required String displayName,
+    OnboardingAvatar? avatar,
   }) async {
     emit(OnboardingLoading());
     try {
@@ -71,10 +79,20 @@ class OnboardingCubit extends Cubit<OnboardingState> {
         return;
       }
 
+      String? avatarUrl;
+      if (avatar != null) {
+        avatarUrl = await _profileRepository.uploadAvatar(
+          uid: authenticatedUid,
+          imageBytes: avatar.bytes,
+          fileExtension: avatar.fileExtension,
+        );
+      }
+
       await _attemptCreateProfileWithRetry(
         uid: authenticatedUid,
         username: username,
         displayName: displayName,
+        avatarUrl: avatarUrl,
       );
 
       try {
@@ -94,12 +112,14 @@ class OnboardingCubit extends Cubit<OnboardingState> {
     required String uid,
     required String username,
     required String displayName,
+    String? avatarUrl,
   }) async {
     try {
       await _profileRepository.createProfile(
         uid: uid,
         username: username,
         displayName: displayName,
+        avatarUrl: avatarUrl,
       );
     } catch (e) {
       final errorText = e.toString();
@@ -115,6 +135,7 @@ class OnboardingCubit extends Cubit<OnboardingState> {
           uid: currentUser.uid,
           username: username,
           displayName: displayName,
+          avatarUrl: avatarUrl,
         );
       } else {
         rethrow;

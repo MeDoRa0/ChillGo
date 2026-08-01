@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:chillgo/core/di/injection_container.dart';
 import 'package:chillgo/core/presentation/theme/chillgo_colors.dart';
 import 'package:chillgo/core/presentation/widgets/responsive_content.dart';
@@ -10,6 +12,9 @@ import 'package:chillgo/features/authentication/presentation/blocs/auth/auth_blo
 import 'package:chillgo/features/authentication/presentation/blocs/auth/auth_state.dart';
 
 import '../blocs/onboarding/onboarding_cubit.dart';
+import '../models/avatar_preset.dart';
+import '../utils/image_helper.dart';
+import '../widgets/profile_avatar_picker.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -22,6 +27,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
   final _displayNameController = TextEditingController();
+  final _imageHelper = ImageHelper();
+  AvatarPreset? _selectedPreset;
+  PickedAvatar? _uploadedAvatar;
+  bool _isPickingAvatar = false;
+  bool _isPreparingAvatar = false;
 
   @override
   void dispose() {
@@ -58,14 +68,106 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     return null;
   }
 
-  void _submitForm(String uid, OnboardingCubit cubit) {
-    if (_formKey.currentState!.validate()) {
-      cubit.submitOnboarding(
-        uid: uid,
-        username: _usernameController.text.trim().toLowerCase(),
-        displayName: _displayNameController.text.trim(),
+  Future<void> _submitForm(String uid, OnboardingCubit cubit) async {
+    if (!_formKey.currentState!.validate() || _isPreparingAvatar) return;
+
+    setState(() => _isPreparingAvatar = true);
+    try {
+      await _submitValidatedForm(uid, cubit);
+    } on FlutterError {
+      _showAvatarPreparationFailure();
+    } finally {
+      if (mounted) setState(() => _isPreparingAvatar = false);
+    }
+  }
+
+  Future<void> _submitValidatedForm(String uid, OnboardingCubit cubit) async {
+    final avatar = await _selectedOnboardingAvatar();
+    await cubit.submitOnboarding(
+      uid: uid,
+      username: _usernameController.text.trim().toLowerCase(),
+      displayName: _displayNameController.text.trim(),
+      avatar: avatar,
+    );
+  }
+
+  Future<OnboardingAvatar?> _selectedOnboardingAvatar() async {
+    if (_uploadedAvatar case final uploaded?) {
+      return OnboardingAvatar(
+        bytes: uploaded.bytes,
+        fileExtension: uploaded.fileExtension,
       );
     }
+    if (_selectedPreset case final preset?) {
+      final assetByteData = await rootBundle.load(preset.assetPath);
+      return OnboardingAvatar(
+        bytes: assetByteData.buffer.asUint8List(
+          assetByteData.offsetInBytes,
+          assetByteData.lengthInBytes,
+        ),
+        fileExtension: 'jpg',
+      );
+    }
+    return null;
+  }
+
+  void _showAvatarPreparationFailure() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Could not prepare that avatar. Please try again.'),
+          backgroundColor: ChillGoColors.danger,
+        ),
+      );
+  }
+
+  Future<void> _showAvatarSourceSheet() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (_) => const _AvatarSourceSheet(),
+    );
+
+    if (source == null || !mounted) return;
+    await _pickAvatar(source);
+  }
+
+  Future<void> _pickAvatar(ImageSource source) async {
+    setState(() => _isPickingAvatar = true);
+    try {
+      final avatar = await _imageHelper.pickAndCompressAvatar(source);
+      if (avatar != null && mounted) {
+        setState(() {
+          _uploadedAvatar = avatar;
+          _selectedPreset = null;
+        });
+      }
+    } on PlatformException catch (error) {
+      _showAvatarPickerFailure(error.message ?? 'Could not open that photo.');
+    } on FormatException catch (error) {
+      _showAvatarPickerFailure(error.message);
+    } on StateError catch (error) {
+      _showAvatarPickerFailure(error.message);
+    } finally {
+      if (mounted) setState(() => _isPickingAvatar = false);
+    }
+  }
+
+  void _showAvatarPickerFailure(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: ChillGoColors.danger),
+      );
+  }
+
+  void _selectPreset(AvatarPreset preset) {
+    setState(() {
+      _selectedPreset = preset;
+      _uploadedAvatar = null;
+    });
   }
 
   @override
@@ -108,7 +210,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 },
                 builder: (context, state) {
                   final cubit = context.read<OnboardingCubit>();
-                  final isLoading = state is OnboardingLoading;
+                  final isLoading =
+                      state is OnboardingLoading ||
+                      _isPreparingAvatar ||
+                      _isPickingAvatar;
 
                   return ResponsiveContent(
                     maxWidth: 580,
@@ -141,12 +246,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Icon(
-              Icons.face_rounded,
-              size: 72,
-              color: ChillGoColors.coral,
-            ),
-            const SizedBox(height: 20),
             const Text(
               'Make it yours',
               textAlign: TextAlign.center,
@@ -162,7 +261,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 16, color: ChillGoColors.inkMuted),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
+            ProfileAvatarPicker(
+              selection: ProfileAvatarSelection(
+                preset: _selectedPreset,
+                uploadedBytes: _uploadedAvatar == null
+                    ? null
+                    : Uint8List.fromList(_uploadedAvatar!.bytes),
+              ),
+              enabled: !isLoading,
+              onPresetSelected: _selectPreset,
+              onUploadPressed: _showAvatarSourceSheet,
+            ),
+            const SizedBox(height: 28),
             TextFormField(
               controller: _usernameController,
               enabled: !isLoading,
@@ -198,6 +309,46 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _AvatarSourceSheet extends StatelessWidget {
+  const _AvatarSourceSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _sourceTile(
+            context,
+            icon: Icons.photo_library_outlined,
+            label: 'Choose from gallery',
+            source: ImageSource.gallery,
+          ),
+          _sourceTile(
+            context,
+            icon: Icons.photo_camera_outlined,
+            label: 'Take a photo',
+            source: ImageSource.camera,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sourceTile(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required ImageSource source,
+  }) {
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(label),
+      onTap: () => Navigator.of(context).pop(source),
     );
   }
 }

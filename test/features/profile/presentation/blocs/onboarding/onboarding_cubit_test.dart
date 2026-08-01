@@ -92,6 +92,53 @@ void main() {
     );
 
     blocTest<OnboardingCubit, OnboardingState>(
+      'uploads the selected avatar and creates the profile with its URL',
+      build: () {
+        when(
+          () => mockProfileRepository.isUsernameAvailable('newuser'),
+        ).thenAnswer((_) async => true);
+        when(
+          () => mockProfileRepository.uploadAvatar(
+            uid: 'test_uid',
+            imageBytes: const [1, 2, 3],
+            fileExtension: 'jpg',
+          ),
+        ).thenAnswer((_) async => 'https://example.com/avatar.jpg');
+        when(
+          () => mockProfileRepository.createProfile(
+            uid: 'test_uid',
+            username: 'newuser',
+            displayName: 'New User',
+            avatarUrl: 'https://example.com/avatar.jpg',
+          ),
+        ).thenAnswer((_) async {});
+        return onboardingCubit;
+      },
+      act: (cubit) => cubit.submitOnboarding(
+        uid: 'test_uid',
+        username: 'newuser',
+        displayName: 'New User',
+        avatar: const OnboardingAvatar(bytes: [1, 2, 3], fileExtension: 'jpg'),
+      ),
+      expect: () => <OnboardingState>[OnboardingLoading(), OnboardingSuccess()],
+      verify: (_) {
+        verifyInOrder([
+          () => mockProfileRepository.uploadAvatar(
+            uid: 'test_uid',
+            imageBytes: const [1, 2, 3],
+            fileExtension: 'jpg',
+          ),
+          () => mockProfileRepository.createProfile(
+            uid: 'test_uid',
+            username: 'newuser',
+            displayName: 'New User',
+            avatarUrl: 'https://example.com/avatar.jpg',
+          ),
+        ]);
+      },
+    );
+
+    blocTest<OnboardingCubit, OnboardingState>(
       'emits [OnboardingLoading, OnboardingFailure] when authentication is lost',
       build: () {
         when(
