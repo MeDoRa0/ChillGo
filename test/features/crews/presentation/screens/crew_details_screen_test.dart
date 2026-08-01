@@ -24,12 +24,7 @@ void main() {
   late MockAuthRepository authRepository;
   late MockOutingRepository outingRepository;
 
-  final crew = Crew(
-    id: 'crew1',
-    name: 'Weekend Hikers',
-    ownerId: 'owner1',
-    createdAt: DateTime.utc(2026, 7, 1),
-  );
+  final crew = Crew(id: 'crew1', name: 'Weekend Hikers', ownerId: 'owner1');
 
   final members = [
     CrewMembership(
@@ -93,11 +88,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Weekend Hikers'), findsOneWidget);
+    expect(find.textContaining('Created'), findsNothing);
+    expect(find.text('2 members'), findsOneWidget);
     expect(find.text('Create outing'), findsOneWidget);
+    expect(find.text('Crew members'), findsOneWidget);
     expect(find.byKey(const Key('crew-member-avatar-owner1')), findsOneWidget);
     expect(find.byKey(const Key('crew-member-avatar-user1')), findsOneWidget);
-    expect(find.text('Crew Owner'), findsNothing);
-    expect(find.text('Trail Friend'), findsNothing);
+    expect(find.text('Crew Owner'), findsOneWidget);
+    expect(find.text('Trail Friend'), findsOneWidget);
     expect(find.byKey(const Key('add-crew-member-button')), findsOneWidget);
   });
 
@@ -123,7 +121,7 @@ void main() {
     expect(find.text('Invitation sent to @newfriend.'), findsOneWidget);
   });
 
-  testWidgets('shows an all-members control when avatars exceed the width', (
+  testWidgets('keeps every member in a horizontally scrollable strip', (
     tester,
   ) async {
     final extraMembers = List.generate(
@@ -149,12 +147,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('see-all-members-button')), findsOneWidget);
-
-    await tester.tap(find.byKey(const Key('see-all-members-button')));
-    await tester.pumpAndSettle();
-
+    expect(find.byKey(const Key('crew-members-strip')), findsOneWidget);
     expect(find.text('Crew Owner'), findsOneWidget);
+    expect(find.text('Trail Friend 6'), findsOneWidget);
+    expect(find.byKey(const Key('crew-member-avatar-user6')), findsOneWidget);
   });
 
   testWidgets('create outing button is wired for the selected crew', (

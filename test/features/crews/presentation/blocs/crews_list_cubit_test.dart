@@ -7,12 +7,7 @@ import 'package:chillgo/features/crews/domain/entities/crew.dart';
 
 class MockCrewRepository extends Mock implements CrewRepository {}
 
-final _fakeCrew = Crew(
-  id: 'crew1',
-  name: 'Weekend Hikers',
-  ownerId: 'alice',
-  createdAt: DateTime.utc(2026, 7, 1),
-);
+final _fakeCrew = Crew(id: 'crew1', name: 'Weekend Hikers', ownerId: 'alice');
 
 void main() {
   late MockCrewRepository mockRepo;

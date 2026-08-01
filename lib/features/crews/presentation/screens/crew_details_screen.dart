@@ -80,41 +80,39 @@ class _CrewDetailsContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return constraints.maxWidth >= 760 ? _wideLayout() : _compactLayout();
-      },
+    return StreamBuilder<List<CrewMembership>>(
+      stream: repository.streamMembers(crew.id),
+      initialData: const <CrewMembership>[],
+      builder: _crewContent,
     );
   }
 
-  Widget _compactLayout() {
+  Widget _crewContent(
+    BuildContext context,
+    AsyncSnapshot<List<CrewMembership>> snapshot,
+  ) {
+    final members = snapshot.data ?? const <CrewMembership>[];
+    final horizontalPadding = MediaQuery.sizeOf(context).width >= 760
+        ? 24.0
+        : 16.0;
     return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [_planPanel(), const SizedBox(height: 24), _membersPanel()],
-    );
-  }
-
-  Widget _wideLayout() {
-    return ListView(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.symmetric(
+        horizontal: horizontalPadding,
+        vertical: 16,
+      ),
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(flex: 6, child: _planPanel()),
-            const SizedBox(width: 24),
-            Expanded(flex: 4, child: _membersPanel()),
-          ],
-        ),
+        _planPanel(members.length),
+        const SizedBox(height: 24),
+        _membersPanel(members, snapshot.error),
       ],
     );
   }
 
-  Widget _planPanel() {
+  Widget _planPanel(int memberCount) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _CrewHeader(crew: crew),
+        _CrewHeader(crew: crew, memberCount: memberCount),
         const SizedBox(height: 16),
         _CreateOutingButton(crewId: crew.id),
         const SizedBox(height: 20),
@@ -123,58 +121,27 @@ class _CrewDetailsContent extends StatelessWidget {
     );
   }
 
-  Widget _membersPanel() {
+  Widget _membersPanel(List<CrewMembership> members, Object? streamError) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _MembersSectionHeader(
-          crewId: crew.id,
-          repository: repository,
-          canInviteMembers: canInviteMembers,
-        ),
-        const SizedBox(height: 12),
-        _MembersList(repository: repository, crewId: crew.id),
-      ],
-    );
-  }
-}
-
-class _MembersSectionHeader extends StatelessWidget {
-  final String crewId;
-  final CrewRepository repository;
-  final bool canInviteMembers;
-
-  const _MembersSectionHeader({
-    required this.crewId,
-    required this.repository,
-    required this.canInviteMembers,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const Expanded(
-          child: Text(
-            'Members',
-            style: TextStyle(
-              color: ChillGoColors.ink,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+        const Text(
+          'Crew members',
+          style: TextStyle(
+            color: ChillGoColors.ink,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
           ),
         ),
-        if (canInviteMembers)
-          TextButton.icon(
-            key: const Key('add-crew-member-button'),
-            onPressed: () => showDialog<void>(
-              context: context,
-              builder: (context) =>
-                  _InviteMemberDialog(crewId: crewId, repository: repository),
-            ),
-            icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
-            label: const Text('Add member'),
-            style: TextButton.styleFrom(foregroundColor: ChillGoColors.coral),
+        const SizedBox(height: 12),
+        if (streamError != null)
+          _InlineMessage(message: streamError.toString())
+        else
+          _MembersList(
+            members: members,
+            repository: repository,
+            crewId: crew.id,
+            canInviteMembers: canInviteMembers,
           ),
       ],
     );
@@ -360,33 +327,31 @@ class _InviteMemberDialogState extends State<_InviteMemberDialog> {
 
 class _CrewHeader extends StatelessWidget {
   final Crew crew;
+  final int memberCount;
 
-  const _CrewHeader({required this.crew});
+  const _CrewHeader({required this.crew, required this.memberCount});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: ChillGoColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: ChillGoColors.outline),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(14),
+            width: 80,
+            height: 80,
             decoration: BoxDecoration(
               color: ChillGoColors.coral.withValues(alpha: 0.15),
               shape: BoxShape.circle,
+              border: Border.all(color: ChillGoColors.surface, width: 2),
             ),
             child: const Icon(
               Icons.groups,
               color: ChillGoColors.coral,
-              size: 28,
+              size: 36,
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 18),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -401,12 +366,12 @@ class _CrewHeader extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Created ${_formatCreatedDate(crew.createdAt)}',
-                  style: const TextStyle(
-                    color: ChillGoColors.inkMuted,
-                    fontSize: 12,
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: _MemberCountChip(count: memberCount),
                   ),
                 ),
               ],
@@ -416,13 +381,40 @@ class _CrewHeader extends StatelessWidget {
       ),
     );
   }
+}
 
-  String _formatCreatedDate(DateTime date) {
-    final localDate = date.toLocal();
-    return '${localDate.year}-${_twoDigits(localDate.month)}-${_twoDigits(localDate.day)}';
+class _MemberCountChip extends StatelessWidget {
+  final int count;
+
+  const _MemberCountChip({required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    final label = count == 1 ? 'member' : 'members';
+    return Container(
+      key: const Key('crew-member-count'),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: ChillGoColors.coral.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.groups, color: ChillGoColors.coral, size: 18),
+          const SizedBox(width: 7),
+          Text(
+            '$count $label',
+            style: const TextStyle(
+              color: ChillGoColors.ink,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
   }
-
-  String _twoDigits(int value) => value.toString().padLeft(2, '0');
 }
 
 class _CreateOutingButton extends StatelessWidget {
@@ -705,142 +697,75 @@ class AcceptedAvatars extends StatelessWidget {
 }
 
 class _MembersList extends StatelessWidget {
+  final List<CrewMembership> members;
   final CrewRepository repository;
   final String crewId;
+  final bool canInviteMembers;
 
-  const _MembersList({required this.repository, required this.crewId});
+  const _MembersList({
+    required this.members,
+    required this.repository,
+    required this.crewId,
+    required this.canInviteMembers,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<CrewMembership>>(
-      stream: repository.streamMembers(crewId),
-      initialData: const <CrewMembership>[],
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return _InlineMessage(message: snapshot.error.toString());
-        }
+    if (members.isEmpty && !canInviteMembers) {
+      return const _InlineMessage(message: 'No members yet.');
+    }
 
-        final members = snapshot.data ?? const <CrewMembership>[];
-        if (members.isEmpty) {
-          return const _InlineMessage(message: 'No members yet.');
-        }
+    return _MemberAvatarStrip(
+      members: _ownerFirstMembers,
+      onInvite: canInviteMembers ? () => _openInviteDialog(context) : null,
+    );
+  }
 
-        final sortedMembers = [...members]
-          ..sort(
-            (a, b) =>
-                a.role == b.role ? 0 : (a.role == CrewRole.owner ? -1 : 1),
-          );
+  List<CrewMembership> get _ownerFirstMembers => [
+    ...members,
+  ]..sort((a, b) => a.role == b.role ? 0 : (a.role == CrewRole.owner ? -1 : 1));
 
-        return _MemberAvatarStrip(members: sortedMembers);
-      },
+  void _openInviteDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (context) =>
+          _InviteMemberDialog(crewId: crewId, repository: repository),
     );
   }
 }
 
 class _MemberAvatarStrip extends StatelessWidget {
   final List<CrewMembership> members;
+  final VoidCallback? onInvite;
 
-  static const _avatarDiameter = 60.0;
-  static const _avatarSpacing = 8.0;
-  static const _allMembersControlWidth = 128.0;
-  static const _overflowControlSpacing = 12.0;
+  static const _itemSpacing = 12.0;
 
-  const _MemberAvatarStrip({required this.members});
+  const _MemberAvatarStrip({required this.members, required this.onInvite});
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final membersFitWithoutControl =
-            ((constraints.maxWidth + _avatarSpacing) /
-                    (_avatarDiameter + _avatarSpacing))
-                .floor();
-        final allMembersFit = members.length <= membersFitWithoutControl;
-        final availableAvatarWidth =
-            constraints.maxWidth -
-            _allMembersControlWidth -
-            _overflowControlSpacing;
-        final visibleMemberCount = allMembersFit
-            ? members.length
-            : availableAvatarWidth < _avatarDiameter
-            ? 0
-            : ((availableAvatarWidth + _avatarSpacing) /
-                      (_avatarDiameter + _avatarSpacing))
-                  .floor()
-                  .clamp(0, members.length);
-        final visibleMembers = members.take(visibleMemberCount).toList();
-
-        return Row(
-          children: [
-            for (var index = 0; index < visibleMembers.length; index++) ...[
-              _MemberAvatar(member: visibleMembers[index]),
-              if (index < visibleMembers.length - 1)
-                const SizedBox(width: _avatarSpacing),
-            ],
-            if (!allMembersFit) ...[
-              if (visibleMembers.isNotEmpty)
-                const SizedBox(width: _overflowControlSpacing),
-              SizedBox(
-                width: _allMembersControlWidth,
-                child: TextButton.icon(
-                  key: const Key('see-all-members-button'),
-                  onPressed: () => _showAllMembers(context, members),
-                  icon: const Icon(Icons.arrow_forward, size: 18),
-                  label: const Text('See all members'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: ChillGoColors.coral,
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                  ),
-                ),
-              ),
-            ],
+    return SingleChildScrollView(
+      key: const Key('crew-members-strip'),
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final member in members) ...[
+            _MemberAvatar(member: member),
+            const SizedBox(width: _itemSpacing),
           ],
-        );
-      },
+          if (onInvite != null) _InviteMemberControl(onPressed: onInvite!),
+        ],
+      ),
     );
   }
 }
 
-void _showAllMembers(BuildContext context, List<CrewMembership> members) {
-  showModalBottomSheet<void>(
-    context: context,
-    backgroundColor: ChillGoColors.surface,
-    builder: (context) => SafeArea(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.7,
-        ),
-        child: Column(
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(20),
-              child: Text(
-                'Members',
-                style: TextStyle(
-                  color: ChillGoColors.ink,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                itemCount: members.length,
-                itemBuilder: (context, index) =>
-                    _MemberTile(member: members[index]),
-                separatorBuilder: (context, index) => const SizedBox(height: 8),
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
 class _MemberAvatar extends StatelessWidget {
   final CrewMembership member;
+
+  static const _itemWidth = 72.0;
+  static const _avatarRadius = 30.0;
 
   const _MemberAvatar({required this.member});
 
@@ -853,121 +778,78 @@ class _MemberAvatar extends StatelessWidget {
         : 'Member';
     final hasPhoto = member.avatarUrl?.isNotEmpty == true;
 
-    return Semantics(
-      label: label,
-      child: CircleAvatar(
-        key: Key('crew-member-avatar-${member.userId}'),
-        radius: _MemberAvatarStrip._avatarDiameter / 2,
-        backgroundColor: ChillGoColors.coral,
-        backgroundImage: hasPhoto ? NetworkImage(member.avatarUrl!) : null,
-        child: hasPhoto
-            ? null
-            : Text(
-                label[0].toUpperCase(),
-                style: const TextStyle(
-                  color: ChillGoColors.ink,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-      ),
-    );
-  }
-}
-
-class _MemberTile extends StatelessWidget {
-  final CrewMembership member;
-
-  const _MemberTile({required this.member});
-
-  @override
-  Widget build(BuildContext context) {
-    final title = member.displayName.trim().isNotEmpty
-        ? member.displayName.trim()
-        : 'Member';
-    final subtitle = member.username.trim().isNotEmpty
-        ? '@${member.username.trim()}'
-        : member.userId;
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: ChillGoColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: ChillGoColors.outline),
-      ),
-      child: Row(
+    return SizedBox(
+      width: _itemWidth,
+      child: Column(
         children: [
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: ChillGoColors.coral,
-            backgroundImage: member.avatarUrl?.isNotEmpty == true
-                ? NetworkImage(member.avatarUrl!)
-                : null,
-            child: member.avatarUrl?.isNotEmpty == true
-                ? null
-                : Text(
-                    title[0].toUpperCase(),
-                    style: const TextStyle(
-                      color: ChillGoColors.ink,
-                      fontWeight: FontWeight.bold,
+          Semantics(
+            label: '$label avatar',
+            child: CircleAvatar(
+              key: Key('crew-member-avatar-${member.userId}'),
+              radius: _avatarRadius,
+              backgroundColor: ChillGoColors.coralSoft,
+              backgroundImage: hasPhoto
+                  ? NetworkImage(member.avatarUrl!)
+                  : null,
+              child: hasPhoto
+                  ? null
+                  : Text(
+                      label[0].toUpperCase(),
+                      style: const TextStyle(
+                        color: ChillGoColors.ink,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: ChillGoColors.ink,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: ChillGoColors.inkMuted,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
             ),
           ),
-          _RoleBadge(role: member.role),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: ChillGoColors.ink, fontSize: 12),
+          ),
         ],
       ),
     );
   }
 }
 
-class _RoleBadge extends StatelessWidget {
-  final CrewRole role;
+class _InviteMemberControl extends StatelessWidget {
+  final VoidCallback onPressed;
 
-  const _RoleBadge({required this.role});
+  const _InviteMemberControl({required this.onPressed});
 
   @override
   Widget build(BuildContext context) {
-    final isOwner = role == CrewRole.owner;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: isOwner ? ChillGoColors.sunshineSoft : ChillGoColors.leafSoft,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        isOwner ? 'Owner' : 'Member',
-        style: TextStyle(
-          color: isOwner ? ChillGoColors.ink : ChillGoColors.leaf,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-        ),
+    return SizedBox(
+      width: _MemberAvatar._itemWidth,
+      child: Column(
+        children: [
+          SizedBox.square(
+            dimension: _MemberAvatar._avatarRadius * 2,
+            child: OutlinedButton(
+              key: const Key('add-crew-member-button'),
+              onPressed: onPressed,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: ChillGoColors.coral,
+                padding: EdgeInsets.zero,
+                shape: const CircleBorder(),
+                side: const BorderSide(color: ChillGoColors.coral),
+              ),
+              child: const Icon(Icons.person_add_alt_1_outlined, size: 24),
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Invite',
+            maxLines: 1,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: ChillGoColors.ink, fontSize: 12),
+          ),
+        ],
       ),
     );
   }

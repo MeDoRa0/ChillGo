@@ -30,16 +30,15 @@ service cloud.firestore {
     }
 
     function isValidCrewPayload() {
-      return request.resource.data.keys().hasAll(['name', 'ownerId', 'createdAt']) &&
+      return request.resource.data.keys().hasAll(['name', 'ownerId']) &&
+        !request.resource.data.keys().hasAny(['createdAt']) &&
         isValidCrewName(request.resource.data.name) &&
-        request.resource.data.ownerId is string &&
-        request.resource.data.createdAt is timestamp;
+        request.resource.data.ownerId is string;
     }
 
     function isValidCrewUpdate() {
       return isValidCrewPayload() &&
-        request.resource.data.ownerId == resource.data.ownerId &&
-        request.resource.data.createdAt == resource.data.createdAt;
+        request.resource.data.ownerId == resource.data.ownerId;
     }
 
     function isValidMembershipPayload(membershipId) {

@@ -40,7 +40,18 @@ void main() {
       ],
     );
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
-    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(find.text('1 of 2'), findsOneWidget);
+    expect(find.text('Where are we going?'), findsOneWidget);
+    expect(find.text('Choose on map'), findsOneWidget);
+
+    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.pumpAndSettle();
+
+    expect(find.text('When?'), findsOneWidget);
+    expect(find.text('Date'), findsOneWidget);
+    expect(find.text('Time'), findsOneWidget);
 
     final formCubit = BlocProvider.of<OutingFormCubit>(
       tester.element(find.text('Share with crew')),

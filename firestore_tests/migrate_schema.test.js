@@ -1,6 +1,25 @@
 const assert = require('assert');
-const { addPhase4Defaults, fieldsChanged } = require('./migrate_schema');
+const {
+  addPhase4Defaults,
+  fieldsChanged,
+  removeDeprecatedFields,
+} = require('./migrate_schema');
 describe('Phase 4 schema migration', () => {
+  it('removes the deprecated creation timestamp only from crews', () => {
+    const crewFields = {
+      name: { stringValue: 'Weekend Hikers' },
+      ownerId: { stringValue: 'alice' },
+      createdAt: { timestampValue: '2026-07-01T00:00:00.000Z' },
+    };
+    const invitationFields = structuredClone(crewFields);
+
+    removeDeprecatedFields('crews', crewFields);
+    removeDeprecatedFields('crew_invitations', invitationFields);
+
+    assert.equal('createdAt' in crewFields, false);
+    assert.equal('createdAt' in invitationFields, true);
+  });
+
   it('backfills creator acceptance and invite defaults', () => {
     const when = new Date('2026-07-11T00:00:00Z');
     const creator = addPhase4Defaults('outing_participants', { isCreatorParticipant: { booleanValue: true } }, when);

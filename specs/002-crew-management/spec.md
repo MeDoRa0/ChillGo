@@ -124,7 +124,7 @@ As a Crew Member, I want to leave a Crew when I no longer wish to participate. A
 
 - **Crew**:
   - Represents a persistent group of users.
-  - Key attributes: `id` (unique identifier), `name` (string), `ownerId` (UID of the owner), `createdAt` (timestamp).
+  - Key attributes: `id` (unique identifier), `name` (string), `ownerId` (UID of the owner).
 - **Crew Membership**:
   - Represents a user's participation in a crew.
   - Key attributes: `id` (unique identifier), `crewId` (identifier of the Crew), `userId` (UID of the User), `role` (enum: owner, member), `joinedAt` (timestamp).

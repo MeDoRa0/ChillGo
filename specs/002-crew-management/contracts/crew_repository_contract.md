@@ -10,17 +10,15 @@ class Crew extends Equatable {
   final String id;
   final String name;
   final String ownerId;
-  final DateTime createdAt;
 
   const Crew({
     required this.id,
     required this.name,
     required this.ownerId,
-    required this.createdAt,
   });
 
   @override
-  List<Object?> get props => [id, name, ownerId, createdAt];
+  List<Object?> get props => [id, name, ownerId];
 }
 ```
 

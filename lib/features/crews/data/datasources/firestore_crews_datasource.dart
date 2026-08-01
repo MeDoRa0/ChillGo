@@ -44,11 +44,7 @@ class FirestoreCrewsDatasource {
 
     final batch = firestore.batch();
 
-    batch.set(crewRef, {
-      'name': name.trim(),
-      'ownerId': ownerId,
-      'createdAt': now,
-    });
+    batch.set(crewRef, {'name': name.trim(), 'ownerId': ownerId});
 
     batch.set(_memberships.doc(membershipId), {
       'crewId': crewId,
@@ -81,10 +77,7 @@ class FirestoreCrewsDatasource {
 
           return crewDocs
               .where((doc) => doc.exists)
-              .map(
-                (doc) =>
-                    Crew.fromMap(_withDate(doc.data(), 'createdAt'), doc.id),
-              )
+              .map((doc) => Crew.fromMap(doc.data() ?? const {}, doc.id))
               .toList();
         });
   }
@@ -98,7 +91,7 @@ class FirestoreCrewsDatasource {
   Stream<Crew?> streamCrew(String crewId) {
     return _crews.doc(crewId).snapshots().map((snap) {
       if (!snap.exists) return null;
-      return Crew.fromMap(_withDate(snap.data(), 'createdAt'), snap.id);
+      return Crew.fromMap(snap.data() ?? const {}, snap.id);
     });
   }
 

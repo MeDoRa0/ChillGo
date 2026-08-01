@@ -7,7 +7,9 @@
     "test": "firebase emulators:exec --project chillgo-61439 --config ../firebase.test.json --only firestore,storage \"node ./node_modules/mocha/bin/mocha.js rules.test.js --reporter spec --timeout 15000\"",
     "test:migration": "mocha migrate_schema.test.js --reporter spec",
     "migrate:dry-run": "node migrate_schema.js",
-    "migrate:apply": "node migrate_schema.js --apply"
+    "migrate:apply": "node migrate_schema.js --apply",
+    "migrate:crew-created-at:dry-run": "node migrate_schema.js --crew-created-at-only",
+    "migrate:crew-created-at:apply": "node migrate_schema.js --crew-created-at-only --apply"
   },
   "dependencies": {
     "@firebase/rules-unit-testing": "^3.0.2",

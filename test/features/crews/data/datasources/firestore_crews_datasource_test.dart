@@ -187,11 +187,9 @@ void main() {
       when(() => crewRef.get()).thenAnswer((_) async => crewDoc);
       when(() => crewDoc.exists).thenReturn(true);
       when(() => crewDoc.id).thenReturn('crew1');
-      when(() => crewDoc.data()).thenReturn({
-        'name': 'Weekend Hikers',
-        'ownerId': 'alice',
-        'createdAt': '2026-07-01T00:00:00Z',
-      });
+      when(
+        () => crewDoc.data(),
+      ).thenReturn({'name': 'Weekend Hikers', 'ownerId': 'alice'});
 
       final result = await datasource.streamCrewsForUser('alice').first;
 
@@ -238,16 +236,12 @@ void main() {
       when(() => secondCrewDoc.exists).thenReturn(true);
       when(() => firstCrewDoc.id).thenReturn('crew0');
       when(() => secondCrewDoc.id).thenReturn('crew1');
-      when(() => firstCrewDoc.data()).thenReturn({
-        'name': 'Crew 0',
-        'ownerId': 'alice',
-        'createdAt': '2026-07-01T00:00:00Z',
-      });
-      when(() => secondCrewDoc.data()).thenReturn({
-        'name': 'Crew 1',
-        'ownerId': 'alice',
-        'createdAt': '2026-07-01T00:00:00Z',
-      });
+      when(
+        () => firstCrewDoc.data(),
+      ).thenReturn({'name': 'Crew 0', 'ownerId': 'alice'});
+      when(
+        () => secondCrewDoc.data(),
+      ).thenReturn({'name': 'Crew 1', 'ownerId': 'alice'});
 
       final resultFuture = datasource.streamCrewsForUser('alice').first;
       await Future<void>.delayed(Duration.zero);

@@ -173,7 +173,6 @@ describe('Firebase Security Rules', () => {
       batch.set(crewDoc, {
         name: 'Weekend Hikers',
         ownerId: 'alice',
-        createdAt: new Date('2026-07-01T00:00:00Z'),
         themeColor: 'green',
       });
       batch.set(aliceMembership, {
@@ -216,6 +215,38 @@ describe('Firebase Security Rules', () => {
       }));
     });
 
+    it('rejects the deprecated crew creation timestamp', async () => {
+      const aliceDb = testEnv.authenticatedContext('alice').firestore();
+      const batch = aliceDb.batch();
+
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().collection('users').doc('alice').set({
+          username: 'alice',
+          displayName: 'Alice',
+          createdAt: new Date('2026-07-01T00:00:00Z'),
+        });
+      });
+
+      batch.set(aliceDb.collection('crews').doc('legacyCrew'), {
+        name: 'Legacy Crew',
+        ownerId: 'alice',
+        createdAt: new Date('2026-07-01T00:00:00Z'),
+      });
+      batch.set(
+        aliceDb.collection('crew_memberships').doc('legacyCrew_alice'),
+        {
+          crewId: 'legacyCrew',
+          userId: 'alice',
+          role: 'owner',
+          joinedAt: new Date('2026-07-01T00:00:00Z'),
+          username: 'alice',
+          displayName: 'Alice',
+        },
+      );
+
+      await testing.assertFails(batch.commit());
+    });
+
     it('denies standalone owner membership creation without the crew create batch', async () => {
       const aliceDb = testEnv.authenticatedContext('alice').firestore();
 
@@ -242,7 +273,6 @@ describe('Firebase Security Rules', () => {
         await adminDb.collection('crews').doc('crew1').set({
           name: 'Weekend Hikers',
           ownerId: 'alice',
-          createdAt: new Date('2026-07-01T00:00:00Z'),
         });
         await adminDb.collection('crew_memberships').doc('crew1_alice').set({
           crewId: 'crew1',
@@ -293,7 +323,6 @@ describe('Firebase Security Rules', () => {
         await adminDb.collection('crews').doc('crew1').set({
           name: 'Weekend Hikers',
           ownerId: 'alice',
-          createdAt: new Date('2026-07-01T00:00:00Z'),
         });
         await adminDb.collection('crew_memberships').doc('crew1_alice').set({
           crewId: 'crew1',
@@ -334,7 +363,6 @@ describe('Firebase Security Rules', () => {
         await adminDb.collection('crews').doc('crew1').set({
           name: 'Weekend Hikers',
           ownerId: 'alice',
-          createdAt: new Date('2026-07-01T00:00:00Z'),
         });
         await adminDb.collection('crew_memberships').doc('crew1_alice').set({
           crewId: 'crew1',
@@ -403,7 +431,6 @@ describe('Firebase Security Rules', () => {
         await adminDb.collection('crews').doc('crew1').set({
           name: 'Weekend Hikers',
           ownerId: 'alice',
-          createdAt: new Date('2026-07-01T00:00:00Z'),
         });
         await adminDb.collection('crew_memberships').doc('crew1_alice').set({
           crewId: 'crew1',
@@ -497,7 +524,6 @@ describe('Firebase Security Rules', () => {
         await adminDb.collection('crews').doc('crew1').set({
           name: 'Weekend Hikers',
           ownerId: 'alice',
-          createdAt: new Date('2026-07-01T00:00:00Z'),
         });
         await adminDb.collection('crew_memberships').doc('crew1_alice').set({
           crewId: 'crew1',
@@ -557,7 +583,6 @@ describe('Firebase Security Rules', () => {
         await adminDb.collection('crews').doc('crew1').set({
           name: 'Weekend Hikers',
           ownerId: 'alice',
-          createdAt: new Date('2026-07-01T00:00:00Z'),
         });
         await adminDb.collection('crew_memberships').doc('crew1_alice').set({
           crewId: 'crew1',
@@ -606,7 +631,6 @@ describe('Firebase Security Rules', () => {
         await adminDb.collection('crews').doc('crew1').set({
           name: 'Weekend Hikers',
           ownerId: 'alice',
-          createdAt: new Date('2026-07-01T00:00:00Z'),
         });
         await adminDb.collection('crew_memberships').doc('crew1_alice').set({
           crewId: 'crew1',
@@ -712,7 +736,6 @@ describe('Firebase Security Rules', () => {
         await adminDb.collection('crews').doc('crew1').set({
           name: 'Weekend Hikers',
           ownerId: 'alice',
-          createdAt: new Date('2026-07-01T00:00:00Z'),
         });
         await adminDb.collection('crew_memberships').doc('crew1_bob').set({
           crewId: 'crew1',
@@ -763,7 +786,7 @@ describe('Firebase Security Rules', () => {
       await testEnv.withSecurityRulesDisabled(async (context) => {
         const adminDb = context.firestore();
         await adminDb.collection('crews').doc('crew1').set({
-          name: 'Weekend Hikers', ownerId: 'alice', createdAt,
+          name: 'Weekend Hikers', ownerId: 'alice',
         });
         await adminDb.collection('crew_memberships').doc('crew1_bob').set({
           crewId: 'crew1', userId: 'bob', role: 'member', joinedAt: createdAt,
@@ -805,7 +828,6 @@ describe('Firebase Security Rules', () => {
         await adminDb.collection('crews').doc('crew1').set({
           name: 'Weekend Hikers',
           ownerId: 'alice',
-          createdAt,
         });
         await adminDb.collection('crew_memberships').doc('crew1_bob').set({
           crewId: 'crew1',
@@ -891,7 +913,6 @@ describe('Firebase Security Rules', () => {
         await adminDb.collection('crews').doc('crew1').set({
           name: 'Weekend Hikers',
           ownerId: 'alice',
-          createdAt: new Date('2026-07-01T00:00:00Z'),
         });
         await adminDb.collection('crew_memberships').doc('crew1_alice').set({
           crewId: 'crew1',
@@ -941,7 +962,7 @@ describe('Firebase Security Rules', () => {
     async function seedAgreement({ roundStatus = 'open', outingStatus = 'planning' } = {}) {
       await testEnv.withSecurityRulesDisabled(async (context) => {
         const db = context.firestore(); const now = new Date('2026-07-11T00:00:00Z');
-        await db.collection('crews').doc('crew1').set({ name:'Crew', ownerId:'alice', createdAt:now });
+        await db.collection('crews').doc('crew1').set({ name:'Crew', ownerId:'alice' });
         for (const [uid, role] of [['alice','owner'],['bob','member']]) {
           await db.collection('crew_memberships').doc(`crew1_${uid}`).set({crewId:'crew1',userId:uid,role,joinedAt:now,username:uid,displayName:uid});
           await db.collection('outing_participants').doc(`outing1_${uid}`).set({outingId:'outing1',crewId:'crew1',userId:uid,username:uid,displayName:uid,addedByUserId:'alice',addedAt:now,isCreatorParticipant:uid==='alice',attendanceStatus:'accepted',respondedAt:now});
@@ -1091,7 +1112,7 @@ describe('Firebase Security Rules', () => {
         const writes = [
           db.collection('users').doc('alice').set({username: 'alice', displayName: 'Alice', createdAt: now}),
           db.collection('users').doc('bob').set({username: 'bob', displayName: 'Bob', createdAt: now}),
-          db.collection('crews').doc('crew-chat').set({name: 'Chat Crew', ownerId: 'alice', createdAt: now}),
+          db.collection('crews').doc('crew-chat').set({name: 'Chat Crew', ownerId: 'alice'}),
           db.collection('crew_memberships').doc('crew-chat_alice').set({crewId: 'crew-chat', userId: 'alice', role: 'owner', joinedAt: now, username: 'alice', displayName: 'Alice'}),
           db.collection('crew_memberships').doc('crew-chat_bob').set({crewId: 'crew-chat', userId: 'bob', role: 'member', joinedAt: now, username: 'bob', displayName: 'Bob'}),
           db.collection('outings').doc('outing-chat').set({crewId: 'crew-chat', title: 'Chat Outing', scheduledAt: now, locationText: 'Trail', status, createdByUserId: 'alice', createdAt: now, updatedAt: now, agreementRoundSequence: 0}),
@@ -1294,7 +1315,7 @@ describe('Firebase Security Rules', () => {
             username: 'bob', displayName: 'Bob', createdAt: now,
           }),
           db.collection('crews').doc('crew-live').set({
-            name: 'Live Crew', ownerId: 'alice', createdAt: now,
+            name: 'Live Crew', ownerId: 'alice',
           }),
           db.collection('crew_memberships').doc('crew-live_alice').set({
             crewId: 'crew-live', userId: 'alice', role: 'owner', joinedAt: now,

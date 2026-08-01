@@ -14,7 +14,6 @@ Represents a persistent coordination group.
 | `id` | String | Unique identifier |
 | `name` | String | Crew name (3 to 50 chars, trimmed) |
 | `ownerId` | String | UID of the user who owns this crew |
-| `createdAt` | String | ISO 8601 UTC timestamp of creation |
 
 #### Validation Rules:
 - `name` MUST be between 3 and 50 characters.

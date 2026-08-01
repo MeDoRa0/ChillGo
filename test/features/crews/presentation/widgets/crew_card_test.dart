@@ -24,12 +24,7 @@ void main() {
   late MockCrewRepository crewRepository;
   late MockOutingRepository outingRepository;
 
-  final crew = Crew(
-    id: 'crew1',
-    name: 'Weekend Hikers',
-    ownerId: 'owner1',
-    createdAt: DateTime.utc(2026, 7, 1),
-  );
+  final crew = Crew(id: 'crew1', name: 'Weekend Hikers', ownerId: 'owner1');
 
   final members = List.generate(
     6,
@@ -128,7 +123,6 @@ void main() {
       id: crew.id,
       name: 'Renamed hikers',
       ownerId: crew.ownerId,
-      createdAt: crew.createdAt,
     );
     await tester.pumpWidget(
       MaterialApp(

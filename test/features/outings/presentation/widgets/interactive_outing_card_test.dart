@@ -20,6 +20,41 @@ import 'package:chillgo/features/outings/domain/entities/outing_status.dart';
 class MockAgreementRepository extends Mock implements AgreementRepository {}
 
 void main() {
+  testWidgets('card presents the hybrid summary at compact mobile width', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(320, 700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final outing = FakeOutingRepository.sampleOuting(
+      status: OutingStatus.confirmed,
+    ).copyWith(scheduledAt: DateTime(2030, 8, 1, 2, 3));
+    final creator = FakeOutingRepository.sampleParticipant();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: InteractiveOutingCard(
+            outing: outing,
+            outingRepository: FakeOutingRepository(
+              detail: OutingDetail(outing: outing, participants: [creator]),
+            ),
+            currentUserId: 'user-1',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('outing-date-rail')), findsOneWidget);
+    expect(find.byKey(const Key('outing-location-panel')), findsOneWidget);
+    expect(find.text('01'), findsOneWidget);
+    expect(find.text('AUG'), findsOneWidget);
+    expect(find.text('2:03 AM'), findsOneWidget);
+    expect(find.text('Bob’s outing'), findsOneWidget);
+    expect(find.text('UPCOMING'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Live Meetup entry is Meeting-only and Accepted-only', (
     tester,
   ) async {

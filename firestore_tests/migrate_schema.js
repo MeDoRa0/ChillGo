@@ -2,6 +2,7 @@ const path = require('path');
 
 const projectId = 'chillgo-61439';
 const shouldApply = process.argv.includes('--apply');
+const crewCreatedAtOnly = process.argv.includes('--crew-created-at-only');
 const firebaseToolsRoot = path.join(
   process.env.APPDATA,
   'npm',
@@ -21,7 +22,7 @@ function loadFirebaseCli() {
 
 const collectionDates = new Map([
   ['users', ['createdAt']],
-  ['crews', ['createdAt']],
+  ['crews', []],
   ['crew_memberships', ['joinedAt']],
   ['crew_invitations', ['createdAt']],
   [
@@ -96,15 +97,23 @@ function addPhase4Defaults(collectionName, fields, migrationTime = new Date()) {
   return fields;
 }
 
+function removeDeprecatedFields(collectionName, fields) {
+  if (collectionName === 'crews') delete fields.createdAt;
+  return fields;
+}
+
 async function collectMigrations() {
-  const users = await readCollection('users');
+  const users = crewCreatedAtOnly ? [] : await readCollection('users');
   const profiles = new Map(
     users.map((document) => [document.name.split('/').pop(), document.fields]),
   );
   const migrations = [];
   const counts = {};
+  const selectedCollections = crewCreatedAtOnly
+    ? new Map([['crews', []]])
+    : collectionDates;
 
-  for (const [collectionName, dateFields] of collectionDates) {
+  for (const [collectionName, dateFields] of selectedCollections) {
     const documents = collectionName === 'users' ? users : await readCollection(collectionName);
     let changedDocuments = 0;
     for (const document of documents) {
@@ -113,6 +122,7 @@ async function collectMigrations() {
         synchronizeCachedProfile(fields, profiles);
       }
       addPhase4Defaults(collectionName, fields);
+      removeDeprecatedFields(collectionName, fields);
       if (fieldsChanged(document.fields, fields)) {
         migrations.push({ document, fields });
         changedDocuments++;
@@ -163,4 +173,9 @@ if (require.main === module) {
     process.exitCode = 1;
   });
 }
-module.exports = { timestampFields, fieldsChanged, addPhase4Defaults };
+module.exports = {
+  timestampFields,
+  fieldsChanged,
+  addPhase4Defaults,
+  removeDeprecatedFields,
+};

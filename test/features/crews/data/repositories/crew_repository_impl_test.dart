@@ -28,12 +28,7 @@ CrewRepositoryImpl _makeRepo(
   transitionService: transitionService,
 );
 
-final _fakeCrew = Crew(
-  id: 'crew1',
-  name: 'Weekend Hikers',
-  ownerId: _uid,
-  createdAt: DateTime.utc(2026, 7, 1),
-);
+final _fakeCrew = Crew(id: 'crew1', name: 'Weekend Hikers', ownerId: _uid);
 
 final _fakeMembership = CrewMembership(
   id: 'crew1_$_uid',
