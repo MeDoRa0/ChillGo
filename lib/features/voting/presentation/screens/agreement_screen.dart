@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/presentation/widgets/responsive_content.dart';
+import '../../../../core/presentation/widgets/shimmer_loading.dart';
 import '../../../../core/presentation/widgets/sunshine_background.dart';
 import '../../../authentication/domain/repositories/auth_repository.dart';
 import '../../../outings/domain/entities/outing_status.dart';
@@ -42,7 +43,7 @@ class _AgreementBody extends StatelessWidget {
           builder: (context, outingSnapshot) {
             final outing = outingSnapshot.data;
             if (outing == null) {
-              return const Center(child: CircularProgressIndicator());
+              return const ShimmerListPlaceholder(itemCount: 3);
             }
             final uid = sl<AuthRepository>().currentCredentials?.uid ?? '';
             return BlocListener<AgreementCommandCubit, AgreementCommandState>(

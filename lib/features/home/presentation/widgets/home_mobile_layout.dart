@@ -10,6 +10,7 @@ import 'package:chillgo/features/crews/presentation/blocs/crews_list/crews_list_
 import 'package:chillgo/features/crews/presentation/widgets/crew_card.dart';
 import 'package:chillgo/core/presentation/theme/chillgo_colors.dart';
 import 'package:chillgo/core/presentation/widgets/responsive_content.dart';
+import 'package:chillgo/core/presentation/widgets/shimmer_loading.dart';
 import 'package:chillgo/core/presentation/widgets/sunshine_background.dart';
 import 'sign_out_icon_button.dart';
 import 'user_identity_summary.dart';
@@ -147,11 +148,9 @@ class HomeMobileLayout extends StatelessWidget {
           },
           builder: (context, state) {
             if (state is CrewsListLoading) {
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(24),
-                  child: CircularProgressIndicator(),
-                ),
+              return const ShimmerListSectionPlaceholder(
+                itemCount: 2,
+                padding: EdgeInsets.zero,
               );
             }
 
@@ -470,13 +469,11 @@ class _CreateCrewDialogState extends State<_CreateCrewDialog> {
                     suffixIcon: _isSearching
                         ? const Padding(
                             padding: EdgeInsets.all(12),
-                            child: SizedBox(
+                            child: ShimmerBox(
                               width: 18,
                               height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: ChillGoColors.coral,
-                              ),
+                              shape: BoxShape.circle,
+                              semanticLabel: 'Searching usernames',
                             ),
                           )
                         : null,

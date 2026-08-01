@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/presentation/widgets/shimmer_loading.dart';
 import '../cubit/meetup_point_editor/meetup_point_editor_cubit.dart';
 import '../../domain/services/map_provider.dart';
 
@@ -87,7 +88,11 @@ class _MeetupPointEditorState extends State<MeetupPointEditor> {
                 widget.state.status == MeetupPointEditorStatus.resolving)
               const Padding(
                 padding: EdgeInsets.only(top: 12),
-                child: LinearProgressIndicator(),
+                child: ShimmerBox(
+                  height: 4,
+                  borderRadius: 2,
+                  semanticLabel: 'Searching meetup points',
+                ),
               ),
             if (widget.state.results.isNotEmpty) ...[
               const SizedBox(height: 8),

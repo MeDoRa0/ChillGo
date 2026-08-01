@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/presentation/widgets/shimmer_loading.dart';
 import '../cubit/location_sharing/location_sharing_cubit.dart';
 
 class LocationSharingControl extends StatelessWidget {
@@ -64,7 +65,11 @@ class LocationSharingControl extends StatelessWidget {
               ),
             ),
           if (state.status == LocationSharingStatus.starting)
-            const LinearProgressIndicator(),
+            const ShimmerBox(
+              height: 4,
+              borderRadius: 2,
+              semanticLabel: 'Starting location sharing',
+            ),
           if (state.status == LocationSharingStatus.paused)
             const Text('Paused while ChillGo is not in the foreground.'),
           if (state.failure != null)

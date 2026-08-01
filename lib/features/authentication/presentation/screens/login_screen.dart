@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:chillgo/core/di/injection_container.dart';
 import 'package:chillgo/core/presentation/theme/chillgo_colors.dart';
 import 'package:chillgo/core/presentation/widgets/responsive_content.dart';
+import 'package:chillgo/core/presentation/widgets/shimmer_loading.dart';
 import 'package:chillgo/core/presentation/widgets/sunshine_background.dart';
 import 'package:chillgo/features/authentication/domain/repositories/auth_repository.dart';
 
@@ -129,7 +130,11 @@ class _LoginScreenState extends State<LoginScreen>
                         const SizedBox(height: 16),
                       ],
                       if (_isLoading)
-                        const Center(child: CircularProgressIndicator())
+                        const ShimmerBox(
+                          height: 48,
+                          borderRadius: 24,
+                          semanticLabel: 'Signing in',
+                        )
                       else ...[
                         ElevatedButton.icon(
                           onPressed: _handleGoogleSignIn,

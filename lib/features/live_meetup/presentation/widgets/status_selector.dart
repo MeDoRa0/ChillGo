@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/presentation/widgets/shimmer_loading.dart';
 import '../../domain/entities/live_meetup_status.dart';
 import '../cubit/live_meetup/live_meetup_cubit.dart';
 
@@ -40,7 +41,11 @@ class StatusSelector extends StatelessWidget {
       if (mutationState == StatusMutationState.submitting)
         const Padding(
           padding: EdgeInsets.only(top: 8),
-          child: LinearProgressIndicator(),
+          child: ShimmerBox(
+            height: 4,
+            borderRadius: 2,
+            semanticLabel: 'Updating arrival status',
+          ),
         ),
       if (mutationState == StatusMutationState.succeeded)
         const Text(

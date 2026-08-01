@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/presentation/widgets/app_back_button.dart';
 import '../../../../core/presentation/widgets/responsive_content.dart';
+import '../../../../core/presentation/widgets/shimmer_loading.dart';
 import '../../../../core/presentation/widgets/sunshine_background.dart';
 import '../../../voting/domain/repositories/agreement_repository.dart';
 import '../../../authentication/domain/repositories/auth_repository.dart';
@@ -43,7 +44,7 @@ class OutingsListScreen extends StatelessWidget {
             child: BlocBuilder<OutingsListCubit, OutingsListState>(
               builder: (context, state) {
                 if (state is OutingsListLoading) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const ShimmerListPlaceholder(itemCount: 3);
                 }
                 if (state is OutingsListError) {
                   return _Message(state.message);

@@ -7,6 +7,7 @@ import 'package:chillgo/features/voting/domain/repositories/agreement_repository
 import 'package:flutter/material.dart';
 import 'package:chillgo/core/presentation/theme/chillgo_colors.dart';
 import 'package:chillgo/core/presentation/widgets/responsive_content.dart';
+import 'package:chillgo/core/presentation/widgets/shimmer_loading.dart';
 import 'package:chillgo/core/presentation/widgets/sunshine_background.dart';
 
 class OutingReviewScreen extends StatelessWidget {
@@ -33,9 +34,7 @@ class OutingReviewScreen extends StatelessWidget {
               }
               final detail = snapshot.data;
               if (detail == null) {
-                return const Center(
-                  child: CircularProgressIndicator(color: ChillGoColors.coral),
-                );
+                return const ShimmerListPlaceholder(itemCount: 3);
               }
               return OutingReviewCard(
                 outing: detail.outing,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/presentation/widgets/responsive_content.dart';
+import '../../../../core/presentation/widgets/shimmer_loading.dart';
 import '../../../../core/presentation/widgets/sunshine_background.dart';
 import '../../../authentication/domain/repositories/auth_repository.dart';
 import '../../../../core/di/injection_container.dart';
@@ -27,7 +28,7 @@ class OutingChatScreen extends StatelessWidget {
           builder: (context, state) {
             if (state.status == OutingChatStatus.initial ||
                 state.status == OutingChatStatus.loading) {
-              return const Center(child: CircularProgressIndicator());
+              return const ShimmerListPlaceholder(itemCount: 5);
             }
             if (state.status == OutingChatStatus.unavailable) {
               return Center(

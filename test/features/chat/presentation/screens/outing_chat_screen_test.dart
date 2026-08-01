@@ -1,6 +1,7 @@
 import 'package:chillgo/features/chat/domain/entities/chat_command.dart';
 import 'package:chillgo/features/chat/presentation/cubit/outing_chat/outing_chat_cubit.dart';
 import 'package:chillgo/features/chat/presentation/screens/outing_chat_screen.dart';
+import 'package:chillgo/core/presentation/widgets/shimmer_loading.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -44,7 +45,7 @@ void main() {
       tester,
       const OutingChatState(status: OutingChatStatus.loading),
     );
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(ShimmerListPlaceholder), findsOneWidget);
     cubit.setState(
       const OutingChatState(status: OutingChatStatus.ready, isWritable: true),
     );

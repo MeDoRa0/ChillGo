@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../../../../core/presentation/widgets/shimmer_loading.dart';
 import '../../../live_meetup/domain/entities/geo_coordinate.dart';
 import '../../../live_meetup/domain/repositories/live_meetup_repository.dart';
 import '../../../live_meetup/domain/services/map_provider.dart';
@@ -83,7 +84,11 @@ class _OutingLocationPickerState extends State<OutingLocationPicker> {
         if (_isSearching)
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16),
-            child: LinearProgressIndicator(),
+            child: ShimmerBox(
+              height: 4,
+              borderRadius: 2,
+              semanticLabel: 'Searching locations',
+            ),
           ),
         if (_searchResults.isNotEmpty)
           SizedBox(
@@ -121,10 +126,11 @@ class _OutingLocationPickerState extends State<OutingLocationPicker> {
                 ? null
                 : _confirmSelection,
             icon: _isResolving
-                ? const SizedBox(
+                ? const ShimmerBox(
                     width: 18,
                     height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    shape: BoxShape.circle,
+                    semanticLabel: 'Resolving location',
                   )
                 : const Icon(Icons.check),
             label: Text(_locationLabel ?? 'Choose a point on the map'),

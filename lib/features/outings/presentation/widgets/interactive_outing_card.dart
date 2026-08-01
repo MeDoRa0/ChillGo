@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:chillgo/core/presentation/widgets/shimmer_loading.dart';
 import 'package:chillgo/core/presentation/theme/chillgo_colors.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -324,7 +325,11 @@ class _OutingReviewCardState extends State<OutingReviewCard> {
                   ),
                   if (_busy) ...[
                     const SizedBox(height: 20),
-                    const LinearProgressIndicator(),
+                    const ShimmerBox(
+                      height: 4,
+                      borderRadius: 2,
+                      semanticLabel: 'Updating outing',
+                    ),
                   ],
                 ],
               ),

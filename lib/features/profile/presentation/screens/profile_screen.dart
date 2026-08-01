@@ -6,6 +6,7 @@ import '../../../../core/di/injection_container.dart';
 import '../../../../core/presentation/widgets/app_back_button.dart';
 import '../../../../core/presentation/theme/chillgo_colors.dart';
 import '../../../../core/presentation/widgets/responsive_content.dart';
+import '../../../../core/presentation/widgets/shimmer_loading.dart';
 import '../../../../core/presentation/widgets/sunshine_background.dart';
 import '../../../authentication/presentation/blocs/auth/auth_bloc.dart';
 import '../../../authentication/presentation/blocs/auth/auth_state.dart';
@@ -24,9 +25,7 @@ class ProfileScreen extends StatelessWidget {
         final uid = authState.credentials?.uid;
 
         if (uid == null) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
+          return const Scaffold(body: ShimmerListPlaceholder(itemCount: 3));
         }
 
         return BlocProvider(
@@ -72,7 +71,7 @@ class _ProfileViewState extends State<_ProfileView> {
             builder: (context, state) {
               if (state is ProfileInitial ||
                   state is ProfileLoading && state is! ProfileLoaded) {
-                return const Center(child: CircularProgressIndicator());
+                return const ShimmerListPlaceholder(itemCount: 3);
               }
 
               final loadedState = state is ProfileLoaded ? state : null;
@@ -123,11 +122,11 @@ class _ProfileViewState extends State<_ProfileView> {
                                   ? null
                                   : () => _showAvatarSourceSheet(context),
                               icon: _isPickingAvatar
-                                  ? const SizedBox.square(
-                                      dimension: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
+                                  ? const ShimmerBox(
+                                      width: 18,
+                                      height: 18,
+                                      shape: BoxShape.circle,
+                                      semanticLabel: 'Updating avatar',
                                     )
                                   : const Icon(Icons.photo_camera),
                             ),

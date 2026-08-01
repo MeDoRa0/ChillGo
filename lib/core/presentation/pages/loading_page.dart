@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/chillgo_colors.dart';
+import '../widgets/shimmer_loading.dart';
 import '../widgets/sunshine_background.dart';
 
 class LoadingScreen extends StatelessWidget {
@@ -14,16 +15,11 @@ class LoadingScreen extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: const BoxDecoration(
-                  color: ChillGoColors.sunshineSoft,
-                  shape: BoxShape.circle,
-                ),
-                child: const SizedBox.square(
-                  dimension: 48,
-                  child: CircularProgressIndicator(strokeWidth: 3),
-                ),
+              const ShimmerBox(
+                width: 96,
+                height: 96,
+                shape: BoxShape.circle,
+                semanticLabel: 'Getting ChillGo ready',
               ),
               const SizedBox(height: 24),
               const Text(

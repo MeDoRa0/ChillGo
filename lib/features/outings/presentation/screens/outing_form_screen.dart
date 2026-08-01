@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/presentation/widgets/app_back_button.dart';
 import '../../../../core/presentation/widgets/responsive_content.dart';
+import '../../../../core/presentation/widgets/shimmer_loading.dart';
 import '../../../../core/presentation/widgets/sunshine_background.dart';
 import '../../../live_meetup/domain/services/map_provider.dart';
 import '../../domain/entities/outing.dart';
@@ -90,17 +91,17 @@ class _OutingFormScreenState extends State<OutingFormScreen> {
                     padding: const EdgeInsets.all(16),
                     children: [
                       if (_isLoadingOuting)
-                        const LinearProgressIndicator(
-                          color: ChillGoColors.coral,
+                        const ShimmerBox(
+                          height: 4,
+                          borderRadius: 2,
+                          semanticLabel: 'Loading outing',
                         ),
                       if (_loadError != null)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 12),
                           child: Text(
                             _loadError!,
-                            style: const TextStyle(
-                              color: ChillGoColors.danger,
-                            ),
+                            style: const TextStyle(color: ChillGoColors.danger),
                           ),
                         ),
                       if (_isEditMode &&
@@ -181,12 +182,11 @@ class _OutingFormScreenState extends State<OutingFormScreen> {
                           ),
                         ),
                         child: isSubmitting
-                            ? const SizedBox(
+                            ? const ShimmerBox(
                                 width: 20,
                                 height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
+                                shape: BoxShape.circle,
+                                semanticLabel: 'Saving outing',
                               )
                             : Text(
                                 _isEditMode

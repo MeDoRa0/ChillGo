@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/presentation/widgets/app_back_button.dart';
 import '../../../../core/presentation/widgets/responsive_content.dart';
+import '../../../../core/presentation/widgets/shimmer_loading.dart';
 import '../../../../core/presentation/widgets/sunshine_background.dart';
 import '../../../authentication/domain/repositories/auth_repository.dart';
 import '../../../../core/di/injection_container.dart';
@@ -44,7 +45,7 @@ class LiveMeetupScreen extends StatelessWidget {
             builder: (context, state) {
               if (state.status == LiveMeetupViewStatus.initial ||
                   state.status == LiveMeetupViewStatus.loading) {
-                return const Center(child: CircularProgressIndicator());
+                return const ShimmerListPlaceholder(itemCount: 4);
               }
               if (state.status == LiveMeetupViewStatus.accessLost) {
                 return const Center(

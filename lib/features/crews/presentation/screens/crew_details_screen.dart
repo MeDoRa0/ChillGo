@@ -13,6 +13,7 @@ import 'package:chillgo/features/authentication/domain/repositories/auth_reposit
 import 'package:chillgo/core/presentation/widgets/app_back_button.dart';
 import 'package:chillgo/core/presentation/theme/chillgo_colors.dart';
 import 'package:chillgo/core/presentation/widgets/responsive_content.dart';
+import 'package:chillgo/core/presentation/widgets/shimmer_loading.dart';
 import 'package:chillgo/core/presentation/widgets/sunshine_background.dart';
 import 'package:go_router/go_router.dart';
 
@@ -38,9 +39,7 @@ class CrewDetailsScreen extends StatelessWidget {
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting &&
                   !snapshot.hasData) {
-                return const Center(
-                  child: CircularProgressIndicator(color: ChillGoColors.coral),
-                );
+                return const ShimmerListPlaceholder(itemCount: 3);
               }
 
               if (snapshot.hasError) {
@@ -91,11 +90,7 @@ class _CrewDetailsContent extends StatelessWidget {
   Widget _compactLayout() {
     return ListView(
       padding: const EdgeInsets.all(16),
-      children: [
-        _planPanel(),
-        const SizedBox(height: 24),
-        _membersPanel(),
-      ],
+      children: [_planPanel(), const SizedBox(height: 24), _membersPanel()],
     );
   }
 
@@ -291,13 +286,11 @@ class _InviteMemberDialogState extends State<_InviteMemberDialog> {
               suffixIcon: _isSearching
                   ? const Padding(
                       padding: EdgeInsets.all(12),
-                      child: SizedBox(
+                      child: ShimmerBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: ChillGoColors.coral,
-                        ),
+                        shape: BoxShape.circle,
+                        semanticLabel: 'Searching usernames',
                       ),
                     )
                   : null,
@@ -352,13 +345,11 @@ class _InviteMemberDialogState extends State<_InviteMemberDialog> {
             foregroundColor: Colors.white,
           ),
           child: _isSubmitting
-              ? const SizedBox(
+              ? const ShimmerBox(
                   width: 18,
                   height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: ChillGoColors.ink,
-                  ),
+                  shape: BoxShape.circle,
+                  semanticLabel: 'Sending invitation',
                 )
               : const Text('Send invite'),
         ),
@@ -967,9 +958,7 @@ class _RoleBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: isOwner
-            ? ChillGoColors.sunshineSoft
-            : ChillGoColors.leafSoft,
+        color: isOwner ? ChillGoColors.sunshineSoft : ChillGoColors.leafSoft,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(

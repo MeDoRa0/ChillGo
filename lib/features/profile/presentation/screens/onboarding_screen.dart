@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:chillgo/core/di/injection_container.dart';
 import 'package:chillgo/core/presentation/theme/chillgo_colors.dart';
 import 'package:chillgo/core/presentation/widgets/responsive_content.dart';
+import 'package:chillgo/core/presentation/widgets/shimmer_loading.dart';
 import 'package:chillgo/core/presentation/widgets/sunshine_background.dart';
 import 'package:chillgo/features/authentication/presentation/blocs/auth/auth_bloc.dart';
 import 'package:chillgo/features/authentication/presentation/blocs/auth/auth_state.dart';
@@ -80,11 +81,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
         if (uid == null) {
           if (kDebugMode) {
-            debugPrint('[OnboardingScreen] uid is null, showing spinner');
+            debugPrint('[OnboardingScreen] uid is null, showing loader');
           }
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
+          return const Scaffold(body: ShimmerListPlaceholder(itemCount: 3));
         }
 
         return BlocProvider(
@@ -186,7 +185,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
             const SizedBox(height: 28),
             if (isLoading)
-              const Center(child: CircularProgressIndicator())
+              const ShimmerBox(
+                height: 48,
+                borderRadius: 24,
+                semanticLabel: 'Creating profile',
+              )
             else
               FilledButton(
                 onPressed: () => _submitForm(uid, cubit),

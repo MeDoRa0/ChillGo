@@ -5,6 +5,7 @@ import '../../../../core/di/injection_container.dart';
 import '../../../../core/presentation/widgets/app_back_button.dart';
 import '../../../../core/presentation/theme/chillgo_colors.dart';
 import '../../../../core/presentation/widgets/responsive_content.dart';
+import '../../../../core/presentation/widgets/shimmer_loading.dart';
 import '../../../../core/presentation/widgets/sunshine_background.dart';
 import '../../../notifications/domain/entities/outing_review_notification.dart';
 import '../../../notifications/domain/repositories/outing_review_notification_repository.dart';
@@ -52,9 +53,7 @@ class _InvitationsView extends StatelessWidget {
             builder: (context, state) {
               if (state is InvitationsLoading ||
                   state is InvitationActionInProgress) {
-                return const Center(
-                  child: CircularProgressIndicator(color: ChillGoColors.coral),
-                );
+                return const ShimmerListPlaceholder(itemCount: 3);
               }
 
               if (state is InvitationsError) {
