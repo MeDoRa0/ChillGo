@@ -32,7 +32,7 @@ void main() {
   });
 
   test(
-    'OutingsListCubit keeps recent outings visible and signals after 12 hours',
+    'OutingsListCubit hides outings after 6 hours and cleans up after 12',
     () async {
       final now = DateTime.now();
       final outdatedOuting = FakeOutingRepository.sampleOuting(
@@ -56,7 +56,7 @@ void main() {
           isA<OutingsListLoaded>().having(
             (state) => state.outings.map((outing) => outing.id),
             'outing ids',
-            ['recent', 'upcoming'],
+            ['upcoming'],
           ),
         ),
       );

@@ -66,4 +66,56 @@ void main() {
 
     expect(find.text('Crew details'), findsOneWidget);
   });
+
+  testWidgets('confirms cancellation without asking for a reason', (
+    tester,
+  ) async {
+    final outing = FakeOutingRepository.sampleOuting();
+    final repository = FakeOutingRepository(
+      detail: OutingDetail(outing: outing, participants: const []),
+    );
+    sl.registerSingleton<OutingRepository>(repository);
+    final router = GoRouter(
+      initialLocation: '/edit',
+      routes: [
+        GoRoute(
+          path: '/edit',
+          builder: (_, _) =>
+              const OutingFormScreen(crewId: 'crew-1', outingId: 'outing-1'),
+        ),
+        GoRoute(
+          path: '/crews/:crewId/outings',
+          builder: (_, _) => const Scaffold(body: Text('Outings')),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+
+    final cancelButton = find.byKey(const Key('cancel-outing-button'));
+    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.pumpAndSettle();
+    await tester.tap(cancelButton);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Are you sure you want to cancel this outing?'),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.byType(TextField),
+      ),
+      findsNothing,
+    );
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Cancel outing'));
+    await tester.pumpAndSettle();
+
+    expect(repository.cancelledOutingId, outing.id);
+    expect(repository.cancelledReason, defaultOutingCancellationReason);
+    expect(find.text('Outings'), findsOneWidget);
+  });
 }

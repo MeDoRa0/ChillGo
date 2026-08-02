@@ -17,6 +17,7 @@ import '../../domain/entities/outing.dart';
 import '../../domain/entities/outing_status.dart';
 import '../../domain/entities/outing_participant.dart';
 import '../../domain/repositories/outing_repository.dart';
+import 'outing_cancellation_confirmation.dart';
 
 part 'interactive_outing_card/card_surface.dart';
 part 'interactive_outing_card/date_rail.dart';

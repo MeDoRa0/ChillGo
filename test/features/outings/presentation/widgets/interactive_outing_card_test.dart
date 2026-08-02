@@ -295,7 +295,9 @@ void main() {
     expect(find.byTooltip('Suggest new time'), findsNothing);
   });
 
-  testWidgets('creator can cancel an outing with a reason', (tester) async {
+  testWidgets('creator can confirm outing cancellation without a reason', (
+    tester,
+  ) async {
     final outing = FakeOutingRepository.sampleOuting();
     final repository = FakeOutingRepository(
       detail: OutingDetail(outing: outing, participants: const []),
@@ -316,12 +318,45 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Cancel outing'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), 'Bad weather');
+    expect(
+      find.text('Are you sure you want to cancel this outing?'),
+      findsOneWidget,
+    );
+    expect(find.byType(TextField), findsNothing);
     await tester.tap(find.widgetWithText(FilledButton, 'Cancel outing'));
     await tester.pumpAndSettle();
 
     expect(repository.cancelledOutingId, outing.id);
-    expect(repository.cancelledReason, 'Bad weather');
+    expect(repository.cancelledReason, defaultOutingCancellationReason);
+  });
+
+  testWidgets('creator can keep an outing from the cancellation confirmation', (
+    tester,
+  ) async {
+    final outing = FakeOutingRepository.sampleOuting();
+    final repository = FakeOutingRepository(
+      detail: OutingDetail(outing: outing, participants: const []),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: InteractiveOutingCard(
+            outing: outing,
+            outingRepository: repository,
+            currentUserId: 'user-1',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ValueKey('outing-card-${outing.id}')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Cancel outing'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Keep outing'));
+    await tester.pumpAndSettle();
+
+    expect(repository.cancelledOutingId, isNull);
   });
 
   testWidgets('creator can open date and location editing', (tester) async {

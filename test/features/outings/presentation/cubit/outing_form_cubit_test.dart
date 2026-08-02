@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:chillgo/features/outings/domain/entities/outing_status.dart';
+import 'package:chillgo/features/outings/domain/repositories/outing_repository.dart';
 import 'package:chillgo/features/outings/presentation/cubit/outing_form/outing_form_cubit.dart';
 
 import '../../outing_repository_fake.dart';
@@ -57,10 +58,10 @@ void main() {
       expect(repository.updatedScheduledAt, scheduledAt);
       expect(repository.updatedLocationText, 'Park');
 
-      await cubit.cancelOuting(outingId: 'outing-1', reason: 'Bad weather');
+      await cubit.cancelOuting(outingId: 'outing-1');
       expect(cubit.state, const OutingFormSuccess('outing-1'));
       expect(repository.cancelledOutingId, 'outing-1');
-      expect(repository.cancelledReason, 'Bad weather');
+      expect(repository.cancelledReason, defaultOutingCancellationReason);
       await cubit.close();
     });
   });

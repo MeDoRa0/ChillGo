@@ -15,6 +15,7 @@ import '../../../live_meetup/domain/services/map_provider.dart';
 import '../../domain/entities/outing.dart';
 import '../../domain/repositories/outing_repository.dart';
 import '../cubit/outing_form/outing_form_cubit.dart';
+import '../widgets/outing_cancellation_confirmation.dart';
 import '../widgets/outing_location_picker.dart';
 
 part '../widgets/outing_form_screen/loading_indicator.dart';
@@ -173,6 +174,7 @@ class _OutingFormScreenState extends State<OutingFormScreen> {
       if (_isEditMode && outing != null && outing.status.isCancellable) ...[
         const SizedBox(height: 18),
         OutlinedButton(
+          key: const Key('cancel-outing-button'),
           onPressed: isSubmitting ? null : () => _showCancelDialog(context),
           child: const Text('Cancel outing'),
         ),
@@ -277,38 +279,9 @@ class _OutingFormScreenState extends State<OutingFormScreen> {
   }
 
   Future<void> _showCancelDialog(BuildContext context) async {
-    final controller = TextEditingController();
-    final reason = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Cancel outing'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            decoration: const InputDecoration(labelText: 'Reason'),
-            maxLines: 3,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Keep outing'),
-            ),
-            FilledButton(
-              onPressed: () =>
-                  Navigator.of(dialogContext).pop(controller.text.trim()),
-              child: const Text('Cancel outing'),
-            ),
-          ],
-        );
-      },
-    );
-    controller.dispose();
-    if (reason == null || reason.isEmpty || !context.mounted) return;
-    context.read<OutingFormCubit>().cancelOuting(
-      outingId: widget.outingId!,
-      reason: reason,
-    );
+    final confirmed = await confirmOutingCancellation(context);
+    if (!confirmed || !context.mounted) return;
+    context.read<OutingFormCubit>().cancelOuting(outingId: widget.outingId!);
   }
 }
 

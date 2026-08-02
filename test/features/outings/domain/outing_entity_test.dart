@@ -40,7 +40,7 @@ void main() {
       expect(updated.id, outing.id);
     });
 
-    test('keeps an outing current through its cleanup boundary', () {
+    test('keeps an outing current for six hours after its schedule', () {
       final now = DateTime.utc(2030, 1, 1, 10);
       final outing = Outing.fromMap({
         'crewId': 'crew-1',
@@ -68,7 +68,9 @@ void main() {
       expect(futureOuting.isCurrentCrewPlanAt(now), isTrue);
       expect(
         outing
-            .copyWith(scheduledAt: now.subtract(outingCleanupDelay))
+            .copyWith(
+              scheduledAt: now.subtract(outingCrewPlanVisibilityDelay),
+            )
             .isCurrentCrewPlanAt(now),
         isFalse,
       );

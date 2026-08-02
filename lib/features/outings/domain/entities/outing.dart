@@ -1,6 +1,7 @@
 import 'outing_status.dart';
 
 const outingCleanupDelay = Duration(hours: 12);
+const outingCrewPlanVisibilityDelay = Duration(hours: 6);
 
 class Outing {
   final String id;
@@ -45,7 +46,8 @@ class Outing {
       !scheduledAt.add(outingCleanupDelay).isAfter(now);
 
   bool isCurrentCrewPlanAt(DateTime now) =>
-      !status.isHistorical && !isCleanupEligibleAt(now);
+      !status.isHistorical &&
+      scheduledAt.add(outingCrewPlanVisibilityDelay).isAfter(now);
 
   Map<String, dynamic> toMap() {
     return {

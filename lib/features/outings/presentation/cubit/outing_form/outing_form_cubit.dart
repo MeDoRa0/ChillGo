@@ -87,15 +87,12 @@ class OutingFormCubit extends Cubit<OutingFormState> {
     }
   }
 
-  Future<void> cancelOuting({
-    required String outingId,
-    required String reason,
-  }) async {
+  Future<void> cancelOuting({required String outingId}) async {
     emit(const OutingFormSubmitting());
     try {
       await outingRepository.cancelOuting(
         outingId: outingId,
-        cancelledReason: reason,
+        cancelledReason: defaultOutingCancellationReason,
       );
       emit(OutingFormSuccess(outingId));
     } catch (error) {

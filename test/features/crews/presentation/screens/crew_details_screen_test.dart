@@ -186,7 +186,7 @@ void main() {
       crewId: 'crew1',
       title: 'Outdated picnic',
       scheduledAt: DateTime.now().subtract(
-        outingCleanupDelay + const Duration(minutes: 1),
+        outingCrewPlanVisibilityDelay + const Duration(minutes: 1),
       ),
       locationText: 'Old park',
       status: OutingStatus.draft,

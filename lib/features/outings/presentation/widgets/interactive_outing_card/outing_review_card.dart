@@ -264,39 +264,12 @@ class _OutingReviewCardState extends State<OutingReviewCard> {
   }
 
   Future<void> _cancelOuting() async {
-    final reason = await _requestCancellationReason();
-    if (reason == null || reason.isEmpty || !mounted) return;
+    final confirmed = await confirmOutingCancellation(context);
+    if (!confirmed || !mounted) return;
     await _run(
       () => widget.outingRepository.cancelOuting(
         outingId: widget.outing.id,
-        cancelledReason: reason,
-      ),
-    );
-  }
-
-  Future<String?> _requestCancellationReason() async {
-    var cancellationReason = '';
-    return showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Cancel outing?'),
-        content: TextField(
-          autofocus: true,
-          maxLines: 3,
-          onChanged: (reason) => cancellationReason = reason.trim(),
-          decoration: const InputDecoration(labelText: 'Reason'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Keep outing'),
-          ),
-          FilledButton(
-            onPressed: () =>
-                Navigator.of(dialogContext).pop(cancellationReason),
-            child: const Text('Cancel outing'),
-          ),
-        ],
+        cancelledReason: defaultOutingCancellationReason,
       ),
     );
   }

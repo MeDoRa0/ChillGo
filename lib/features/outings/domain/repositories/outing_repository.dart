@@ -3,6 +3,8 @@ import '../entities/outing_participant.dart';
 import '../entities/outing_status.dart';
 import '../entities/attendance_status.dart';
 
+const defaultOutingCancellationReason = 'Cancelled by organizer.';
+
 class OutingDetail {
   final Outing outing;
   final List<OutingParticipant> participants;
