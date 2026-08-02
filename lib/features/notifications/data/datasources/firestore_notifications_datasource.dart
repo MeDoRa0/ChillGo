@@ -27,7 +27,8 @@ class FirestoreNotificationsDatasource {
 
   Stream<NotificationDataPage> watchNewest() {
     late StreamController<NotificationDataPage> controller;
-    StreamSubscription<NotificationSummaryModel>? summarySubscription;
+    StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
+    summarySubscription;
     var refreshSequence = 0;
 
     Future<void> refreshPage() async {
@@ -46,10 +47,16 @@ class FirestoreNotificationsDatasource {
 
     controller = StreamController<NotificationDataPage>(
       onListen: () {
-        summarySubscription = watchSummary().listen(
-          (_) => unawaited(refreshPage()),
-          onError: controller.addError,
-        );
+        summarySubscription = _watchSummaryDocument().listen((snapshot) {
+          if (!snapshot.exists) {
+            refreshSequence++;
+            if (!controller.isClosed) {
+              controller.add(const NotificationDataPage(items: []));
+            }
+            return;
+          }
+          unawaited(refreshPage());
+        }, onError: controller.addError);
       },
       onCancel: () => summarySubscription?.cancel(),
     );
@@ -60,12 +67,14 @@ class FirestoreNotificationsDatasource {
       _fetchPage(cursor);
 
   Stream<NotificationSummaryModel> watchSummary() {
+    return _watchSummaryDocument().map(
+      (snapshot) => NotificationSummaryModel.fromMap(snapshot.data()),
+    );
+  }
+
+  Stream<DocumentSnapshot<Map<String, dynamic>>> _watchSummaryDocument() {
     final uid = _requireUid();
-    return firestore
-        .collection('notification_summaries')
-        .doc(uid)
-        .snapshots()
-        .map((snapshot) => NotificationSummaryModel.fromMap(snapshot.data()));
+    return firestore.collection('notification_summaries').doc(uid).snapshots();
   }
 
   Stream<NotificationPreferencesModel> watchPreferences() {

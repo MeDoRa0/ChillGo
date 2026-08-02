@@ -6,6 +6,9 @@ import 'package:chillgo/features/notifications/domain/entities/notification_page
 import 'package:chillgo/features/notifications/domain/entities/notification_preferences.dart';
 import 'package:chillgo/features/notifications/domain/repositories/notification_repository.dart';
 import 'package:chillgo/features/notifications/presentation/cubit/notification_center/notification_center_cubit.dart';
+import 'package:chillgo/features/notifications/presentation/screens/notification_center_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -45,6 +48,46 @@ void main() {
     final result = await cubit.open('notification-1');
     expect(result.target?.type, NotificationTargetType.invitations);
     expect(repository.opened, ['notification-1']);
+  });
+
+  test('keeps an empty page as a successful center state', () async {
+    await cubit.watch();
+    repository.pages.add(const NotificationPage(items: []));
+
+    await expectLater(
+      cubit.stream,
+      emitsThrough(
+        isA<NotificationCenterState>()
+            .having(
+              (state) => state.status,
+              'status',
+              NotificationCenterStatus.loaded,
+            )
+            .having((state) => state.items, 'items', isEmpty),
+      ),
+    );
+  });
+
+  testWidgets('shows the empty state for a new account', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: BlocProvider.value(
+          value: cubit,
+          child: const NotificationCenterScreen(),
+        ),
+      ),
+    );
+    cubit.emit(
+      const NotificationCenterState(status: NotificationCenterStatus.loaded),
+    );
+    await tester.pump();
+
+    expect(find.text('No notifications yet.'), findsOneWidget);
+    expect(
+      find.text('This notification is no longer available.'),
+      findsNothing,
+    );
+    expect(find.text('Try again'), findsNothing);
   });
 }
 

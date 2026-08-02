@@ -24,7 +24,9 @@ class NotificationCenterScreen extends StatelessWidget {
       ),
       body: BlocConsumer<NotificationCenterCubit, NotificationCenterState>(
         listenWhen: (previous, current) =>
-            previous.message != current.message && current.message != null,
+            previous.message != current.message &&
+            current.message != null &&
+            current.status != NotificationCenterStatus.failure,
         listener: (context, state) => ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(state.message!))),

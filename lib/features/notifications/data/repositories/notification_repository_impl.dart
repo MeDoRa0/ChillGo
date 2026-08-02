@@ -176,7 +176,7 @@ class NotificationRepositoryImpl implements NotificationRepository {
       return switch (error.code) {
         'unauthenticated' => const NotificationAuthenticationFailure(),
         'permission-denied' ||
-        'not-found' => const NotificationUnavailableFailure(),
+        'not-found' => const NotificationServiceFailure(),
         _ => const NotificationServiceFailure(),
       };
     }
