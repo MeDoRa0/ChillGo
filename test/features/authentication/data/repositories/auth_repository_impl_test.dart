@@ -206,7 +206,7 @@ void main() {
     });
 
     test(
-      'currentCredentials uses profile display name after profile is loaded',
+      'currentCredentials uses profile identity after profile is loaded',
       () async {
         final mockUser = MockUser();
         when(() => mockUser.uid).thenReturn('test_uid');
@@ -218,6 +218,7 @@ void main() {
           id: 'test_uid',
           username: 'omar_user',
           displayName: 'Omar',
+          avatarUrl: 'profile_avatar_url',
           createdAt: DateTime.now(),
         );
 
@@ -243,6 +244,7 @@ void main() {
 
         expect(credentials?.displayName, 'Omar');
         expect(credentials?.username, 'omar_user');
+        expect(credentials?.photoUrl, 'profile_avatar_url');
       },
     );
 

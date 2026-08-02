@@ -159,35 +159,16 @@ class _ProfileViewState extends State<_ProfileView> {
   }
 
   Future<void> _showAvatarSourceSheet(BuildContext context) async {
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('Gallery'),
-              onTap: () => Navigator.of(sheetContext).pop(ImageSource.gallery),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_camera),
-              title: const Text('Camera'),
-              onTap: () => Navigator.of(sheetContext).pop(ImageSource.camera),
-            ),
-          ],
-        ),
-      ),
-    );
+    final choice = await showAvatarSourceSheet(context);
 
-    if (source == null || !mounted) return;
-    await _pickAvatar(source);
+    if (choice == null || !mounted) return;
+    await _pickAvatar(choice);
   }
 
-  Future<void> _pickAvatar(ImageSource source) async {
+  Future<void> _pickAvatar(AvatarChangeChoice choice) async {
     setState(() => _isPickingAvatar = true);
     try {
-      final avatar = await _imageHelper.pickAndCompressAvatar(source);
+      final avatar = await prepareAvatarChange(choice, _imageHelper);
       if (avatar != null && mounted) {
         await context.read<ProfileCubit>().updateAvatar(
           widget.uid,
@@ -195,15 +176,24 @@ class _ProfileViewState extends State<_ProfileView> {
           avatar.fileExtension,
         );
       }
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text(error.toString())));
-      }
+    } on PlatformException catch (error) {
+      _showAvatarUpdateFailure(error.message ?? 'Could not open that photo.');
+    } on FormatException catch (error) {
+      _showAvatarUpdateFailure(error.message);
+    } on StateError catch (error) {
+      _showAvatarUpdateFailure(error.message);
+    } on FlutterError {
+      _showAvatarUpdateFailure('Could not prepare that avatar.');
     } finally {
       if (mounted) setState(() => _isPickingAvatar = false);
     }
+  }
+
+  void _showAvatarUpdateFailure(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _showEditDisplayNameDialog(

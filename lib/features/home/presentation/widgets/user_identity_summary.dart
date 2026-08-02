@@ -4,29 +4,49 @@ import 'package:chillgo/core/presentation/theme/chillgo_colors.dart';
 class UserIdentitySummary extends StatelessWidget {
   final String? displayName;
   final String? username;
+  final String? avatarUrl;
   final bool compact;
+  final VoidCallback onAvatarTap;
 
   const UserIdentitySummary({
     super.key,
     this.displayName,
     this.username,
+    this.avatarUrl,
     this.compact = false,
+    required this.onAvatarTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final resolvedDisplayName = _resolvedDisplayName;
     final resolvedUsername = username?.trim();
+    final resolvedAvatarUrl = avatarUrl?.trim();
+    final hasAvatar = resolvedAvatarUrl?.isNotEmpty == true;
 
     return Row(
       children: [
-        CircleAvatar(
-          radius: compact ? 18 : 22,
-          backgroundColor: ChillGoColors.coralSoft,
-          child: Icon(
-            Icons.person,
-            color: ChillGoColors.coral,
-            size: compact ? 20 : 24,
+        Tooltip(
+          message: 'Profile options',
+          child: InkWell(
+            key: const Key('home-user-avatar-button'),
+            onTap: onAvatarTap,
+            customBorder: const CircleBorder(),
+            child: CircleAvatar(
+              key: const Key('home-user-avatar'),
+              radius: compact ? 18 : 22,
+              backgroundColor: ChillGoColors.coralSoft,
+              backgroundImage: hasAvatar
+                  ? NetworkImage(resolvedAvatarUrl!)
+                  : null,
+              child: hasAvatar
+                  ? null
+                  : Icon(
+                      Icons.person,
+                      color: ChillGoColors.coral,
+                      size: compact ? 20 : 24,
+                    ),
+            ),
           ),
         ),
         const SizedBox(width: 12),

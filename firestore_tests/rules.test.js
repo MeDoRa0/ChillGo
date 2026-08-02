@@ -768,6 +768,17 @@ describe('Firebase Security Rules', () => {
         });
       });
 
+      await testing.assertSucceeds(
+        aliceDb.collection('outing_participants')
+          .where('userId', '==', 'alice')
+          .get(),
+      );
+      await testing.assertFails(
+        aliceDb.collection('outing_participants')
+          .where('userId', '==', 'someone-else')
+          .get(),
+      );
+
       await testing.assertFails(
         aliceDb.collection('crew_memberships').doc('crew1_alice').update({
           displayName: 'Spoofed Name',

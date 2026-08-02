@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:flutter/services.dart';
 
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/presentation/widgets/app_back_button.dart';
@@ -13,6 +13,7 @@ import '../../../authentication/presentation/blocs/auth/auth_state.dart';
 import '../../../authentication/presentation/blocs/auth/auth_event.dart';
 import '../blocs/profile/profile_cubit.dart';
 import '../utils/image_helper.dart';
+import '../widgets/avatar_source_sheet.dart';
 
 part '../widgets/profile_screen/profile_view.dart';
 

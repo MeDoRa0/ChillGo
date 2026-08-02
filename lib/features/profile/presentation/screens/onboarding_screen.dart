@@ -14,6 +14,7 @@ import 'package:chillgo/features/authentication/presentation/blocs/auth/auth_sta
 import '../blocs/onboarding/onboarding_cubit.dart';
 import '../models/avatar_preset.dart';
 import '../utils/image_helper.dart';
+import '../widgets/avatar_source_sheet.dart';
 import '../widgets/profile_avatar_picker.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -124,10 +125,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _showAvatarSourceSheet() async {
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      builder: (_) => const _AvatarSourceSheet(),
-    );
+    final source = await showDeviceAvatarSourceSheet(context);
 
     if (source == null || !mounted) return;
     await _pickAvatar(source);
@@ -309,46 +307,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _AvatarSourceSheet extends StatelessWidget {
-  const _AvatarSourceSheet();
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _sourceTile(
-            context,
-            icon: Icons.photo_library_outlined,
-            label: 'Choose from gallery',
-            source: ImageSource.gallery,
-          ),
-          _sourceTile(
-            context,
-            icon: Icons.photo_camera_outlined,
-            label: 'Take a photo',
-            source: ImageSource.camera,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _sourceTile(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required ImageSource source,
-  }) {
-    return ListTile(
-      leading: Icon(icon),
-      title: Text(label),
-      onTap: () => Navigator.of(context).pop(source),
     );
   }
 }

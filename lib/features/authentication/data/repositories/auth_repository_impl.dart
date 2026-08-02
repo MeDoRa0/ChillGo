@@ -25,6 +25,7 @@ class AuthRepositoryImpl implements AuthRepository {
   AuthStatus _cachedStatus = AuthStatus.unknown;
   String? _cachedUsername;
   String? _cachedDisplayName;
+  String? _cachedAvatarUrl;
   StreamSubscription<dynamic>? _authSub;
   Timer? _restoreFallbackTimer;
   Timer? _profileFetchRetryTimer;
@@ -120,6 +121,7 @@ class AuthRepositoryImpl implements AuthRepository {
     if (_cachedStatus == AuthStatus.unknown) return;
     _cachedUsername = null;
     _cachedDisplayName = null;
+    _cachedAvatarUrl = null;
     _cachedStatus = AuthStatus.unknown;
     _safeEmit(_cachedStatus);
   }
@@ -140,6 +142,7 @@ class AuthRepositoryImpl implements AuthRepository {
         if (!_isLatestAuthState(user)) return;
         _cachedUsername = null;
         _cachedDisplayName = null;
+        _cachedAvatarUrl = null;
         _cachedStatus = AuthStatus.unauthenticated;
       } else {
         final profile = await _getProfileWithTimeout(user.uid);
@@ -147,11 +150,13 @@ class AuthRepositoryImpl implements AuthRepository {
         if (profile != null) {
           _cachedUsername = profile.username;
           _cachedDisplayName = profile.displayName;
+          _cachedAvatarUrl = profile.avatarUrl;
           _cachedStatus = AuthStatus.authenticatedWithProfile;
         } else {
           // Confirmed null response → user genuinely has no profile yet.
           _cachedUsername = null;
           _cachedDisplayName = null;
+          _cachedAvatarUrl = null;
           _cachedStatus = AuthStatus.authenticatedNoProfile;
         }
       }
@@ -226,6 +231,7 @@ class AuthRepositoryImpl implements AuthRepository {
       user,
       username: _cachedUsername,
       displayName: _cachedDisplayName,
+      photoUrl: _cachedAvatarUrl,
     );
   }
 
@@ -237,6 +243,7 @@ class AuthRepositoryImpl implements AuthRepository {
       user,
       username: _cachedUsername,
       displayName: _cachedDisplayName,
+      photoUrl: _cachedAvatarUrl,
     );
   }
 
@@ -244,12 +251,13 @@ class AuthRepositoryImpl implements AuthRepository {
     dynamic user, {
     String? username,
     String? displayName,
+    String? photoUrl,
   }) {
     return UserCredentials(
       uid: user.uid,
       email: user.email,
       displayName: displayName ?? user.displayName,
-      photoUrl: user.photoURL,
+      photoUrl: photoUrl ?? user.photoURL,
       username: username,
     );
   }

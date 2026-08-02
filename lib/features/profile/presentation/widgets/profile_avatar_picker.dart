@@ -36,7 +36,11 @@ class ProfileAvatarPicker extends StatelessWidget {
         const SizedBox(height: 16),
         _buildIntroduction(),
         const SizedBox(height: 14),
-        _buildPresetGrid(),
+        AvatarPresetGrid(
+          selectedPreset: selection.preset,
+          enabled: enabled,
+          onPresetSelected: onPresetSelected,
+        ),
         const SizedBox(height: 14),
         _buildUploadButton(),
       ],
@@ -64,7 +68,32 @@ class ProfileAvatarPicker extends StatelessWidget {
     );
   }
 
-  Widget _buildPresetGrid() {
+  Widget _buildUploadButton() {
+    return OutlinedButton.icon(
+      key: const ValueKey('upload-profile-photo'),
+      onPressed: enabled ? onUploadPressed : null,
+      icon: const Icon(Icons.add_a_photo_outlined),
+      label: Text(
+        selection.uploadedBytes == null ? 'Upload photo' : 'Change photo',
+      ),
+    );
+  }
+}
+
+class AvatarPresetGrid extends StatelessWidget {
+  final AvatarPreset? selectedPreset;
+  final bool enabled;
+  final ValueChanged<AvatarPreset> onPresetSelected;
+
+  const AvatarPresetGrid({
+    required this.selectedPreset,
+    required this.enabled,
+    required this.onPresetSelected,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return GridView.builder(
       key: const ValueKey('avatar-preset-grid'),
       shrinkWrap: true,
@@ -84,20 +113,9 @@ class ProfileAvatarPicker extends StatelessWidget {
     return _PresetAvatarButton(
       key: ValueKey('avatar-preset-$index'),
       preset: preset,
-      selected: preset.assetPath == selection.preset?.assetPath,
+      selected: preset.assetPath == selectedPreset?.assetPath,
       enabled: enabled,
       onPressed: () => onPresetSelected(preset),
-    );
-  }
-
-  Widget _buildUploadButton() {
-    return OutlinedButton.icon(
-      key: const ValueKey('upload-profile-photo'),
-      onPressed: enabled ? onUploadPressed : null,
-      icon: const Icon(Icons.add_a_photo_outlined),
-      label: Text(
-        selection.uploadedBytes == null ? 'Upload photo' : 'Change photo',
-      ),
     );
   }
 }

@@ -3,8 +3,15 @@ part of '../home_mobile_layout.dart';
 class _EditorialIntro extends StatelessWidget {
   final String? displayName;
   final String? username;
+  final String? avatarUrl;
+  final VoidCallback onAvatarTap;
 
-  const _EditorialIntro({this.displayName, this.username});
+  const _EditorialIntro({
+    this.displayName,
+    this.username,
+    this.avatarUrl,
+    required this.onAvatarTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -26,6 +33,8 @@ class _EditorialIntro extends StatelessWidget {
                       child: UserIdentitySummary(
                         displayName: displayName,
                         username: username,
+                        avatarUrl: avatarUrl,
+                        onAvatarTap: onAvatarTap,
                       ),
                     ),
                   ),
