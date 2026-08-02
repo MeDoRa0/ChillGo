@@ -5,6 +5,7 @@ class _MemberAvatarRow extends StatelessWidget {
   final double avatarDiameter;
 
   static const int _maxVisible = 5;
+  static const double _avatarSpacing = 4;
 
   const _MemberAvatarRow({required this.members, required this.avatarDiameter});
 
@@ -13,7 +14,7 @@ class _MemberAvatarRow extends StatelessWidget {
     final visible = members.take(_maxVisible).toList();
     final overflow = members.length - _maxVisible;
     final avatarCount = visible.length + (overflow > 0 ? 1 : 0);
-    final avatarOffset = avatarDiameter * 0.72;
+    final avatarOffset = avatarDiameter + _avatarSpacing;
     final width = avatarCount <= 1
         ? avatarDiameter
         : avatarDiameter + ((avatarCount - 1) * avatarOffset);

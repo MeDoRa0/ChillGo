@@ -36,7 +36,7 @@ class _UpcomingOutingFooter extends StatelessWidget {
           ),
           Positioned(
             left: 12,
-            right: compact ? 52 : 66,
+            right: 12,
             top: compact ? 40 : 52,
             bottom: compact ? 2 : 4,
             child: Column(
@@ -92,11 +92,6 @@ class _UpcomingOutingFooter extends StatelessWidget {
                 ),
               ],
             ),
-          ),
-          Positioned(
-            right: compact ? 8 : 12,
-            bottom: compact ? 6 : 10,
-            child: _CalendarAction(compact: compact),
           ),
         ],
       ),

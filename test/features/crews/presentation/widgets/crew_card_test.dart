@@ -68,7 +68,7 @@ void main() {
     await sl.reset();
   });
 
-  testWidgets('renders overlapping member avatars with bounded layout', (
+  testWidgets('renders spaced member avatars with bounded layout', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -87,6 +87,12 @@ void main() {
     await tester.pump();
 
     expect(tester.takeException(), isNull);
+    final firstAvatar = find.byType(CircleAvatar).at(0);
+    final secondAvatar = find.byType(CircleAvatar).at(1);
+    expect(tester.widget<CircleAvatar>(firstAvatar).radius, 16);
+    final firstAvatarCenter = tester.getCenter(firstAvatar);
+    final secondAvatarCenter = tester.getCenter(secondAvatar);
+    expect(secondAvatarCenter.dx - firstAvatarCenter.dx, greaterThan(31));
     expect(find.text('6 members'), findsOneWidget);
     expect(find.text('+1'), findsOneWidget);
     expect(
@@ -189,6 +195,7 @@ void main() {
     expect(find.text('Ramen run'), findsOneWidget);
     expect(find.text('Ramen shop'), findsOneWidget);
     expect(find.text('4h'), findsOneWidget);
+    expect(find.byIcon(Icons.event_available_rounded), findsNothing);
   });
 
   testWidgets('uses the no-outing design for an outdated outing', (

@@ -66,5 +66,5 @@ String _formatSchedule(
   final time = MaterialLocalizations.of(
     context,
   ).formatTimeOfDay(TimeOfDay.fromDateTime(localScheduledAt));
-  return '$dayLabel · $time';
+  return '$dayLabel آ· $time';
 }

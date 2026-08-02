@@ -16,7 +16,7 @@ class _CrewIdentity extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final iconDiameter = dense ? 30.0 : 36.0;
-    final avatarDiameter = dense ? 24.0 : 28.0;
+    final avatarDiameter = dense ? 28.0 : 32.0;
 
     return LayoutBuilder(
       builder: (context, constraints) {
