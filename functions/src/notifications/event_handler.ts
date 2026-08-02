@@ -78,6 +78,23 @@ export const crewInvitationNotificationEvent = onDocumentCreated(
   },
 );
 
+export const crewMembershipNotificationEvent = onDocumentCreated(
+  "crew_memberships/{membershipId}",
+  async (event) => {
+    const data = event.data?.data();
+    if (!data || data.role !== "member" || typeof data.crewId !== "string" ||
+        typeof data.userId !== "string") return;
+    await writeEvent({
+      stableKey: `crew_member_joined:${event.params.membershipId}`,
+      category: "crew_member_joined",
+      sourceId: event.params.membershipId,
+      sourceVersion: "1",
+      crewId: data.crewId,
+      actorUserId: data.userId,
+    });
+  },
+);
+
 export const outingInvitationNotificationEvent = onDocumentCreated(
   "outing_participants/{participantId}",
   async (event) => {

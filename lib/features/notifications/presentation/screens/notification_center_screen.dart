@@ -93,12 +93,7 @@ class _NotificationTile extends StatelessWidget {
       button: true,
       child: ListTile(
         key: ValueKey('notification-${notification.id}'),
-        leading: Icon(
-          _icon(notification.category),
-          color: notification.isRead
-              ? Theme.of(context).colorScheme.outline
-              : Theme.of(context).colorScheme.primary,
-        ),
+        leading: _leading(context),
         title: Text(
           notification.display.title,
           style: TextStyle(
@@ -138,12 +133,28 @@ class _NotificationTile extends StatelessWidget {
   IconData _icon(NotificationCategory category) => switch (category) {
     NotificationCategory.crewInvitation ||
     NotificationCategory.outingInvitation => Icons.mail_outline,
+    NotificationCategory.crewMemberJoined => Icons.group_add_outlined,
     NotificationCategory.votingUpdate => Icons.how_to_vote_outlined,
     NotificationCategory.agreementConfirmed ||
     NotificationCategory.agreementReopened => Icons.event_available_outlined,
     NotificationCategory.outingChanged => Icons.edit_calendar_outlined,
     NotificationCategory.attendeeArrived => Icons.person_pin_circle_outlined,
   };
+
+  Widget _leading(BuildContext context) {
+    final avatarUrl = notification.display.avatarUrl;
+    if (notification.category == NotificationCategory.crewMemberJoined &&
+        avatarUrl != null &&
+        avatarUrl.isNotEmpty) {
+      return CircleAvatar(backgroundImage: NetworkImage(avatarUrl));
+    }
+    return Icon(
+      _icon(notification.category),
+      color: notification.isRead
+          ? Theme.of(context).colorScheme.outline
+          : Theme.of(context).colorScheme.primary,
+    );
+  }
 
   String _unavailableMessage(NotificationUnavailableReason? reason) =>
       switch (reason) {

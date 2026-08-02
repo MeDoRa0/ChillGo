@@ -4,6 +4,7 @@ import {NotificationRecordInput} from "./notification_transactions";
 
 export const NOTIFICATION_CATEGORIES = [
   "crew_invitation",
+  "crew_member_joined",
   "outing_invitation",
   "voting_update",
   "agreement_confirmed",
@@ -56,6 +57,9 @@ export async function resolveEligibleNotifications(
 ): Promise<NotificationRecordInput[]> {
   if (event.category === "crew_invitation") {
     return resolveCrewInvitation(db, event);
+  }
+  if (event.category === "crew_member_joined") {
+    return resolveCrewMemberJoined(db, event);
   }
   const outingId = event.outingId;
   if (!outingId) return [];
@@ -119,6 +123,10 @@ export async function authorizeNotification(
     }
     return;
   }
+  if (notification.category === "crew_member_joined") {
+    await authorizeCrewMemberJoined(db, notification, userId);
+    return;
+  }
   const outingId = notification.outingId;
   if (typeof outingId !== "string") throw unavailable();
   const [outing, crew, membership, participant] = await Promise.all([
@@ -160,6 +168,50 @@ function resolveCrewInvitation(
       body: `You were invited to ${safeLabel(crew.data()?.name, "a crew")}.`,
     })];
   });
+}
+
+async function resolveCrewMemberJoined(
+  db: Firestore,
+  event: NotificationEvent,
+): Promise<NotificationRecordInput[]> {
+  const [membership, crew, members] = await Promise.all([
+    db.collection("crew_memberships").doc(event.sourceId).get(),
+    db.collection("crews").doc(event.crewId).get(),
+    db.collection("crew_memberships").where("crewId", "==", event.crewId).get(),
+  ]);
+  const joinedMember = membership.data();
+  if (!membership.exists || !crew.exists || crew.data()?.deletionPending === true ||
+      joinedMember?.crewId !== event.crewId || joinedMember.role !== "member" ||
+      joinedMember.userId !== event.actorUserId) return [];
+  const displayName = safeLabel(joinedMember.displayName, "A new member");
+  const display = {
+    title: "New crew member",
+    body: `${displayName} joined the crew.`,
+    ...(nonEmptyString(joinedMember.avatarUrl) ? {avatarUrl: joinedMember.avatarUrl} : {}),
+  };
+  return members.docs
+    .map((member) => member.data())
+    .filter((member) => member.userId !== event.actorUserId &&
+      member.notificationCleanupPending !== true)
+    .map((member) => recordForEvent(event, member.userId, display));
+}
+
+async function authorizeCrewMemberJoined(
+  db: Firestore,
+  notification: DocumentData,
+  userId: string,
+): Promise<void> {
+  const [crew, joinedMember, recipientMembership] = await Promise.all([
+    db.collection("crews").doc(String(notification.crewId)).get(),
+    db.collection("crew_memberships").doc(String(notification.sourceId)).get(),
+    db.collection("crew_memberships").doc(`${notification.crewId}_${userId}`).get(),
+  ]);
+  if (!crew.exists || crew.data()?.deletionPending === true ||
+      !joinedMember.exists || joinedMember.data()?.crewId !== notification.crewId ||
+      joinedMember.data()?.role !== "member" || !recipientMembership.exists ||
+      recipientMembership.data()?.notificationCleanupPending === true) {
+    throw unavailable();
+  }
 }
 
 async function resolveOutingInvitation(
@@ -207,9 +259,10 @@ async function eligibleParticipants(
 function recordForEvent(
   event: NotificationEvent,
   recipientUserId: string,
-  display: {title: string; body: string},
+  display: {title: string; body: string; avatarUrl?: string},
 ): NotificationRecordInput {
   const targetType = event.category === "crew_invitation" ? "invitations" :
+    event.category === "crew_member_joined" ? "crew" :
     event.category === "attendee_arrived" ? "live_meetup" : "agreement";
   return {
     sourceEventId: event.sourceEventId,
@@ -283,6 +336,10 @@ function unavailable(): NotificationCommandError {
 
 function safeLabel(value: unknown, fallback: string): string {
   return typeof value === "string" && value.trim() ? value.trim().slice(0, 120) : fallback;
+}
+
+function nonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0;
 }
 
 function strings(data: DocumentData, keys: string[]): boolean {

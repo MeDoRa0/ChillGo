@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 
 enum NotificationCategory {
   crewInvitation,
+  crewMemberJoined,
   outingInvitation,
   votingUpdate,
   agreementConfirmed,
@@ -10,7 +11,7 @@ enum NotificationCategory {
   attendeeArrived,
 }
 
-enum NotificationTargetType { invitations, agreement, liveMeetup }
+enum NotificationTargetType { invitations, crew, agreement, liveMeetup }
 
 class NotificationTarget extends Equatable {
   const NotificationTarget({
@@ -28,13 +29,18 @@ class NotificationTarget extends Equatable {
 }
 
 class NotificationDisplay extends Equatable {
-  const NotificationDisplay({required this.title, required this.body});
+  const NotificationDisplay({
+    required this.title,
+    required this.body,
+    this.avatarUrl,
+  });
 
   final String title;
   final String body;
+  final String? avatarUrl;
 
   @override
-  List<Object?> get props => [title, body];
+  List<Object?> get props => [title, body, avatarUrl];
 }
 
 class NotificationCursor extends Equatable {

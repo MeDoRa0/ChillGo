@@ -17,7 +17,7 @@ export interface NotificationRecordInput {
   crewId: string;
   outingId?: string;
   target: Record<string, string>;
-  display: {title: string; body: string};
+  display: {title: string; body: string; avatarUrl?: string};
   createdAt: Timestamp;
 }
 

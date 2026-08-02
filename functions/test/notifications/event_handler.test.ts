@@ -10,8 +10,9 @@ import {
 } from "../../src/notifications/notification_transactions";
 
 describe("notification events", () => {
-  it("supports exactly the seven Phase 7 categories", () => {
-    assert.equal(NOTIFICATION_CATEGORIES.length, 7);
+  it("supports the crew member joined category", () => {
+    assert.equal(NOTIFICATION_CATEGORIES.length, 8);
+    assert.ok(NOTIFICATION_CATEGORIES.includes("crew_member_joined"));
     assert.ok(!NOTIFICATION_CATEGORIES.includes("marketing" as never));
   });
 

@@ -35,6 +35,7 @@ class NotificationModel extends AppNotification {
       display: NotificationDisplay(
         title: _requiredString(displayMap, 'title'),
         body: _requiredString(displayMap, 'body'),
+        avatarUrl: displayMap['avatarUrl'] as String?,
       ),
       createdAt: createdAt,
       expiresAt: expiresAt,
@@ -52,6 +53,7 @@ NotificationCategory notificationCategoryFromWire(String value) =>
 String notificationCategoryToWire(NotificationCategory category) =>
     switch (category) {
       NotificationCategory.crewInvitation => 'crew_invitation',
+      NotificationCategory.crewMemberJoined => 'crew_member_joined',
       NotificationCategory.outingInvitation => 'outing_invitation',
       NotificationCategory.votingUpdate => 'voting_update',
       NotificationCategory.agreementConfirmed => 'agreement_confirmed',
@@ -69,6 +71,7 @@ NotificationTarget notificationTargetFromMap(Map<String, dynamic> map) =>
 
 NotificationCategory _categoryFromWire(String value) => switch (value) {
   'crew_invitation' => NotificationCategory.crewInvitation,
+  'crew_member_joined' => NotificationCategory.crewMemberJoined,
   'outing_invitation' => NotificationCategory.outingInvitation,
   'voting_update' => NotificationCategory.votingUpdate,
   'agreement_confirmed' => NotificationCategory.agreementConfirmed,
@@ -80,6 +83,7 @@ NotificationCategory _categoryFromWire(String value) => switch (value) {
 
 NotificationTargetType _targetFromWire(String value) => switch (value) {
   'invitations' => NotificationTargetType.invitations,
+  'crew' => NotificationTargetType.crew,
   'agreement' => NotificationTargetType.agreement,
   'live_meetup' => NotificationTargetType.liveMeetup,
   _ => throw FormatException('Unknown notification target: $value'),

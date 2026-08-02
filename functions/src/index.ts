@@ -18,6 +18,7 @@ export {
 export {
   notificationEventCreated,
   crewInvitationNotificationEvent,
+  crewMembershipNotificationEvent,
   outingInvitationNotificationEvent,
   outingChangedNotificationEvent,
   votingUpdateNotificationEvent,

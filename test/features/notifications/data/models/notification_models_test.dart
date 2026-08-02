@@ -46,6 +46,26 @@ void main() {
     );
   });
 
+  test('notification model reads a joining member avatar', () {
+    final model = NotificationModel.fromMap({
+      'recipientUserId': 'user-1',
+      'category': 'crew_member_joined',
+      'target': {'type': 'crew', 'crewId': 'crew-1'},
+      'display': {
+        'title': 'New crew member',
+        'body': 'Adam Hank joined the crew.',
+        'avatarUrl': 'https://example.com/adam.jpg',
+      },
+      'createdAt': Timestamp.fromDate(createdAt),
+      'expiresAt': Timestamp.fromDate(createdAt.add(const Duration(days: 30))),
+      'readAt': null,
+    }, 'notification-2');
+
+    expect(model.category, NotificationCategory.crewMemberJoined);
+    expect(model.display.avatarUrl, 'https://example.com/adam.jpg');
+    expect(model.target.type, NotificationTargetType.crew);
+  });
+
   test('summary and preferences apply safe defaults', () {
     expect(NotificationSummaryModel.fromMap(null).count, 0);
     const defaults = NotificationPreferencesModel();
